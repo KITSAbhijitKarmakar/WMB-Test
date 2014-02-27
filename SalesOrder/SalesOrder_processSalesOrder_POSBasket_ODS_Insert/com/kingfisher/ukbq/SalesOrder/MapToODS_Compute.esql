@@ -35,9 +35,11 @@ PATH com.kingfisher.ukbq.WMBFunctions;
 * 0.8		03-JUL-2013		Subir Bhaumik		Updated the code to insert into Discount table if 	*
 *												Allowance Description is not Priceoverride			*
 * 0.9		30-SEP-2013		Asif Hossain		conacate first date of any month with the year month* 
-											 	format and pass it to FUNC_GetLastDayOfMonth 		*
-											 	function,incident #INC0121575						*
+*											 	format and pass it to FUNC_GetLastDayOfMonth 		*
+*											 	function,incident #INC0121575						*
+* 0.10		08-OCT-2013		Debraj Sengupta		Added manifestversion column in tender & item table	*											 							*
 ****************************************************************************************************/
+
 CREATE COMPUTE MODULE MapToODS_Compute
 
 	DECLARE DSN  EXTERNAL NAME 'MBODS';
@@ -589,6 +591,7 @@ CREATE COMPUTE MODULE MapToODS_Compute
 		DECLARE  CH_SvcCardType						CHARACTER '';
 		DECLARE  DC_Amount							DECIMAL;
 		DECLARE CH_AccountId						CHARACTER '';
+		DECLARE CH_ManifestVersion					CHARACTER '';	
 		
 		SET CH_TenderId = COALESCE(REF_Payment.(XMLNSC.Attribute)id,''); 
 		
@@ -1073,7 +1076,9 @@ CREATE COMPUTE MODULE MapToODS_Compute
 			SET CH_Settled = 'N';
 		END IF;
 		
-		 
+		 -- code change for Ver 0.10 
+		SET CH_ManifestVersion = REF_SalesOrderHeader.NS_dfns:ManifestVersion;
+		
 		 PASSTHRU 'INSERT INTO SALES_TRANSACTIONS_TENDER (
             STORE_CODE,
             TRANSACTION_ID,
@@ -1161,8 +1166,9 @@ CREATE COMPUTE MODULE MapToODS_Compute
             TOKEN,
 			COMMIDEA_AUTH_DB,
 			COMMIDEA_TRANSACTION_ID,
-			SETTLED)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' 
+			SETTLED,
+			EPOS_MANIFEST_VERSION)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' 
             
             TO Database.{DSN} VALUES(
             			CH_SourceId,
@@ -1251,7 +1257,8 @@ CREATE COMPUTE MODULE MapToODS_Compute
                         CH_Token,
                         CH_CommIdeaAuthDb,
                         CH_CommIdeaTransId,
-                        CH_Settled
+                        CH_Settled,
+                        CH_ManifestVersion
                         );
 		 
 		
@@ -1314,7 +1321,10 @@ END;
 		DECLARE CH_Glreg					CHARACTER '';
 		DECLARE	CH_AccountId				CHARACTER '';
 		DECLARE DT_EndDateTime				DATE;
+		DECLARE CH_ManifestVersion			CHARACTER '';
 		
+		-- code change for Ver 0.10 
+		SET CH_ManifestVersion = REF_SalesOrderHeader.NS_dfns:ManifestVersion;
 		
 		SET CH_ItemCode 	= REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID; 
 		SET CH_Uom 			= REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UOMCode; 
@@ -1626,8 +1636,9 @@ END;
 		PROCESS_DIRECT,
 		TRAINING_CANCEL_FILTER,
 		CURRENCY,
-		LAYAWAY_FILTER)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' TO Database.{DSN} VALUES(
+		LAYAWAY_FILTER,
+		EPOS_MANIFEST_VERSION)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' TO Database.{DSN} VALUES(
 		CH_SourceId,
 		CH_Id,
 		CH_ItemCode,			
@@ -1659,7 +1670,8 @@ END;
 		CH_ProcessDirect,
 		CH_TrainingCancelFilter,
 		CH_Currency,
-		CH_LAYAWAY_FILTER));	
+		CH_LAYAWAY_FILTER,
+		CH_ManifestVersion));	
 				
 	END;
 	

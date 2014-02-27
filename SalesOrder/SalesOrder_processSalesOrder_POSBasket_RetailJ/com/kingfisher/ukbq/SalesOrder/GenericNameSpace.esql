@@ -24,6 +24,9 @@ DECLARE NS_oa  		NAMESPACE 'http://www.openapplications.org/oagis/9';
 *  0.2   	11-JUL-2013 	Subir Bhaumik 	Updated the code to return 0.00 if input*
 											value is null or 0                    	*
 ************************************************************************************/
+
+
+
 CREATE FUNCTION FUNC_ConvertPennytoPound(CH_Value CHARACTER NULLABLE, IN_Sign INTEGER, IN_Decimal INTEGER, CH_Mode CHARACTER NULLABLE) RETURNS DECIMAL
 BEGIN
 	SET CH_Mode = COALESCE(CH_Mode, 'ROUND_HALF_EVEN');
@@ -58,3 +61,4 @@ BEGIN
 	END IF;
 	RETURN DC_Return;	
 END;
+

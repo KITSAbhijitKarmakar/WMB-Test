@@ -21,6 +21,8 @@ BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
 * Version 	Date Author 	Author 				Description											*
 * ======= 	========= 		================ 	=================== 								*
 * 0.1 		7-MAY-2013 		Asif Hossain 		The initial version. 								*
+* 0.2		19-SEP-2013		Debraj Sengupta		PCI fix - removing special charcater handling       * 
+*												functionality.										*
 ****************************************************************************************************/
 
 CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_Compute
@@ -30,8 +32,10 @@ CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_Compute
 		DECLARE wholeMsgChar CHAR CAST(wholeMsgBlob AS CHAR CCSID InputRoot.Properties.CodedCharSetId);
 		DECLARE REF_Message REFERENCE TO Environment;		
 
-
-		SET Environment.Message 	= EscapeXML(EscapeXML(EscapeXML(EscapeXML(EscapeXML(wholeMsgChar,'Description'),'LongDescription'),'Street1'),'OrganisationName'),'OriginalTenderDescription');
+		--SET Environment.Message 	= EscapeXML(EscapeXML(EscapeXML(EscapeXML(EscapeXML(wholeMsgChar,'Description'),'LongDescription'),'Street1'),'OrganisationName'),'OriginalTenderDescription');
+		-- code change 0.2 starts
+		SET Environment.Message 	= wholeMsgChar;
+		-- code change 0.2 ends
 		
 		SET OutputRoot.Properties 	= InputRoot.Properties;
 		SET OutputRoot.MQMD 		= InputRoot.MQMD;
