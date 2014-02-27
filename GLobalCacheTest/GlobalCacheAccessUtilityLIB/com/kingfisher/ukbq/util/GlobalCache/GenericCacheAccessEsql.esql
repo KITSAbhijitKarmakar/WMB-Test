@@ -1,0 +1,51 @@
+BROKER SCHEMA com.kingfisher.ukbq.util.GlobalCache
+
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      		:										  	  			  	              		  			  *									
+* Interface Id 	 		:																		  		   			  *
+* Interface Name 		:	                                                              *															
+* Message Flow 	 		: 											                  *
+* Description 	 		: 																							  *
+* Module Name  	 		:																				  *            				  	  
+* Module Description  	:																							  *                                         
+*																									  				  *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+*  0.1   	15-Aug-2013 	Abhijit Karmakar	The initial version. 		  		  				                  *
+**********************************************************************************************************************/
+PATH com.kingfisher.ukbq.util;
+
+CREATE PROCEDURE getMBTOPIC(IN MbtopicsKey CHARACTER,INOUT QueryRoot REFERENCE)
+LANGUAGE JAVA
+EXTERNAL NAME "com.kingfisher.ukbq.util.MBTOPICSAccesser.getsALL";
+
+CREATE PROCEDURE getMBSTRCD(IN MbstrcdKey CHARACTER,INOUT QueryRoot REFERENCE)
+LANGUAGE JAVA
+EXTERNAL NAME "com.kingfisher.ukbq.util.MBSTRCDAccesser.getsALL";
+
+CREATE PROCEDURE getTENDERDATA(IN TendrdataKey CHARACTER,INOUT QueryRoot REFERENCE)
+LANGUAGE JAVA
+EXTERNAL NAME "com.kingfisher.ukbq.util.TENDERDATAAccesser.getsALL";
+
+CREATE PROCEDURE getVATDATA(IN VatdataKey CHARACTER,INOUT QueryRoot REFERENCE)
+LANGUAGE JAVA
+EXTERNAL NAME "com.kingfisher.ukbq.util.VATDATAAccesser.getsALL";
+
+CREATE PROCEDURE getMBCONFIG(IN MbconfigKey CHARACTER,INOUT QueryRoot REFERENCE)
+LANGUAGE JAVA
+EXTERNAL NAME "com.kingfisher.ukbq.util.MBCONFIGAccesser.getsALL";
+
+CREATE PROCEDURE getDISCOUNTTYPE(IN DiscountTypeKey CHARACTER,INOUT QueryRoot REFERENCE)
+LANGUAGE JAVA
+EXTERNAL NAME "com.kingfisher.ukbq.util.DISCOUNTTYPEAccesser.getsALL";
+
+--CREATE PROCEDURE getPRICEMODIFIER(IN PriceModifierKey CHARACTER,INOUT QueryRoot REFERENCE)
+--LANGUAGE JAVA
+--EXTERNAL NAME "com.kingfisher.ukbq.util.PRICEMODIFIERAccesser.getsALL";

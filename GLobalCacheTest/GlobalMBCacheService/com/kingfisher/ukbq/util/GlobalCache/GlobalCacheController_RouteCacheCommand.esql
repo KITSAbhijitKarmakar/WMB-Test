@@ -1,0 +1,54 @@
+
+
+BROKER SCHEMA com.kingfisher.ukbq.util.GlobalCache
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      		:										  	  			  	              		  			  *									
+* Interface Id 	 		:																		  		   			  *
+* Interface Name 		:	                                                              *															
+* Message Flow 	 		: 											                  *
+* Description 	 		: 																							  *
+* Module Name  	 		:																				  *            				  	  
+* Module Description  	:																							  *                                         
+*																									  				  *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+*  0.1   	15-Aug-2013 	Abhijit Karmakar	The initial version. 		  		  				                  *
+**********************************************************************************************************************/
+
+
+CREATE COMPUTE MODULE GlobalCacheController_RouteCacheCommand
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL CopyMessageHeaders();
+		CALL CopyEntireMessage();
+		IF (InputRoot.XMLNSC.MB_GLOBAL_CACHE_CMD.CMD='SHOW') THEN
+			--Setting output XML with the details of all tables from the Cache
+			PROPAGATE TO TERMINAL 'out1';
+		ELSE
+			PROPAGATE TO TERMINAL 'out';
+		END IF;
+
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
