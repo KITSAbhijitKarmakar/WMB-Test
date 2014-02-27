@@ -1,0 +1,87 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				: Route_SalesOrder_ODS_SAPBW														* 
+* Interface Id 				:  																					*
+* Interface Name 			: SalesOrder_synchroniseSalesOrder_POSBasket										*
+* Message Flow 				: SalesOrder_synchroniseSalesOrder_SAPBW_Sub										*
+* Message Flow Description  : This flow will retrieve the SynchroniseSalesOrder         						*
+*  							  canonical from the queue used for subscription and map it to the 					*
+*							  Zabap_ss_rfc_interface interface in the form of Data Object to SAP Generic 		*
+*							  Outbound Flow, update ODS tables or both according to config value retrieved from *
+* 							  MBCONFIG table for canval  'BWDataDestination'.				                    *
+* Module Name 				: Route_SalesOrder_ODS_SAPBW_Compute												*
+* Description 				: Decides whether to map SAPBW, update ODS tables or both according to config value	*
+*							  retrieved from MBCONFIG table for canval ‘BWDataDestination’.						*
+*																												*
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	==================== 									*
+* 0.1 	  	09-Apr-2013   	Subir Bhaumik				The initial version. 									*
+****************************************************************************************************************/ 
+CREATE COMPUTE MODULE Route_SalesOrder_ODS_SAPBW_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Loadling REPOS data to cache 
+		IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBCONFIG[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.CUSTOMERSEGMENT[])=FALSE THEN
+		
+			--Atomic block to prevent multiple thread to execute this section simultaneously 
+			CACHE_CONFIGDATA:BEGIN ATOMIC	
+				IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE THEN
+					SET CACHE_CONFIGDATA.TENDERDATA[] = (SELECT * FROM Database.TENDERDATA);
+				END IF; 
+				
+				IF EXISTS(CACHE_CONFIGDATA.MBCONFIG[]) = FALSE THEN
+					SET CACHE_CONFIGDATA.MBCONFIG[] = (SELECT * FROM Database.MBCONFIG);
+				END IF;
+				
+				IF EXISTS(CACHE_CONFIGDATA.CUSTOMERSEGMENT[]) = FALSE THEN
+					SET CACHE_CONFIGDATA.CUSTOMERSEGMENT[] = (SELECT CUST.SAPCUSTOMERSEGMENT,CUST.RETAILJCUSTOMERSEGMENT FROM Database.CUSTOMERSEGMENT  AS CUST);
+				END IF;
+			END ;	
+		
+		END IF;
+		
+		
+		
+		--DataBaselookUp to read data from MBCONFIG table
+--	   	SET Environment.Variables.MBconfig = THE(SELECT M.CONFIGVALUE 
+--	   											FROM Database.MBCONFIG AS M WHERE M.CANVAL = 'BWDataDestination'); 
+		
+		SET Environment.Variables.MBconfig = THE(SELECT M.CONFIGVALUE 
+	   											FROM CACHE_CONFIGDATA.MBCONFIG[] AS M WHERE M.CANVAL = 'BWDataDestination');
+		
+		CALL CopyEntireMessage();
+    	CASE Environment.Variables.MBconfig.CONFIGVALUE
+	        WHEN 'BW'	THEN
+	        	PROPAGATE TO TERMINAL 'out1'; -- Map_SalesOrder_Canonical_SAPBW
+	        WHEN 'JDBC'	THEN		
+	        	PROPAGATE TO TERMINAL 'out'; -- Map_SalesOrder_Canonical_ODS
+	        WHEN 'ALL'	THEN
+	        	PROPAGATE TO TERMINAL 'out1' DELETE NONE;
+	        	PROPAGATE TO TERMINAL 'out';
+	 		END CASE;	 
+		RETURN FALSE;
+	END;
+	
+	/************************************************************************************
+	* Procedure Name     :CopyEntireMessage	             	    						*
+	* Input Parameters   :None          			                                    *
+	* Output Parameters  :None			            	                                *
+	* Description        :Procedure to copy entire message from input to output         *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Subir Bhaumik 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+END MODULE;

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema elementFormDefault="qualified" targetNamespace="https://www.commidea.webservices.com" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:tns="https://www.commidea.webservices.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+                                        <xsd:element ibmSchExtn:docRoot="true" name="ProcessMsg">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element maxOccurs="1" minOccurs="0" name="Message" type="tns:Message"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+            <xsd:complexType name="Message">
+        <xsd:sequence>
+          <xsd:element maxOccurs="1" minOccurs="0" name="ClientHeader" type="tns:ClientHeader"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="MsgType" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="MsgData" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+            <xsd:complexType name="ClientHeader">
+        <xsd:sequence>
+          <xsd:element maxOccurs="1" minOccurs="1" name="SystemID" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="SystemGUID" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="Passcode" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="ProcessingDB" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="1" name="SendAttempt" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="1" name="CDATAWrapping" type="xsd:boolean"/>
+        </xsd:sequence>
+      </xsd:complexType>
+            <xsd:element ibmSchExtn:docRoot="true" name="ProcessMsgResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element maxOccurs="1" minOccurs="0" name="ProcessMsgResult" type="tns:Message"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+        </xsd:schema>

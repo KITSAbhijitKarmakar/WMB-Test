@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmJavaCompute.msgnode="ComIbmJavaCompute.msgnode" xmlns:ComIbmLabel.msgnode="ComIbmLabel.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmPublication.msgnode="ComIbmPublication.msgnode" xmlns:ComIbmRouteToLabel.msgnode="ComIbmRouteToLabel.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:ComIbmSOAPRequest.msgnode="ComIbmSOAPRequest.msgnode"
+    xmlns:com_kingfisher_ukbq_SalesOrder_UpdateCache.subflow="com/kingfisher/ukbq/SalesOrder/UpdateCache.subflow" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/SalesOrder/ProcessSalesOrder_POSBasket_RetailJ.msgflow"
+    nsPrefix="com_kingfisher_ukbq_SalesOrder_ProcessSalesOrder_POSBasket_RetailJ.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="ProcessSalesOrder_POSBasket_RetailJ" bundleName="com/kingfisher/ukbq/SalesOrder/ProcessSalesOrder_POSBasket_RetailJ" pluginId="SalesOrder_processSalesOrder_POSBasket_RetailJ"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/SalesOrder_processSalesOrder_POSBasket_RetailJ/icons/full/obj16/ProcessSalesOrder_POSBasket_RetailJ.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/SalesOrder_processSalesOrder_POSBasket_RetailJ/icons/full/obj30/ProcessSalesOrder_POSBasket_RetailJ.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="15,362" queueName="POSBASKET.RETAILJ.INBOUND.WMB" messageDomainProperty="XMLNSC" transactionMode="automatic" logicalOrder="false">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_EPOS_POSBasket"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Input queue for POSBakset RetailJ"/>
+        <longDescription xmi:type="utility:ConstantString" string="Input queue for POSBakset RetailJ"/>
+        <parserXmlnscOpaqueElements elements="//Description"/>
+        <parserXmlnscOpaqueElements elements="//LongDescription"/>
+        <parserXmlnscOpaqueElements elements="//OrganisationName"/>
+        <parserXmlnscOpaqueElements elements="//PreformattedTextLine"/>
+        <nsMappingTable nsPrefix="Ret" namespace="http://www.ibm.com/websphere/crossworlds/2002/BOSchema/RetailJ15_Sales_POSBasket"/>
+        <nsMappingTable nsPrefix="Ret1" namespace="http://www.ibm.com/websphere/crossworlds/2002/BOSchema/RetailJ15_Sales_POSBasketType_POSBasket"/>
+        <nsMappingTable nsPrefix="Ret2" namespace="http://www.ibm.com/websphere/crossworlds/2002/BOSchema/RetailJ15_Sales_POSBasket_POSBasket_Wrapper1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRouteToLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="348,304" mode="routeToFirst">
+        <translation xmi:type="utility:ConstantString" string="Route To Label"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Routes different types of mesages in the lable node based on the types in the input message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Routes different types of mesages in the lable node based on the types in the input message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="231,362" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_Route_POSBasket.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="Route_POSBasket"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Route the POSBasket message depending upon the message item"/>
+        <longDescription xmi:type="utility:ConstantString" string="Route the POSBasket message depending upon the message item"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="4,483" labelName="ProductSale">
+        <translation xmi:type="utility:ConstantString" string="ProductSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Label Node for SalesOrderLineProductSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Label Node for SalesOrderLineProductSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="82,483" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_ProductSale.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="SOL_ProductSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineProductSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineProductSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="636,625" labelName="Header">
+        <translation xmi:type="utility:ConstantString" string="Header"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for SalesOrderHeader"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for SalesOrderHeader"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="-6,558" labelName="GiftVoucherSale">
+        <translation xmi:type="utility:ConstantString" string="GiftVoucherSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for GiftVoucherSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for GiftVoucherSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="-10,627" labelName="RechargeableVoucherSale">
+        <translation xmi:type="utility:ConstantString" string="RechargeableVoucherSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for RechargeableVoucherSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for RechargeableVoucherSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="4,697" labelName="ProductReturn">
+        <translation xmi:type="utility:ConstantString" string="ProductReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Label Node for SalesoRderLineProductReturn"/>
+        <longDescription xmi:type="utility:ConstantString" string="Label Node for SalesoRderLineProductReturn"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="252,763" labelName="CashTenderItem">
+        <translation xmi:type="utility:ConstantString" string="CashTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for CashTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for CashTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="228,832" labelName="LoanTenderItem">
+        <translation xmi:type="utility:ConstantString" string="LoanTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for LoanTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for LoanTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_14" location="11,1118" labelName="TokenisedCardTenderItem">
+        <translation xmi:type="utility:ConstantString" string="TokenisedCardTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable node for TokenisedCardTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable node for TokenisedCardTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_15" location="251,898" labelName="ChequeTenderItem">
+        <translation xmi:type="utility:ConstantString" string="ChequeTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for ChequeTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for ChequeTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_16" location="639,704" labelName="TravellersChequeTenderItem">
+        <translation xmi:type="utility:ConstantString" string="TravellersChequeTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for TravellersChequeTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for TravellersChequeTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_17" location="-4,763" labelName="GiftVoucherReturn">
+        <translation xmi:type="utility:ConstantString" string="GiftVoucherReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lablel Node for GiftVoucherReturn"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lablel Node for GiftVoucherReturn"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_18" location="534,898" labelName="CreditNoteTenderItem">
+        <translation xmi:type="utility:ConstantString" string="CreditNoteTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for CreditNoteTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for CreditNoteTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_19" location="199,481" labelName="SimpleVoucherTenderItem">
+        <translation xmi:type="utility:ConstantString" string="SimpleVoucherTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for SimpleVoucherTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for SimpleVoucherTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_20" location="224,558" labelName="GiftVoucherTenderItem">
+        <translation xmi:type="utility:ConstantString" string="GiftVoucherTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Label Node for GiftVoucherTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Label Node for GiftVoucherTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_21" location="289,629" labelName="RechargeableVoucherTenderItem">
+        <translation xmi:type="utility:ConstantString" string="RechargeableVoucherTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for RechargeableVoucherTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for RechargeableVoucherTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_22" location="382,689" labelName="SimpleAccountTenderItem">
+        <translation xmi:type="utility:ConstantString" string="SimpleAccountTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for SimpleAccountTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for SimpleAccountTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_23" location="-6,901" labelName="AccountPaymentSale">
+        <translation xmi:type="utility:ConstantString" string="AccountPaymentSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for AccountPaymentSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for AccountPaymentSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_24" location="702,625" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_Header.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="SOH_Header"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderHeader"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderHeader in ProcessSalesOrder message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_25" location="99,558" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherSale.Main">
+        <translation xmi:type="utility:ConstantString" string="SOL_GiftVoucherSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineGiftVoucherSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineGiftVoucherSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_26" location="140,627" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_RechargeableVoucherSale.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="SOL_RechargeVoucherSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for RechargeVoucherSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for RechargeVoucherSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_27" location="95,697" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_ProductReturn.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="SOL_ProductReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineProductReturn"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineProductReturn"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_28" location="110,763" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherReturn.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="SOL_GiftVoucherReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineGiftVoucherReturn"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SalesOrderLineGiftVoucherReturn"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_29" location="353,763" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_CashTenderItem.Main">
+        <translation xmi:type="utility:ConstantString" string="Payment_CashTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for CashTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for CashTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_30" location="345,832" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_LoanTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_LoanTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for LoanTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for LoanTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_31" location="601,1119" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_TokenisedCardTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_TCardTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for Tokenised Card Tender Item"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for Tokenised Card Tender Item"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_32" location="370,898" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_ChequeTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_ChequeTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for ChequeTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for ChequeTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_33" location="684,898" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_CreditNoteTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_CreditNoteTender"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for CreditNoteTender"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for CreditNoteTender"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_34" location="788,704" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_TravellersChequeTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_TravellerCheque"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for TravellersChequeTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for TravellersChequeTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_35" location="357,481" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_SimpleVoucherTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_SimpleVoucher"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SimpleVoucherTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SimpleVoucherTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_36" location="368,558" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_GiftVoucher"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for GiftVoucherTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for GiftVoucherTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_37" location="478,629" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_RechargeableVoucherTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_RechargeVoucher"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for RechargeVoucherTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for RechargeVoucherTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_38" location="523,689" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_SimpleAccountTenderItem.Main">
+        <translation xmi:type="utility:ConstantString" string="Payment_SimpleAccount"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for SimpleAccountTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for SimpleAccountTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_39" location="125,901" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_AccountPaymentSale.Main">
+        <translation xmi:type="utility:ConstantString" string="SOL_AccountPaySale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for AccountPaymentSale"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for AccountPaymentSale"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_40" location="340,403" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_Create_Output_Canonical.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Create Output Canonical"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Create the output canonical (ProcessSalesOrder) structure for Orchestration flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="Create the output canonical (ProcessSalesOrder) structure for Orchestration flow"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_41" location="-15,974" labelName="AccountPaymentReturn">
+        <translation xmi:type="utility:ConstantString" string="AccountPaymentReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for AccountPaymentReturn"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for AccountPaymentReturn"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_42" location="0,834" labelName="NoSaleTransactionItem">
+        <translation xmi:type="utility:ConstantString" string="NoSaleTransactionItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for NoSaleTransactionItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for NoSaleTransactionItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_43" location="503,553" labelName="BasketStoredItem">
+        <translation xmi:type="utility:ConstantString" string="BasketStoredItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for BasketStoredItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for BasketStoredItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_44" location="506,479" labelName="BasketRecalledItem">
+        <translation xmi:type="utility:ConstantString" string="BasketRecalledItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Label Node for BasketRecalledItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Label Node for BasketRecalledItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_45" location="513,766" labelName="CardTenderItem">
+        <translation xmi:type="utility:ConstantString" string="CardTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for CardTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for CardTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmLabel.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_46" location="496,832" labelName="TokenisedChequeTenderItem">
+        <translation xmi:type="utility:ConstantString" string="TokenisedChequeTenderItem"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Lable Node for TokenisedChequeTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Lable Node for TokenisedChequeTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_47" location="134,974" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_AccountPaymentReturn.Main">
+        <translation xmi:type="utility:ConstantString" string="SOL_AccountPayReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for AccountPaymentReturn"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for AccountPaymentReturn"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_48" location="148,834" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_NoSaleTransactionItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="SOL_NoSale"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for NoSaleTransactionItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for NoSaleTransactionItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_49" location="619,553" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_BasketStoredItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="LayAway_BasketStore"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for BasketStoredItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for BasketStoredItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_50" location="638,479" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_BasketRecalledItem.Main">
+        <translation xmi:type="utility:ConstantString" string="LayAway_BasketRecalled"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for LayAwayBasketRecalledItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for LayAwayBasketRecalledItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_51" location="611,766" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_CardTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_CardTender"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for CardTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for CardTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_52" location="667,832" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_TokenisedChequeTenderItem.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="Payment_TokenCheque"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Populate details for TokenisedChequeTenderItem"/>
+        <longDescription xmi:type="utility:ConstantString" string="Populate details for TokenisedChequeTenderItem"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPublication.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_54" location="686,297">
+        <translation xmi:type="utility:ConstantString" string="WMB_Publish_EPOS_POSBasket"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Publish node to publish ProcessSalesOrder message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Publish node to publish ProcessSalesOrder message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmJavaCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_55" location="484,404" javaClass="com.kingfisher.ukbq.SalesOrder.ProcessSalesOrder_POSBasket_RetailJ_PopulatePaymentDetails">
+        <translation xmi:type="utility:ConstantString" string="Populate Payment Details"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Encrypt accountId if present in the created ProcessSalesOrder message and pass it to the next flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="Encrypt accountId if present in the created ProcessSalesOrder message and pass it to the next flow"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_56" location="586,293" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope in the message structure"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope in the message structure"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_57" location="175,1118" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_CreateGetTokenRequest.Main" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="MapPaymentTokenRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Create request structure for offline to online token exchange"/>
+        <longDescription xmi:type="utility:ConstantString" string="Create request structure from POS Bakset xml for offline to online token exchange "/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_58" location="583,993" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_MapPaymentTokenResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="MapPaymentTokenResponse"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Map the response form getToken to create the ProcessSalesOrder message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Map the response form getToken to create the ProcessSalesOrder message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_60" location="388,1005" wsdlFileName="com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentService.wsdl" selectedPortType="PaymentPortType" selectedBinding="PaymentBinding" selectedOperation="GetPayment" selectedPort="PaymentBinding" targetNamespace="http://www.kingfisher.com/Services/PaymentService/1.0" useHTTPTransport="true" webServiceURL="http://UNXS0464:8070/Services/Payment/1.0" requestTimeout="180"
+          sslProtocol="TLS" parserXmlnscBuildTreeUsingXMLSchema="false" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="SOAPRequest_GetToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="SOAP request node to call getToken flow for token exchange"/>
+        <longDescription xmi:type="utility:ConstantString" string="SOAP request node to call getToken flow for token exchange"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_61" location="287,1001" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope to the request structure for offline to online token exchange"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope to the request structure for offline to online token exchange"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_62" location="484,1061">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Remove SOAP Envelope from the response body"/>
+        <longDescription xmi:type="utility:ConstantString" string="Remove SOAP Envelope from the response body"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="214,264">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Errorhandler subflow to capture error in the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="Errorhandler subflow to capture error in the flow"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="140,417" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="RemoveEscapeXML"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node to remove Non XML compliant characters"/>
+        <longDescription xmi:type="utility:ConstantString" string="Compute node to remove Non XML compliant characters"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_53" location="479,955" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_RetailJ_ThrowSOAPFaultException.Main">
+        <translation xmi:type="utility:ConstantString" string="ThrowSOAPFaultException"/>
+      </nodes>
+      <nodes xmi:type="ComIbmJavaCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_59" location="201,698" javaClass="com.kingfisher.ukbq.SalesOrder.ProcessSalesOrder_POSBasket_RetailJ_PopulateCardDetails_ProductReturn">
+        <translation xmi:type="utility:ConstantString" string="PopulateCardDetails_ProductReturn"/>
+        <shortDescription xmi:type="utility:ConstantString" string="if encrypted information exists then call JCN to populate hashed account id"/>
+        <longDescription xmi:type="utility:ConstantString" string="if encrypted information exists then call JCN to populate hashed account id"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_63" location="30,211" queueName="POSBASKETRETAILJ.CACHE.LOCAL" messageDomainProperty="XMLNSC" transactionMode="automatic">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_EPOS_CacheRefresh"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_SalesOrder_UpdateCache.subflow:FCMComposite_1" xmi:id="FCMComposite_1_65" location="279,211">
+        <translation xmi:type="utility:ConstantString" string="UpdateCache"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_24" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_25" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_26" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_27" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_28" sourceNode="FCMComposite_1_17" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_29" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_30" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_32" sourceNode="FCMComposite_1_15" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_33" sourceNode="FCMComposite_1_18" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_15" targetNode="FCMComposite_1_34" sourceNode="FCMComposite_1_16" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_16" targetNode="FCMComposite_1_35" sourceNode="FCMComposite_1_19" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_17" targetNode="FCMComposite_1_36" sourceNode="FCMComposite_1_20" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_18" targetNode="FCMComposite_1_37" sourceNode="FCMComposite_1_21" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_19" targetNode="FCMComposite_1_38" sourceNode="FCMComposite_1_22" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_20" targetNode="FCMComposite_1_39" sourceNode="FCMComposite_1_23" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_22" targetNode="FCMComposite_1_47" sourceNode="FCMComposite_1_41" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_23" targetNode="FCMComposite_1_48" sourceNode="FCMComposite_1_42" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_24" targetNode="FCMComposite_1_49" sourceNode="FCMComposite_1_43" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_25" targetNode="FCMComposite_1_50" sourceNode="FCMComposite_1_44" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_26" targetNode="FCMComposite_1_51" sourceNode="FCMComposite_1_45" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_27" targetNode="FCMComposite_1_52" sourceNode="FCMComposite_1_46" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_29" targetNode="FCMComposite_1_40" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_30" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_41" targetNode="FCMComposite_1_62" sourceNode="FCMComposite_1_60" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_42" targetNode="FCMComposite_1_58" sourceNode="FCMComposite_1_62" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_44" targetNode="FCMComposite_1_60" sourceNode="FCMComposite_1_61" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_34" targetNode="FCMComposite_1_56" sourceNode="FCMComposite_1_55" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_31" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_57" sourceNode="FCMComposite_1_14" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_32" targetNode="FCMComposite_1_31" sourceNode="FCMComposite_1_57" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_33" targetNode="FCMComposite_1_61" sourceNode="FCMComposite_1_57" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_35" targetNode="FCMComposite_1_53" sourceNode="FCMComposite_1_60" sourceTerminalName="OutTerminal.fault" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_21" targetNode="FCMComposite_1_56" sourceNode="FCMComposite_1_40" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_36" targetNode="FCMComposite_1_55" sourceNode="FCMComposite_1_40" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_28" targetNode="FCMComposite_1_54" sourceNode="FCMComposite_1_56" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_37" targetNode="FCMComposite_1_59" sourceNode="FCMComposite_1_27" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_39" targetNode="FCMComposite_1_65" sourceNode="FCMComposite_1_63" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_38" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_63" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_40" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_63" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="110,43">
+        <body xmi:type="utility:ConstantString" string="Name         : ProcessSalesOrder_POSBasket_RetailJ&#xA;Author       : Sayantan Som&#xA;Date          : 01 APR 2013&#xA;&#xA;Description : 1. WMB_MQInput_EPOS_POSBasket Node receives input message from RetailJGenericInbound flow.&#xA;                     2. Route_POSBasket Node routes the messages depending upon the message item.&#xA;                     3. Create Output Canonical Node creates the ProcessSalesOrder canonical structure for Orchestration flow.&#xA;                     4. Populate Payment Details Node encrypts accountId if present in the created ProcessSalesOrder message and pass it to the next flow.&#xA;                     5. AddSOAPHeader Node addsSOAP Header to the output message to be published for subscrition.&#xA;                     6. WMB_Publish_EPOS_POSBasket Node publishes the ProcessSalesOrder message."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

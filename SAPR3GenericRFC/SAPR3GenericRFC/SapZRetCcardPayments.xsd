@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://ukbq.kingfisher.com/SAPR3/sapzretccardpayments" xmlns:sapasi="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:sapptzpayments570561632="http://ukbq.kingfisher.com/SAPR3/sapptzpayments570561632" xmlns:sapzretccardpayments="http://ukbq.kingfisher.com/SAPR3/sapzretccardpayments" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/sapptzpayments570561632" schemaLocation="SapPtZpayments570561632.xsd"/>
+<xsd:import namespace="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata"/>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability">
+<info:resourceAdapter version="7.5.0.2_IF01" xmlns:info="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability"/>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="commonj.connector.asi">
+<asi:annotationSet asiNSURI="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:asi="commonj.connector.asi"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:complexType name="SapZRetCcardPayments">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIBusinessObjectTypeMetadata>
+</sapasi:sapBAPIBusinessObjectTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:sequence maxOccurs="1" minOccurs="1">
+<xsd:element maxOccurs="1" minOccurs="0" name="PI_RETURN" nillable="true">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>PI_RETURN</sapasi:FieldName>
+<sapasi:FieldType>CHAR</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>1</sapasi:MaxLength>
+<sapasi:Description>Integration Broker Availability Flag</sapasi:Description>
+<sapasi:ParameterType>OUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:simpleType>
+<xsd:restriction base="xsd:string">
+<xsd:maxLength value="1"/>
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element maxOccurs="1" minOccurs="0" name="PT_IB_ERR_CODE" nillable="true">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>PT_IB_ERR_CODE</sapasi:FieldName>
+<sapasi:FieldType>CHAR</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>9</sapasi:MaxLength>
+<sapasi:Description>Error Code returned by IB</sapasi:Description>
+<sapasi:ParameterType>OUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:simpleType>
+<xsd:restriction base="xsd:string">
+<xsd:maxLength value="9"/>
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element maxOccurs="1" minOccurs="0" name="PT_IB_ERR_MSG" nillable="true">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>PT_IB_ERR_MSG</sapasi:FieldName>
+<sapasi:FieldType>CHAR</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>40</sapasi:MaxLength>
+<sapasi:Description>CCard: IB error message</sapasi:Description>
+<sapasi:ParameterType>OUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:simpleType>
+<xsd:restriction base="xsd:string">
+<xsd:maxLength value="40"/>
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element maxOccurs="1" minOccurs="1" name="SapPtZpayments" nillable="true" type="sapptzpayments570561632:SapPtZpayments">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>PT_ZPAYMENTS</sapasi:FieldName>
+<sapasi:FieldType>ZPAYMENTS</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+<sapasi:Description>Sales Document: Item Data</sapasi:Description>
+<sapasi:ParameterType>IN</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+
+</xsd:schema>

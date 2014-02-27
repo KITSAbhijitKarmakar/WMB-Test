@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:include schemaLocation="../Nouns/ProductAvailability.xsd"/>
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element ibmSchExtn:docRoot="true" name="ShowProductAvailability" type="ShowProductAvailabilityType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The purpose of the ShowProductAvailability is to respond to a GetProductAvailability request or to initiate the passing of product availability data from a Production or Available to Promise (ATP) business application to an Order Management business application.
+
+The business process scenario is the Order Management application interacting with the Available to Promise or Production application in order to determine availability of a product for the customer.
+
+This scenario is commonly referred to as Make to Order or Build to Order.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="ShowProductAvailabilityType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:BusinessObjectDocumentType">
+				<xsd:sequence>
+					<xsd:element name="DataArea" type="ShowProductAvailabilityDataAreaType">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Is where the information that the BOD message carries is provided, in this case ShowProductAvailability. The information consists of a Verb and one or more Nouns. The verb (Show) indicates the action to be performed on the Noun (ProductAvailability).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShowProductAvailabilityDataAreaType">
+		<xsd:sequence>
+			<xsd:element ref="oa:Show"/>
+			<xsd:element maxOccurs="unbounded" ref="ProductAvailability"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

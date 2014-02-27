@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author:  Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2011, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><definitions targetNamespace="http://www.kingfisher.com/Services/InvoiceService/1.0" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/InvoiceService/1.0" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <documentation>
+    <appinfo source="WMQI_APPINFO">
+      <MRWSDLAppInfo imported="true">
+        <generatedXSD location="InvoiceService_InlineSchema1.xsd"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseInvoiceBinding" originalBindingStyle="document"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseInvoiceJMSBinding" originalBindingStyle="document"/>
+      </MRWSDLAppInfo>
+    </appinfo>
+  </documentation>
+	<types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:include schemaLocation="InvoiceService_InlineSchema1.xsd"/>
+    </xsd:schema>
+	</types>
+	<message name="SynchroniseInvoice">
+		<part element="koa:SynchroniseInvoice" name="parameter"/>
+	</message>
+	<message name="Fault">
+		<part element="koa:Fault" name="parameter"/>
+	</message>
+	<portType name="SynchroniseInvoicePortType">
+		<operation name="SynchroniseInvoice">
+			<input message="koaws:SynchroniseInvoice"/>
+		</operation>
+	</portType>
+		<binding name="SynchroniseInvoiceBinding" type="koaws:SynchroniseInvoicePortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="SynchroniseInvoice">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/InvoiceService/SynchroniseInvoicePortType/SynchroniseInvoice/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<binding name="SynchroniseInvoiceJMSBinding" type="koaws:SynchroniseInvoicePortType" xmlns:soapjms="http://www.w3.org/2010/soapjms/">
+		<soap:binding style="document" transport="http://www.w3.org/2010/soapjms/"/>
+		<soapjms:jndiConnectionFactoryName>kingfisher.jms.ConnectionFactory</soapjms:jndiConnectionFactoryName>
+		<soapjms:deliveryMode>PERSISTENT</soapjms:deliveryMode>
+		<operation name="SynchroniseInvoice">
+			<soap:operation style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<service name="SynchroniseInvoice">
+			<port binding="koaws:SynchroniseInvoiceBinding" name="SynchroniseInvoiceBinding">
+			<soap:address location="http://www.kingfisher.com/Services/SynchroniseInvoice/1.0"/>
+		</port>
+		<port binding="koaws:SynchroniseInvoiceJMSBinding" name="SynchroniseInvoiceJMSBinding">
+			<soap:address location="jms:jndi:ConfigQueName?targetService=Invoice&amp;priority=8&amp;userprop=ConfigUserProp"/>
+		</port>
+	</service>
+</definitions>

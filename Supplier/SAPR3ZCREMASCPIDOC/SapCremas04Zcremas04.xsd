@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:sapasi="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:sapcremas04zcremas04="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04" xmlns:sapcremas04zcremas04idocbo="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04idocbo" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04idocbo" schemaLocation="SapCremas04Zcremas04IDocBO.xsd"/>
+<xsd:import namespace="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata"/>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability">
+<info:resourceAdapter version="7.0.0.4_IF03" xmlns:info="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability"/>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="commonj.connector.asi">
+<asi:annotationSet asiNSURI="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:asi="commonj.connector.asi"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:complexType name="SapCremas04Zcremas04">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEBusinessObjectTypeMetadata>
+<sapasi:IDocVersion>620</sapasi:IDocVersion>
+<sapasi:SplitIDocPacket>true</sapasi:SplitIDocPacket>
+<sapasi:Type>IDOC</sapasi:Type>
+<sapasi:Operation>
+<sapasi:Name>Create</sapasi:Name>
+<sapasi:sapALEOperationMetadata>
+<sapasi:MsgType>ZCREMAS_CP</sapasi:MsgType>
+<sapasi:MsgCode/>
+<sapasi:MsgFunction/>
+</sapasi:sapALEOperationMetadata>
+<sapasi:sapALEOperationMetadata>
+<sapasi:MsgType>ZCREMAS_INI</sapasi:MsgType>
+<sapasi:MsgCode/>
+<sapasi:MsgFunction/>
+</sapasi:sapALEOperationMetadata>
+</sapasi:Operation>
+</sapasi:sapALEBusinessObjectTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:sequence maxOccurs="1" minOccurs="1">
+<xsd:element maxOccurs="1" minOccurs="1" name="SAPTransactionID" nillable="true">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>SAPTransactionID</sapasi:FieldName>
+<sapasi:SegmentHierarchy>0</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>25</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:simpleType>
+<xsd:restriction base="xsd:string">
+<xsd:maxLength value="25"/>
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element maxOccurs="1" minOccurs="0" name="qRFCQueueName" nillable="true">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>qRFCQueueName</sapasi:FieldName>
+<sapasi:SegmentHierarchy>0</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>25</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:simpleType>
+<xsd:restriction base="xsd:string">
+<xsd:maxLength value="25"/>
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="1" name="SapCremas04Zcremas04IDocBO" nillable="true" type="sapcremas04zcremas04idocbo:SapCremas04Zcremas04IDocBO">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>SapCremas04Zcremas04IDocBO</sapasi:FieldName>
+<sapasi:SegmentHierarchy>0</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>true</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+
+    <xsd:element ibmSchExtn:docRoot="true" name="SapCremas04Zcremas04" type="sapcremas04zcremas04:SapCremas04Zcremas04"/>
+</xsd:schema>

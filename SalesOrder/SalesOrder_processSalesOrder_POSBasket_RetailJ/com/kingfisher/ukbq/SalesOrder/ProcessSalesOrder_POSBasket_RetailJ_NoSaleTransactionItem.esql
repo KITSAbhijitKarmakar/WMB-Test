@@ -1,0 +1,67 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: SOL_NoSale															*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_NoSaleTransactionItem				*
+* Description 				: Populate details for NoSaleTransactionItem							*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		22-JUN-2013 	Soutam Dutta 		Validated against ProcessSalesOrder xsd. 			*
+* 0.3 		11-JUL-2013 	Subir Bhaumik		Updated code for version 0.3 to populate Transaction*
+*												LineType in the ProcessSalesOrder message. 			*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_NoSaleTransactionItem
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+
+		DECLARE REF_SalesOrderLine		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_ResumeDateTime   	TIMESTAMP;
+		
+		DECLARE REF_NSTItem				REFERENCE TO REF_INRoot.NoSaleTransactionItem;
+		DECLARE CH_LineNumber 			CHARACTER;
+		
+		--FOR REF_NSTItem AS REF_INRoot.NoSaleTransactionItem[] DO
+		NSTI:WHILE LASTMOVE(REF_NSTItem) DO
+			
+			SET CH_LineNumber = REF_NSTItem.LineNumber;
+			IF REF_NSTItem.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};  
+				CREATE LASTCHILD OF REF_OUTSalesLine AS REF_SalesOrderLine NAMESPACE NS_dfns NAME 'SalesOrderLine';
+			
+				SET REF_SalesOrderLine.NS_oa:LineNumber	 								= REF_INRoot.LineNumber;
+				--Code change starts for version 0.3
+				SET REF_SalesOrderLine.NS_oa:Description								= 'NoSale';
+				--Code change ends for version 0.3
+				SET REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type 	= 'NO SALE TRANSACTION ITEM';
+				SET TS_ResumeDateTime	= CAST(REF_NSTItem.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_SalesOrderLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime 	= CAST(TS_ResumeDateTime AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_SalesOrderLine.NS_dfns:LineFilterIndicator						= 'false';
+				SET REF_SalesOrderLine.NS_dfns:NoSaleStatus.NS_oa:ReasonCode 			= 'NoSale';
+				SET REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code = 'UKVATEXEMPT';
+				
+				LEAVE NSTI;
+			END IF;
+			MOVE REF_NSTItem NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;		
+		--END FOR;
+		RETURN FALSE;
+	END;
+END MODULE;

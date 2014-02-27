@@ -1,0 +1,40 @@
+**************************************************************
+**   Script	:  MQSC_SUPPLIER_NOTIFYSUPPLIER.MQSC
+**   Created By	:  Ipista Sahoo
+**   Environment:  X-tier	
+**************************************************************
+
+
+DEFINE QLOCAL ('ZCREMAS04.SAP.INBOUND.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Inbound queue for ZCREMAS04 Idoc from SAP to Supplier Service') +
+       REPLACE
+
+
+DEFINE QALIAS ('ZCREMAS04') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('WMB alias used to put ZCREMAS04 IDOC messages from SAP') +
+       TARGQ('ZCREMAS04.SAP.INBOUND.LOCAL') +
+       REPLACE
+
+   
+DEFINE QALIAS ('ZCREMAS04.SAP.INBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       DESCR('WMB alias used to GET messages from local') +
+       TARGQ('ZCREMAS04.SAP.INBOUND.LOCAL') +
+       REPLACE
+
+  
+DEFINE TOPIC ('MASTERDATA.SUPPLIER.WMSINDC') +
+       TOPICSTR('/MASTERDATA/SUPPLIER/DETAILS') +
+       DEFPRTY(5) +
+       DEFPSIST(YES) +
+       MDURMDL('SYSTEM.DURABLE.MODEL.QUEUE') +
+       DURSUB(YES) +
+       PUB(ENABLED) +
+       SUB(ENABLED) +
+       MNDURMDL('SYSTEM.NDURABLE.MODEL.QUEUE') +
+       REPLACE
+
+
+**************************EndScript***************************

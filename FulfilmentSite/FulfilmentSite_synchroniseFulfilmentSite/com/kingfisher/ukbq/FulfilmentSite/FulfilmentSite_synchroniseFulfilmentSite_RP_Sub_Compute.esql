@@ -1,0 +1,164 @@
+BROKER SCHEMA com.kingfisher.ukbq.FulfilmentSite
+PATH com.kingfisher.ukbq.WMBFunctions;
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *                             
+****************************************************************************************************/
+ 
+/****************************************************************************************************    
+* Node Name                         :     Map_FulfilmentSite_Canonical_RP                      		*
+* Interface Id                      :                                                               *
+* Interface Name              		:     FulfilmentSite_synchroniseFulfilmentSite                  * 
+* Message Flow                      :     FulfilmentSite_synchroniseFulfilmentSite_RP_Pub           *
+* Message Flow Description    		:     This flow will retrieve the FulfilmentSite canonical from *
+*										  the queue used for subscription and map it to the required*
+*										  RedPrairie table(INTERFACE_ADDRESS) columns.				* 
+* Module Name                       :     FulfilmentSite_synchroniseFulfilmentSite_RP_Sub_Compute   *
+* Description                       :     This module retrieves the FulfilmentSite Canonical from 	*
+*										  the queue used for subscription and is mapped to 			*
+*										  RedPrairie table columns.      							*
+*                                                                                                   *
+* Version   Date              Author            Description                                         *
+* =======   ===========       ==============    ======================================              *
+*  0.1      05-Apr-2013       Ipsita Sahoo      The initial version.                                *
+*  0.2		27-Jun-2013		  Ipsita Sahoo		Functionality added to handle special Character  	*
+****************************************************************************************************/
+-- Namespace declaration 
+DECLARE NS_dns 			NAMESPACE 'http://www.kingfisher.com/oagis/9';
+DECLARE NS_oa 			NAMESPACE 'http://www.openapplications.org/oagis/9';
+DECLARE NS_xsi 			NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';
+
+CREATE COMPUTE MODULE FulfilmentSite_synchroniseFulfilmentSite_RP_Sub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Call SynchroniseFulfilmentSiteRP procedure
+		CALL SynchroniseFulfilmentSiteRP();
+		
+		RETURN TRUE;
+	END;
+	
+	/****************************************************************************************************
+	* Procedure Name	: SynchroniseFulfilmentSiteRP() 										 		*
+	* Input Parameters	: None		     																*
+	* Output Parameters	: None 																			*
+	* Description		: The FulfilmentSite Canonical is mapped to the required RP table structure		*
+	*										   	                                                        *
+	* Version 	Date 			Author 					Description                                 	*
+	* ======= 	=========== 	=============== 		================================ 			    *
+	*  0.1   	05-APR-2013 	Ipsita Sahoo			The initial version. 						    *
+	****************************************************************************************************/
+
+	CREATE PROCEDURE SynchroniseFulfilmentSiteRP() BEGIN
+		
+		-- Declare refrence for InputMessage tree.
+		DECLARE REF_In            			REFERENCE TO InputRoot.XMLNSC;
+		DECLARE REF_FulfilmentSite 			REFERENCE TO REF_In.NS_dns:SynchroniseFulfilmentSite.NS_dns:DataArea.NS_dns:FulfilmentSite;
+		DECLARE REF_LocAddr					REFERENCE TO REF_FulfilmentSite.NS_dns:Contact.NS_dns:Location.NS_oa:Address;
+		
+		-- Variable declaration to insert data in RP table.
+		DECLARE CH_spaceField      			CHARACTER ' ';
+		DECLARE CH_partyId 					CHARACTER '';
+		DECLARE CH_teleCommFNo 				CHARACTER '';
+		DECLARE CH_faxTeleCommFNo			CHARACTER '';
+		DECLARE CH_name						CHARACTER '';
+		DECLARE CH_desc						CHARACTER '';
+		DECLARE CH_actionExpr				CHARACTER '';
+		DECLARE CH_streetName				CHARACTER '';
+		DECLARE CH_addrLine					CHARACTER '';
+		DECLARE CH_cityName					CHARACTER '';
+		DECLARE CH_countrySubDivCode		CHARACTER '';
+		DECLARE CH_postalCode				CHARACTER '';
+		DECLARE CH_delCloseTime				CHARACTER '';
+		DECLARE CH_delOpenTime				CHARACTER '';
+		
+		-- Setting values to Variables to insert data in RP table.
+		SET CH_partyId		 				= TRIM(BOTH CH_spaceField FROM REF_FulfilmentSite.NS_oa:PartyIDs.NS_oa:ID);
+		SET CH_teleCommFNo		 			= TRIM(BOTH CH_spaceField FROM REF_FulfilmentSite.NS_dns:Contact.NS_oa:TelephoneCommunication.NS_oa:FormattedNumber);
+		SET CH_faxTeleCommFNo		 		= TRIM(BOTH CH_spaceField FROM REF_FulfilmentSite.NS_dns:Contact.NS_oa:FaxTelephoneCommunication.NS_oa:FormattedNumber);
+		SET CH_name							= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_spaceField FROM REF_FulfilmentSite.NS_oa:Name));
+		
+		IF LENGTH(CH_name) > 30 THEN
+			SET CH_name 					= FUNC_DBSpecialCharHandling(SUBSTRING(CH_name FROM 1 FOR 30));
+		ELSE
+			SET CH_name = CH_name;
+		END IF;
+		
+		SET CH_delCloseTime					= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMdd') || '23:59:59';
+		SET CH_delOpenTime					= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMdd') || '00:00:00';
+		SET CH_streetName					= TRIM(BOTH CH_spaceField FROM REF_LocAddr.NS_oa:StreetName);
+		
+		IF LENGTH(CH_streetName) > 35 THEN
+			SET CH_streetName 				= FUNC_DBSpecialCharHandling(SUBSTRING(CH_streetName FROM 1 FOR 35));
+		ELSE
+			SET CH_streetName 				= FUNC_DBSpecialCharHandling(CH_streetName);
+		END IF;
+		
+		FOR REF_AddrLine AS REF_LocAddr.NS_oa:CitySubDivisionName[] DO
+			IF FIELDVALUE(REF_AddrLine.(XMLNSC.Attribute)sequenceName) = 'Street2' THEN 
+				SET CH_addrLine 			= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_spaceField FROM FIELDVALUE(REF_AddrLine)));
+				IF LENGTH(CH_addrLine) > 35 THEN
+					SET CH_addrLine 		= FUNC_DBSpecialCharHandling(SUBSTRING(CH_addrLine FROM 1 FOR 30));
+				ELSE
+					SET CH_addrLine 		= FUNC_DBSpecialCharHandling(CH_addrLine);
+				END IF;
+			END IF;
+		END FOR;
+		
+		SET CH_cityName						= TRIM(BOTH CH_spaceField FROM REF_LocAddr.NS_oa:CityName);
+		
+		IF LENGTH(CH_cityName) > 35 THEN
+			SET CH_cityName 				= FUNC_DBSpecialCharHandling(SUBSTRING(CH_cityName FROM 1 FOR 35));
+		ELSE
+			SET CH_cityName 				= FUNC_DBSpecialCharHandling(CH_cityName);
+		END IF;
+		
+		SET CH_countrySubDivCode			= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_spaceField FROM REF_LocAddr.NS_oa:CountrySubDivisionCode));
+		SET CH_postalCode					= TRIM(BOTH CH_spaceField FROM REF_LocAddr.NS_oa:PostalCode);
+		
+		FOR REF_Desc AS REF_FulfilmentSite.NS_oa:Description[] DO
+			IF FIELDVALUE(REF_Desc.(XMLNSC.Attribute)type) = 'SiteType' THEN
+				SET CH_desc 				= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_spaceField FROM FIELDVALUE(REF_Desc)));
+				IF CH_desc = 'DC' THEN
+					SET CH_desc 			= 'Vendor';
+				ELSE
+					SET CH_desc 			= 'Store';
+				END IF;
+			END IF;
+		END FOR;
+		
+		FOR REF_AcExp AS REF_In.NS_dns:SynchroniseFulfilmentSite.NS_dns:DataArea.NS_dns:Synchronise.NS_oa:ActionCriteria.NS_oa:ActionExpression[] DO
+			IF FIELDVALUE(REF_AcExp.(XMLNSC.Attribute)actionCode) = 'Modified' THEN
+				SET CH_actionExpr 			= 'U';
+			END IF;
+		END FOR;
+		
+		-- Data to be entered in the RP table INTERFACE_ADDRESS
+		DECLARE SQL_String_Add CHARACTER;
+		SET SQL_String_Add ='INSERT INTO INTERFACE_ADDRESS (KEY,ADDRESS_ID,CLIENT_ID,ADDRESS_TYPE,CONTACT_PHONE,CONTACT_FAX,NAME,ADDRESS1,ADDRESS2,TOWN,COUNTY,POSTCODE,DELIVERY_OPEN_SAT,DELIVERY_OPEN_SUN,DELIVERY_CLOSE_TIME,DELIVERY_OPEN_TIME,USER_DEF_TYPE_1,MERGE_STATUS,MERGE_ACTION)
+				VALUES(IF_A_PK_SEQ.NEXTVAL'
+				||',''' || COALESCE(CH_partyId,'') ||''''
+				||',''BANDQ'''
+				||',''Supp/Cust'''
+				||',''' || COALESCE(CH_teleCommFNo,'') ||''''
+				||',''' || COALESCE(CH_faxTeleCommFNo,'') ||''''
+				||',''' || COALESCE(CH_name,'') ||''''
+				||',''' || COALESCE(CH_streetName,'') ||''''
+				||',''' || COALESCE(CH_addrLine,'') ||''''
+				||',''' || COALESCE(CH_cityName,'') ||''''
+				||',''' || COALESCE(CH_countrySubDivCode,'') ||''''
+				||',''' || COALESCE(CH_postalCode,'') ||''''
+				||',''Y'''
+				||',''Y'''
+				||',''' || COALESCE(CH_delCloseTime,'') ||''''
+				||',''' || COALESCE(CH_delOpenTime,'') ||''''
+				||',''' || COALESCE(CH_desc,'') ||''''
+				||',''Pending'''
+				||',''' || COALESCE(CH_actionExpr,'') ||''''
+				||')'
+				||''; 
+
+		PASSTHRU(SQL_String_Add);
+	END;
+END MODULE;

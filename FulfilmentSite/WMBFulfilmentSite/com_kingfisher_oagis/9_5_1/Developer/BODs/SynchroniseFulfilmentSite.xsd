@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         04 Mar 13
+  Copyright 2013, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../WMBOAGISCanonicals/org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../../WMBOAGISCanonicals/com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element ibmSchExtn:docRoot="true" name="SynchroniseFulfilmentSite" type="SynchroniseFulfilmentSiteType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The purpose of the Sync FulfilmentSite is to enable a mechanism to ensure that the physical FulfilmentSite identifiers are synchronized between the business applications that require this to communicate clearly.  This is particularly critical when only the codes that identify FulfilmentSites are used.  Without the meaning of the codes clearly communicated, the integration is not effective.  This BOD enables the FulfilmentSite codes to be synchronized among business applications.
+
+This BOD may also be initiated by the sending system upon some event occurring.
+
+There are many possible business applications in several environments that may use this capability. For example, a MRP, Inventory, or Manufacturing business application could use this to communicate FulfilmentSite information.
+</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="SynchroniseFulfilmentSiteType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:BusinessObjectDocumentType">
+				<xsd:sequence>
+					<xsd:element name="DataArea" type="SynchroniseFulfilmentSiteDataAreaType">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Is where the information that the BOD message carries is provided, in this case SyncFulfilmentSite. The information consists of a Verb and one or more Nouns. The verb (Sync) indicates the action to be performed on the Noun (FulfilmentSite).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="SynchroniseFulfilmentSiteDataAreaType">
+		<xsd:sequence>
+			<xsd:element name="Synchronise" type="oa:SyncType"/>
+			<xsd:element maxOccurs="unbounded" ref="FulfilmentSite"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

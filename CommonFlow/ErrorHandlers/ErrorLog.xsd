@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema xmlns:csv="http://www.ibm.com/dfdl/CommaSeparatedFormat" xmlns:dfdl="http://www.ogf.org/dfdl/dfdl-1.0/" xmlns:ibmDfdlExtn="http://www.ibm.com/dfdl/extensions" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+
+    <xsd:import namespace="http://www.ibm.com/dfdl/CommaSeparatedFormat" schemaLocation="IBMdefined/CommaSeparatedFormat.xsd"/>
+    <xsd:annotation>
+		<xsd:appinfo source="http://www.ogf.org/dfdl/">
+			<dfdl:format encoding="{$dfdl:encoding}" escapeSchemeRef="csv:CSVEscapeScheme" ref="csv:CommaSeparatedFormat"/>
+		</xsd:appinfo>
+	</xsd:annotation>
+
+
+	<xsd:element dfdl:byteOrder="{$dfdl:byteOrder}" ibmSchExtn:docRoot="true" name="ErrorLog">
+		<xsd:complexType>
+			<xsd:sequence dfdl:separator="">
+				<xsd:element dfdl:occursCountKind="implicit" dfdl:terminator="%CR;%LF;" maxOccurs="unbounded" name="record">
+					<xsd:complexType>
+						<xsd:sequence dfdl:separatorPolicy="suppressedAtEndLax">
+							<xsd:element dfdl:terminator="" ibmDfdlExtn:sampleValue="2001-12-31T12:00:00" name="Timestamp" type="xsd:dateTime"/>
+                            							<xsd:element default="The BrokerName cannot be displayed" name="BrokerName" type="xsd:string"/>
+                                                        <xsd:element default="The ExecutionGroup cannot be displayed" name="ExecutionGroup" type="xsd:string"/>
+                                                        							                            <xsd:element default="The MessageFlowName cannot be displayed" name="MessageFlowName" type="xsd:string"/>
+                                                                                                                                            <xsd:element default="The CorrelID cannot be displayed" dfdl:textNumberPattern="#0" ibmDfdlExtn:sampleValue="The CorrelID cannot be displayed" name="CorrelID" type="xsd:string"/>
+                                                                                    <xsd:element default="The ErrorType cannot be displayed" name="ErrorType" type="xsd:string"/>
+                                                                                                        <xsd:element default="" minOccurs="0" name="LTID" type="xsd:string"/>
+                        </xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>				
+                                			                        </xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+
+
+</xsd:schema>

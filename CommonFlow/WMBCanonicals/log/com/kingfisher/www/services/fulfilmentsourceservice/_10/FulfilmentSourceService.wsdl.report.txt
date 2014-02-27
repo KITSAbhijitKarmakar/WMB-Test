@@ -1,0 +1,66 @@
+
+
+Importing file: Y:\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\FulfilmentSourceService.wsdl
+
+Copying source WSDL FulfilmentSourceService.wsdl to FulfilmentSourceService.wsdl.
+The WSDL import will proceed with bindings FulfilmentSourceBinding, SynchroniseFulfilmentSourceBinding, SynchroniseFulfilmentSourceJMSBinding.
+Creating wsdl schema document for file:///Y:/com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/FulfilmentSourceService.wsdl.
+Parsing wsdl binding {http://www.kingfisher.com/Services/FulfilmentSourceService/1.0}SynchroniseFulfilmentSourceBinding.
+Parsing wsdl binding input SynchroniseFulfilmentSource.
+Parsing wsdl binding output SynchroniseFulfilmentSource.
+Parsing wsdl binding {http://www.kingfisher.com/Services/FulfilmentSourceService/1.0}FulfilmentSourceBinding.
+Parsing wsdl binding input GetFulfilmentSource.
+Parsing wsdl binding output GetFulfilmentSource.
+Parsing wsdl binding fault GetFulfilmentSourceFault.
+Parsing wsdl binding input ValidateFulfilmentSource.
+Parsing wsdl binding output ValidateFulfilmentSource.
+Parsing wsdl binding fault ValidateFulfilmentSourceFault.
+Parsing wsdl binding input ProcessFulfilmentSource.
+Parsing wsdl binding output ProcessFulfilmentSource.
+Parsing wsdl binding fault ProcessFulfilmentSourceFault.
+Parsing wsdl binding input CalculateDeliveryCharge.
+Parsing wsdl binding output CalculateDeliveryCharge.
+Parsing wsdl binding fault CalculateDeliveryChargeFault.
+Parsing wsdl binding {http://www.kingfisher.com/Services/FulfilmentSourceService/1.0}SynchroniseFulfilmentSourceJMSBinding.
+Parsing wsdl binding input SynchroniseFulfilmentSource.
+Parsing wsdl binding output SynchroniseFulfilmentSource.
+Processing doc style for operation SynchroniseFulfilmentSource.
+Processing doc style for operation GetFulfilmentSource.
+Processing doc style for operation ValidateFulfilmentSource.
+Processing doc style for operation ProcessFulfilmentSource.
+Processing doc style for operation CalculateDeliveryCharge.
+Populating WSDL schema com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/FulfilmentSourceService.xsd.
+Creating file com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/FulfilmentSourceService.xsd in the workspace.
+Creating file /WMBCanonicals/FulfilmentSourceService_InlineSchema1.xsd in the workspace.
+Creating file /WMBCanonicals/GetFulfilmentSource.xsd in the workspace.
+Creating file /WMBCanonicals/FulfilmentSource.xsd in the workspace.
+Creating file /WMBCanonicals/Components.xsd in the workspace.
+Creating file /WMBCanonicals/Meta.xsd in the workspace.
+Creating file /WMBCanonicals/Fields.xsd in the workspace.
+Creating file /WMBCanonicals/UnqualifiedDataTypes.xsd in the workspace.
+Creating file /WMBCanonicals/CodeLists.xsd in the workspace.
+Creating file /WMBCanonicals/CodeList_CurrencyCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_LanguageCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_MIMEMediaTypeCode_IANA_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_UnitCode_UNECE_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/QualifiedDataTypes.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ShowFulfilmentSource.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ValidateFulfilmentSource.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ConfirmFulfilmentSource.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/SynchroniseFulfilmentSource.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ProcessFulfilmentSource.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/AcknowledgeFulfilmentSource.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/CalculateDeliveryCharge.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/CalculateDeliveryChargeResponse.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/Fault.xsd in the workspace.
+
+Elapsed time processing this message definition file: 8.922 seconds
+Number of warnings for this message definition file: 0
+
+
+Number of files processed: 1
+
+

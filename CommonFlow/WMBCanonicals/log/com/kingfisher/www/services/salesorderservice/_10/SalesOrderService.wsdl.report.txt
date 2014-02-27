@@ -1,0 +1,46 @@
+
+
+Importing file: C:\Documents and Settings\jawait01\Desktop\Git\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\SalesOrderService.wsdl
+
+Copying source WSDL SalesOrderService.wsdl to SalesOrderService.wsdl.
+The WSDL import will proceed with bindings SynchroniseSalesOrderBinding, SynchroniseSalesOrderJMSBinding.
+Creating wsdl schema document for file:///C:/Documents and Settings/jawait01/Desktop/Git/com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/SalesOrderService.wsdl.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}SynchroniseSalesOrderBinding.
+Parsing wsdl binding input SynchroniseSalesOrder.
+Parsing wsdl binding output SynchroniseSalesOrder.
+Parsing wsdl binding input ProcessSalesOrder.
+Parsing wsdl binding output ProcessSalesOrder.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}SynchroniseSalesOrderJMSBinding.
+Parsing wsdl binding input SynchroniseSalesOrder.
+Parsing wsdl binding output SynchroniseSalesOrder.
+Parsing wsdl binding input ProcessSalesOrder.
+Parsing wsdl binding output ProcessSalesOrder.
+Processing doc style for operation SynchroniseSalesOrder.
+Processing doc style for operation ProcessSalesOrder.
+Populating WSDL schema com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/SalesOrderService.xsd.
+Creating file com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/SalesOrderService.xsd in the workspace.
+Creating file /WMBCanonicals/SalesOrderService_InlineSchema1.xsd in the workspace.
+Creating file /WMBCanonicals/SynchroniseSalesOrder.xsd in the workspace.
+Creating file /WMBCanonicals/SalesOrder.xsd in the workspace.
+Creating file /WMBCanonicals/Components.xsd in the workspace.
+Creating file /WMBCanonicals/Meta.xsd in the workspace.
+Creating file /WMBCanonicals/Fields.xsd in the workspace.
+Creating file /WMBCanonicals/UnqualifiedDataTypes.xsd in the workspace.
+Creating file /WMBCanonicals/CodeLists.xsd in the workspace.
+Creating file /WMBCanonicals/CodeList_CurrencyCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_LanguageCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_MIMEMediaTypeCode_IANA_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_UnitCode_UNECE_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/QualifiedDataTypes.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ProcessSalesOrder.xsd in the workspace.
+
+Elapsed time processing this message definition file: 4.516 seconds
+Number of warnings for this message definition file: 0
+
+
+Number of files processed: 1
+
+

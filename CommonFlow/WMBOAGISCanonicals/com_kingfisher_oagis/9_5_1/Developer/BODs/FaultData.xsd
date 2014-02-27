@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:element name="FaultData" type="FaultType"/>
+	<xsd:complexType name="FaultType">
+		<xsd:sequence>
+			<xsd:element name="FaultCode" type="xsd:string"/>
+			<xsd:element name="FaultString" type="xsd:string"/>
+			<xsd:element minOccurs="0" name="ApplicationFaultCode" type="xsd:string"/>
+			<xsd:element minOccurs="0" name="ApplicationFaultString" type="xsd:string"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

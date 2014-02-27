@@ -1,0 +1,110 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Payment_CashTenderItem												*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_CashTenderItem					*
+* Description 				: Populate details for CashTenderItem									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		21-JUN-2013 	Asif Hossain 		Code change for Version 0.2 Defect #90				*
+*												VoidStatus field was populating incorrectly  		*
+* 0.3 		22-JUN-2013 	Soutam Dutta 		Validated against ProcessSalesOrder xsd. 			*
+* 0.4 		26-JUN-2013 	Subir Bhaumik 		Code change for Version 0.4 Defect #105				*
+*												to Populate Payment/Amount correctly.				*
+* 0.5 		11-JUL-2013 	Subir Bhaumik 		Code change for Version 0.5 to populate ChangeAmount*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_CashTenderItem
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader	REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_Payment				REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:Payment;
+		DECLARE TS_TimeStamp			TIMESTAMP;
+		DECLARE CH_RetJTend				CHARACTER;
+		
+		DECLARE REF_CTItem 				REFERENCE TO REF_INRoot.CashTenderItem;
+		DECLARE CH_LineNumber 			CHARACTER;
+		DECLARE IN_Count 				INTEGER;
+		
+		--FOR REF_CTItem AS REF_INRoot.CashTenderItem[] DO
+		CashTender:WHILE LASTMOVE(REF_CTItem) DO
+		
+			SET CH_LineNumber = REF_CTItem.LineNumber;
+			IF REF_CTItem.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+			
+				SET IN_Count = CARDINALITY(REF_OUTSalesOrderHeader.NS_dfns:Payment[]);
+			
+			CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment[IN_Count] AS REF_Payment REPEAT;
+			
+			IF COALESCE(REF_CTItem.TenderType,'') <> '' AND COALESCE(REF_CTItem.TenderSubType,'') <> '' THEN
+				SET CH_RetJTend	= REF_CTItem.TenderType || REF_CTItem.TenderSubType;
+				SET REF_Payment.(XMLNSC.Attribute)type 										= 'CASH TENDER';
+--				SET REF_Payment.(XMLNSC.Attribute)id 										= THE(SELECT ITEM T.TENDERID FROM Database.TENDERDATA AS T
+--																								WHERE T.RETAILJCARDTYPE = CH_RetJTend);
+
+				SET REF_Payment.(XMLNSC.Attribute)id 										= THE(SELECT ITEM T.TENDERID FROM CACHE_CONFIGDATA.TENDERDATA[] AS T
+																								WHERE T.RETAILJCARDTYPE = CH_RetJTend);
+			END IF;
+			
+			SET REF_Payment.NS_oa:CashIndicator 											= 'true';
+			
+			SET REF_Payment.NS_oa:LineNumber												= REF_CTItem.LineNumber;
+			IF (COALESCE(REF_CTItem.IssuedAsChange,'') <> '1') AND (COALESCE(REF_CTItem.TenderAmount,'') <> '') THEN
+				--Code change starts for version 0.3 Defect #105
+				--SET REF_Payment.NS_oa:Amount												= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,1,2,NULL);
+				SET REF_Payment.NS_oa:Amount												= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,-1,2,NULL);
+				--Code change ends for version 0.3 Defect #105
+				SET REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID					= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+			END IF;
+			
+			--Code change starts for version 0.5
+			IF (COALESCE(REF_CTItem.IssuedAsChange,'') = '1') AND (COALESCE(REF_CTItem.TenderAmount,'') <> '') THEN
+				SET REF_Payment.NS_dfns:ChangeAmount									= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,1,2,NULL);
+				SET REF_Payment.NS_dfns:ChangeAmount.(XMLNSC.Attribute)currencyID		= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+			END IF;
+			--Code change ends for version 0.5
+			
+			--Code comment starts for version 0.2 Defect #90
+			--SET TS_TimeStamp	= CAST(REF_CTItem.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			--SET REF_Payment.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime	= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			--Code comment starts for version 0.2 Defect #90
+			SET TS_TimeStamp																= CAST(REF_CTItem.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Payment.NS_oa:StartDateTime												= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Payment.NS_oa:EndDateTime												= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Payment.NS_dfns:EntryType												= 'Keyed';
+			SET REF_Payment.NS_dfns:AuthorizingUserID										= REF_CTItem.AuthorisingUserID;
+			
+			IF COALESCE(REF_CTItem.VoidValue, '') <> '' THEN	
+				--Code change starts for version 0.2 Defect #90
+				SET REF_Payment.NS_dfns:VoidStatus.NS_oa:Code 								= 'VOID ENTRY';
+				SET TS_TimeStamp															= CAST(REF_CTItem.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				--Code change starts for version 0.2 Defect #90
+				SET REF_Payment.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime					= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+							
+			END IF;
+		--END FOR;
+		LEAVE CashTender;
+		END IF;
+			MOVE REF_CTItem NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		RETURN FALSE;
+	END;
+END MODULE;

@@ -1,0 +1,320 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Payment_CardTender													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_CardTenderItem					*
+* Description 				: Populate details for CardTenderItem									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		19-JUN-2013 	Asif Hossain 		Code fixed for defect #63,Instead of  VoidStatus	* 
+*												Status was being populated and condition added to	* 
+*												populate VoidStatus.  								*
+* 0.3 		20-JUN-2013 	Asif Hossain 		Populating FullCardNumber instead of Number and 	*
+*												populate masked accountId in Number in JCN		 	*
+* 0.4 		26-JUN-2013 	Subir Bhaumik 		Code change for defect #90 version 0.4 to populate	* 
+*												Payment/Amount correctly						  	*
+* 0.5 		27-JUN-2013 	Sourav Banu 		Validated against ProcessSalesOrder xsd.			*
+* 0.6 		02-JUL-2013 	Soutam Dutta 		Code change for pouplation of UsageControlID & 		*
+*												AuhtorisationDateTime								*
+* 0.7 		10-SEP-2013 	Soutam Dutta 		Prod fix to handle card start date					*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_CardTenderItem
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader	REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_Payment				REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:Payment;
+		DECLARE REF_PCard				REFERENCE TO REF_Payment.NS_dfns:PaymentCard;
+		DECLARE REF_OUTTransaction		REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:SalesTransaction;
+		
+		DECLARE REF_CTItem				REFERENCE TO REF_INRoot.CardTenderItem;
+		
+		DECLARE CH_RetJTend				CHARACTER;
+		DECLARE CH_PAN					CHARACTER;
+		DECLARE CH_AccountID			CHARACTER;
+		DECLARE CH_TenderID				CHARACTER;
+		
+--		FOR REF_CTItem AS REF_INRoot.CardTenderItem[] DO
+	CardTender:WHILE LASTMOVE(REF_CTItem)DO	
+			DECLARE CH_LineNumber CHARACTER REF_CTItem.LineNumber;
+		IF REF_CTItem.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+			CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+			--IF COALESCE(REF_CTItem.PurchaseOrderNumber, '') <> '' THEN
+				--CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID REPEAT VALUE REF_CTItem.PurchaseOrderNumber;
+			--END IF;
+			--
+			--Code comment starts for version 0.3
+			--IF REF_CTItem.CardType <> '0' AND EXISTS(REF_CTItem.VoidValue[]) = FALSE THEN
+			--Code comments ends for version 0.3
+			
+			----Code change starts for version 0.3
+			IF REF_CTItem.CardType <> '0' OR EXISTS(REF_CTItem.VoidValue[]) = FALSE THEN
+			----Code change ends for version 0.3	
+				
+				--CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment AS REF_Payment REPEAT;
+				
+				DECLARE IN_Count INTEGER;
+				SET IN_Count = CARDINALITY(REF_OUTSalesOrderHeader.NS_dfns:Payment[]);
+				
+				CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment[IN_Count] AS REF_Payment REPEAT;
+				
+				--IF COALESCE(REF_CTItem.TenderType,'') <> '' AND COALESCE(REF_CTItem.TenderSubType,'') <> '' THEN
+				IF COALESCE(REF_CTItem.TenderType,'') <> '' AND COALESCE(REF_CTItem.CardType,'') <> '' THEN	
+					
+--					SET Environment.Variables.Query[]		= SELECT A.TENDERID, A.SAPCARDTYPE FROM Database.TENDERDATA AS A
+--															WHERE A.RETAILJCARDTYPE = REF_CTItem.TenderType || REF_CTItem.CardType;
+															
+					SET Environment.Variables.Query[]		= SELECT A.TENDERID, A.SAPCARDTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS A
+															WHERE A.RETAILJCARDTYPE = REF_CTItem.TenderType || REF_CTItem.CardType;
+															
+				END IF;
+				
+				IF Environment.Variables.Condition.VPCStoreRule AND STARTSWITH(Environment.Variables.Query.TENDERID,'VisaProc') THEN
+					SET Environment.Variables.Query.TENDERID	= 'Visa';
+					SET Environment.Variables.Query.SAPCARDTYPE	= 'VISA';
+				END IF;
+				
+				SET REF_Payment.(XMLNSC.Attribute)type			= 'CARD TENDER';
+				SET REF_Payment.(XMLNSC.Attribute)id			= Environment.Variables.Query.TENDERID;
+				
+				SET CH_PAN										= REF_CTItem.PAN ;
+				SET CH_AccountID								= 'ENCRYPTED';
+				SET CH_TenderID									= Environment.Variables.Query.GENERICTENDERID;
+
+				IF REF_CTItem.PAN.(XMLNSC.Attribute)encrypted = 'true' THEN
+					IF CH_TenderID = 'Tradecard' OR STARTSWITH(CH_TenderID,'HFC') THEN
+						SET CH_AccountID	= 'decryptedPAN' || CH_PAN;
+					END IF;
+				ELSEIF CH_TenderID = 'Tradecard' OR STARTSWITH(CH_TenderID,'HFC') THEN
+					SET CH_AccountID		= CH_PAN;
+				ELSE
+					THROW USER EXCEPTION VALUES('Received clear text card from number from EPOS. This is not Supported');
+				END IF;
+
+				CREATE LASTCHILD OF REF_Payment	AS REF_PCard NAMESPACE NS_dfns NAME 'PaymentCard';
+				SET REF_PCard.NS_oa:Type						= Environment.Variables.Query.SAPCARDTYPE;
+				
+				--Code comments starts for version 0.3
+				--SET REF_PCard.NS_oa:Number						= REF_CTItem.PAN || '|' || Environment.Variables.Query.SAPCARDTYPE || '|' || 
+				--												REF_CTItem.PAN.(XMLNSC.Attribute)KeyID || '|' || 
+				--												REF_CTItem.PAN.(XMLNSC.Attribute)encrypted || '|' ||
+				--												Environment.SQLQuery.GENERICSTORECODE || '|' ||
+				--												REF_OUTTransaction.NS_dfns:BusinessDayID;
+				--Code comments ends for version 0.3
+				
+				
+				
+				--Populated the below segment in the JCN using encryption decryption
+				
+				--Code change starts for version 0.3 
+				SET REF_PCard.NS_oa:Number						= '';
+				--Code change ends for version 0.3 
+																				
+				SET REF_PCard.NS_dfns:HashedNumber				= '';
+				SET REF_PCard.NS_dfns:EncryptedNumber			= '';
+				SET REF_PCard.NS_dfns:IVData					= '';
+				--Populated the above segment in the JCN using encryption decryption
+				
+				--Code comment Start for Production Defect on 10/09/2013 version 0.7
+				--SET REF_PCard.NS_dfns:StartDate															= REF_CTItem.StartDate || FUNC_GetLastDayOfMonth(REF_CTItem.StartDate,'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				--Code comment end for Production Defect on 10/09/2013 version 0.7
+				
+				--Code change Start for Production Defect on 10/09/2013 version 0.7
+				SET REF_PCard.NS_dfns:StartDate.NS_oa:Month	= SUBSTRING(REF_CTItem.StartDate FROM 3 FOR 2);
+				IF CAST( SUBSTRING(REF_CTItem.StartDate FROM 1 FOR 2) AS INTEGER) <= 32 THEN
+                    SET REF_PCard.NS_dfns:StartDate.NS_oa:Year                                 = '20' || SUBSTRING(REF_CTItem.StartDate FROM 1 FOR 2);
+                ELSE
+                    SET REF_PCard.NS_dfns:StartDate.NS_oa:Year                                 = '19' || SUBSTRING(REF_CTItem.StartDate FROM 1 FOR 2);
+
+                END IF;
+				
+				--Code change Ends for Production Defect on 10/09/2013 version 0.7
+				
+				
+				SET REF_PCard.NS_oa:Expiration.NS_oa:Month 												= SUBSTRING(REF_CTItem.ExpiryDate FROM 3 FOR 2);
+				--SET REF_PCard.NS_oa:Expiration.NS_oa:Year	 											= '20' || SUBSTRING(REF_CTItem.ExpiryDate FROM 1 FOR 2);
+				IF CAST( SUBSTRING(REF_CTItem.ExpiryDate FROM 1 FOR 2) AS INTEGER) <= 32 THEN
+                    SET REF_PCard.NS_oa:Expiration.NS_oa:Year                                 = '20' || SUBSTRING(REF_CTItem.ExpiryDate FROM 1 FOR 2);
+                ELSE
+                    SET REF_PCard.NS_oa:Expiration.NS_oa:Year                                 = '19' || SUBSTRING(REF_CTItem.ExpiryDate FROM 1 FOR 2);
+
+                END IF;
+				
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_oa:ResponseCode							= REF_CTItem.AuthorisationCode;
+				
+				--Code comment start for version 0.6				
+				--SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:AuthorizationDateTime 				= REF_CTItem.VoidDateTime;
+				--Code comment end for version 0.6
+				
+				--Code change start for version 0.6
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:AuthorizationDateTime 				= REF_CTItem.DateTimeCreated;
+				--Code change end for version 0.6
+				
+								
+				--SET REF_PCard.NS_dfns:PaymentAuthorization.NS_oa:Amount 								= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,1,2,'ROUND_HALF_UP');
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_oa:Amount 								= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,-1,2,'ROUND_HALF_UP');
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:CV2CheckResponseCode					= REF_CTItem.CardholderVerificationMethodResults;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:OverallResponseCode	 				= REF_CTItem.AuthResponseCode;
+				
+				IF 	 REF_CTItem.AuthorisedOnline = '1' OR REF_CTItem.AuthCodeEntered = '1' THEN
+					SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:HostAuthorizationIndicator		= 'true';
+				ELSE
+					SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:HostAuthorizationIndicator		= 'false';
+				END IF;
+				
+				IF REF_CTItem.AuthorisedOnline = '1' THEN
+					SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:OnlineAuthorizationIndicator		= 'true';
+				ELSE
+					SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:OnlineAuthorizationIndicator		= 'false';
+				END IF;
+				
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:IssuerApplicationData	 				= REF_CTItem.IssuerApplicationData;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:TransactionStatus.NS_oa:Description		= REF_CTItem.TransactionStatusInformation;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:Terminal.NS_dfns:VerificationResultCode	= REF_CTItem.TerminalVerificationResults;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:Terminal.NS_dfns:CapabilitiesCode	 	= REF_CTItem.TerminalCapabilites;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:Terminal.NS_oa:Type						= REF_CTItem.TerminalType;
+				SET REF_PCard.NS_dfns:PaymentAuthorization.NS_dfns:Terminal.NS_dfns:EFTID	 				= REF_CTItem.EftTerminalID;
+	
+				SET REF_PCard.NS_dfns:IssueNumber															= REF_CTItem.IssueNumber;
+				
+				IF REF_CTItem.HostReferred = '1' THEN
+					SET REF_PCard.NS_dfns:Referral.NS_dfns:HostReferredIndicator							= 'true';
+				ELSE
+					SET REF_PCard.NS_dfns:Referral.NS_dfns:HostReferredIndicator							= 'false';
+				END IF;
+								
+				 IF REF_CTItem.AuthCodeEntered = '1' THEN
+				 	SET REF_PCard.NS_dfns:Referral.NS_dfns:ManualAuthCodeEntryIndicator						= 'true';
+				 ELSE
+				 	SET REF_PCard.NS_dfns:Referral.NS_dfns:ManualAuthCodeEntryIndicator						= 'false';
+				 END IF;
+				
+				
+				SET REF_PCard.NS_dfns:MerchantNumber														= REF_CTItem.MerchantID;
+				SET REF_PCard.NS_dfns:PANSequenceNumber														= REF_CTItem.PANSequenceNumber;
+				
+				IF REF_CTItem.ICC = '1' THEN
+					SET REF_PCard.NS_dfns:ICCIndicator	 = 'true';
+				ELSE
+					SET REF_PCard.NS_dfns:ICCIndicator	 = 'false';
+				END IF;
+				
+				SET REF_PCard.NS_dfns:CleartextNumber			= REF_CTItem.PAN || '|' || Environment.Variables.Query.SAPCARDTYPE || '|' || 
+																REF_CTItem.PAN.(XMLNSC.Attribute)KeyID || '|' || 
+																REF_CTItem.PAN.(XMLNSC.Attribute)encrypted || '|' ||
+																Environment.SQLQuery.GENERICSTORECODE || '|' ||
+																REF_OUTTransaction.NS_dfns:BusinessDayID;
+				
+				
+				SET REF_PCard.NS_dfns:CashBackAmount													= FUNC_ConvertPennytoPound(REF_CTItem.CashbackAmount,1,2,'ROUND_HALF_UP');				
+				SET REF_PCard.NS_dfns:CashBackAmount.(XMLNSC.Attribute)currencyID						= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_oa:ID	 						= REF_CTItem.ApplicationIdentifier;
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:Cryptogram	 			= REF_CTItem.ApplicationCryptogram;
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:CryptogramTransactionType = REF_CTItem.TransactionType;
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:CryptogramInformation	 	= REF_CTItem.CryptogramInformationData;
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:VersionID	 				= REF_CTItem.ApplicationVersionNumber;			
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:InterchangeProfileID	 	= REF_CTItem.ApplicationInterchangeProfile;
+				
+				--Code comment start for version 0.6
+				--SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:UsageControlID	 		= REF_CTItem.ApplicationUsageControl.ApplicationUsageControl;
+				--Code comment end for version 0.6
+				
+				--Code change start for version 0.6
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:UsageControlID	 		= FIELDVALUE(REF_CTItem.ApplicationUsageControl);
+				--Code change end for version 0.6				
+				
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:TransactionCounter	 	= REF_CTItem.ApplicationTransactionCounter;
+				SET REF_PCard.NS_dfns:EntryDevice.NS_dfns:UnpredictableNumber	 						= REF_CTItem.UnpredictableNumber;
+				
+				
+				--Overwritten
+				SET REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID		= COALESCE(SUBSTRING(REF_CTItem.PurchaseOrderNumber FROM 1 FOR 20),'');			
+				SET REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:Description				= REF_CTItem.PurchaseOrderGeneralReference;	
+				SET REF_Payment.NS_oa:LineNumber											= REF_CTItem.LineNumber;
+				
+				--Code comment starts for version 0.4 defect #90
+				--SET REF_Payment.NS_oa:Amount												= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,1,2,'ROUND_HALF_UP');
+				SET REF_Payment.NS_oa:Amount												= FUNC_ConvertPennytoPound(REF_CTItem.TenderAmount,-1,2,'ROUND_HALF_UP');
+				--Code comment ends for version 0.4 defect #90	
+				SET REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID					= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				
+				SET REF_Payment.NS_oa:StartDateTime											= REF_CTItem.DateTimeCreated;--CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_Payment.NS_oa:EndDateTime											= REF_CTItem.DateTimeCreated;--CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				
+				IF REF_CTItem.ICC = '1' THEN
+					SET REF_Payment.NS_dfns:EntryType 									= 'SmartCard';
+					SET REF_Payment.NS_dfns:EntryType.(XMLNSC.Attribute)name 			= '';
+				ELSE
+					IF REF_CTItem.ICCFallback = '1' THEN
+						SET REF_Payment.NS_dfns:EntryType 								= 'SmartCardSwiped';
+						SET REF_Payment.NS_dfns:EntryType.(XMLNSC.Attribute)name 		= '';
+					ELSE
+						IF REF_CTItem.Swiped = '1' THEN
+							SET REF_Payment.NS_dfns:EntryType 							= 'MSR';
+							SET REF_Payment.NS_dfns:EntryType.(XMLNSC.Attribute)name 	= '';
+						ELSE
+							SET REF_Payment.NS_dfns:EntryType 							= 'Keyed';
+							SET REF_Payment.NS_dfns:EntryType.(XMLNSC.Attribute)name 	= 'Keyboard';
+						END IF;
+					END IF;
+				END IF;
+				
+				SET REF_Payment.NS_dfns:AuthorizingUserID					= REF_CTItem.AuthorisingUserID;
+				
+				IF REF_CTItem.CustomerNotPresent = '1' THEN
+					SET REF_Payment.NS_dfns:CustomerPresentIndicator 		= 'false';
+					--SET REF_Payment.NS_dfns:CustomerPresentIndicator 		= 'true';
+				ELSE
+					SET REF_Payment.NS_dfns:CustomerPresentIndicator 		= 'true';
+					--SET REF_Payment.NS_dfns:CustomerPresentIndicator 		= 'false';
+				END IF;
+				
+				SET REF_Payment.NS_oa:CostCenterID							= REF_CTItem.PurchaseOrderCostCentre;
+				
+				
+				--Code change starts for version 0.2 defect #63
+				IF COALESCE(REF_CTItem.VoidValue, '') <> '' THEN
+				
+					SET REF_Payment.NS_dfns:VoidStatus.NS_oa:Code							= 'VOID ENTRY';
+					SET REF_Payment.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime				= REF_CTItem.VoidDateTime;--CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				END IF;
+				--Code change starts for version 0.2 defect #63
+				
+				--Code comment starts for version 0.2 defect #63
+				--SET REF_Payment.NS_dfns:Status.NS_oa:EffectiveDateTime					= REF_CTItem.VoidDateTime;--CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				--Code comment starts for version 0.2 defect #63
+				
+				--Code change starts for validation
+				IF COALESCE(REF_CTItem.PurchaseOrderNumber,'') <> '' THEN
+					SET REF_OUTSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID 	= SUBSTRING(REF_CTItem.PurchaseOrderNumber FROM 1 FOR 20);
+				END IF;
+				
+			END IF;
+--		END FOR;
+			LEAVE CardTender;
+		END IF;
+			MOVE REF_CTItem NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		RETURN FALSE;
+	END;
+END MODULE;

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by Danny Citakovic (Kingfisher) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         19 Jun 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><definitions targetNamespace="http://www.kingfisher.com/Services/ProductRangingService/1.0" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/ProductRangingService/1.0" xmlns:ns="http://www.openapplications.org/oagis/9" xmlns:ns1="http://www.openapplications.org/oagis/9/IANAMIMEMediaTypes:2003" xmlns:ns2="http://www.openapplications.org/oagis/9/currencycode/54217:2001" xmlns:ns3="http://www.openapplications.org/oagis/9/languagecode/5639:1988" xmlns:ns4="http://www.openapplications.org/oagis/9/unitcode/66411:2001" xmlns:ns5="http://www.openapplications.org/oagis/9/unqualifieddatatypes/1.1" xmlns:ns6="http://www.openapplications.org/oagis/9/codelists" xmlns:ns7="http://www.openapplications.org/oagis/9/qualifieddatatypes/1.1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <documentation>
+    <appinfo source="WMQI_APPINFO">
+      <MRWSDLAppInfo imported="true">
+        <generatedXSD location="ProductRangingService_InlineSchema1.xsd"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseProductRangingJMSBinding" originalBindingStyle="document"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseProductRangingBinding" originalBindingStyle="document"/>
+      </MRWSDLAppInfo>
+    </appinfo>
+  </documentation>
+	<types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:include schemaLocation="ProductRangingService_InlineSchema1.xsd"/>
+    </xsd:schema>
+	</types>
+	<message name="SynchroniseProductRanging">
+		<part element="koa:SynchroniseProductRanging" name="Message"/>
+	</message>
+	<portType name="SynchroniseProductRangingPortType">
+		<operation name="SynchroniseProductRanging">
+			<input message="koaws:SynchroniseProductRanging"/>
+		</operation>
+	</portType>
+	<binding name="SynchroniseProductRangingBinding" type="koaws:SynchroniseProductRangingPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="SynchroniseProductRanging">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/ProductRangingService/SynchroniseProductRangingPortType/SynchroniseProductRanging/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<binding name="SynchroniseProductRangingJMSBinding" type="koaws:SynchroniseProductRangingPortType" xmlns:soapjms="http://www.w3.org/2010/soapjms/">
+		<soap:binding style="document" transport="http://www.w3.org/2010/soapjms/"/>
+		<soapjms:jndiConnectionFactoryName>kingfisher.jms.ConnectionFactory</soapjms:jndiConnectionFactoryName>
+		<soapjms:deliveryMode>PERSISTENT</soapjms:deliveryMode>
+		<operation name="SynchroniseProductRanging">
+			<soap:operation style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<service name="SynchroniseProductRanging">
+		<port binding="koaws:SynchroniseProductRangingBinding" name="SynchroniseProductRangingBinding">
+			<soap:address location="http://www.kingfisher.com/Services/SynchroniseProductRanging/1.0"/>
+		</port>
+		<port binding="koaws:SynchroniseProductRangingJMSBinding" name="SynchroniseProductRangingJMSBinding">
+			<soap:address location="jms:jndi:ConfigQueName?targetService=ProductRanging&amp;priority=8&amp;userprop=ConfigUserProp"/>
+		</port>
+	</service>
+</definitions>

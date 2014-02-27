@@ -1,0 +1,39 @@
+
+
+Importing file: Y:\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\PaymentStatusService.wsdl
+
+Copying source WSDL PaymentStatusService.wsdl to PaymentStatusService.wsdl.
+The WSDL import will proceed with bindings SynchronisePaymentStatusBinding, SynchronisePaymentStatusJMSBinding.
+Creating wsdl schema document for file:///Y:/com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentStatusService.wsdl.
+Parsing wsdl binding {http://www.kingfisher.com/Services/PaymentStatusService/1.0}SynchronisePaymentStatusJMSBinding.
+Parsing wsdl binding input SynchronisePaymentStatus.
+Parsing wsdl binding output SynchronisePaymentStatus.
+Parsing wsdl binding {http://www.kingfisher.com/Services/PaymentStatusService/1.0}SynchronisePaymentStatusBinding.
+Parsing wsdl binding input SynchronisePaymentStatus.
+Parsing wsdl binding output SynchronisePaymentStatus.
+Processing doc style for operation SynchronisePaymentStatus.
+Populating WSDL schema com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentStatusService.xsd.
+Creating file com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentStatusService.xsd in the workspace.
+Creating file /WMBCanonicals/PaymentStatusService_InlineSchema1.xsd in the workspace.
+Creating file /WMBCanonicals/SynchronisePaymentStatus.xsd in the workspace.
+Creating file /WMBCanonicals/PaymentStatus.xsd in the workspace.
+Creating file /WMBCanonicals/Components.xsd in the workspace.
+Creating file /WMBCanonicals/Meta.xsd in the workspace.
+Creating file /WMBCanonicals/Fields.xsd in the workspace.
+Creating file /WMBCanonicals/UnqualifiedDataTypes.xsd in the workspace.
+Creating file /WMBCanonicals/CodeLists.xsd in the workspace.
+Creating file /WMBCanonicals/CodeList_CurrencyCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_LanguageCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_MIMEMediaTypeCode_IANA_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_UnitCode_UNECE_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/QualifiedDataTypes.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/FinancialComponents.xsd in the workspace.
+
+Elapsed time processing this message definition file: 5.922 seconds
+Number of warnings for this message definition file: 0
+
+
+Number of files processed: 1
+
+

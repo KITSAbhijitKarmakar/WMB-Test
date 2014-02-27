@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpdatarecord" xmlns:sapasi="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:sapzbetmascpdatarecord="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpdatarecord" xmlns:sapzbetmascpz2t1wadr2000="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpz2t1wadr2000" xmlns:sapzbetmascpz2t1wadr3000="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpz2t1wadr3000" xmlns:sapzbetmascpz2t1wadrc000="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpz2t1wadrc000" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpz2t1wadrc000" schemaLocation="SapZbetmasCpZ2t1wadrc000.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpz2t1wadr2000" schemaLocation="SapZbetmasCpZ2t1wadr2000.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascpz2t1wadr3000" schemaLocation="SapZbetmasCpZ2t1wadr3000.xsd"/>
+<xsd:import namespace="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata"/>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability">
+<info:resourceAdapter version="7.0.0.0" xmlns:info="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability"/>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="commonj.connector.asi">
+<asi:annotationSet asiNSURI="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:asi="commonj.connector.asi"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:complexType name="SapZbetmasCpDataRecord">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEBusinessObjectTypeMetadata>
+</sapasi:sapALEBusinessObjectTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:sequence maxOccurs="1" minOccurs="1">
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapZbetmasCpZ2t1wadrc000" nillable="true" type="sapzbetmascpz2t1wadrc000:SapZbetmasCpZ2t1wadrc000">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>Z2T1WADRC000</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>true</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapZbetmasCpZ2t1wadr2000" nillable="true" type="sapzbetmascpz2t1wadr2000:SapZbetmasCpZ2t1wadr2000">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>Z2T1WADR2000</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapZbetmasCpZ2t1wadr3000" nillable="true" type="sapzbetmascpz2t1wadr3000:SapZbetmasCpZ2t1wadr3000">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>Z2T1WADR3000</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+
+</xsd:schema>

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/FulfilmentSite/FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub.msgflow"
+    nsPrefix="com_kingfisher_ukbq_FulfilmentSite_FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub" bundleName="com/kingfisher/ukbq/FulfilmentSite/FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub" pluginId="FulfilmentSite_synchroniseFulfilmentSite"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/FulfilmentSite_synchroniseFulfilmentSite/icons/full/obj16/FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/FulfilmentSite_synchroniseFulfilmentSite/icons/full/obj30/FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="41,224" queueName="FULFILMENTSITE.FKI.TRANSIT.WMB" messageDomainProperty="XMLNSC" validateTiming="immediate" orderMode="byQueueOrder">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_FulfilmentSite"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Retrieves the FulfilmentSite Canonical from the queue."/>
+        <longDescription xmi:type="utility:ConstantString" string="The MQInput node retrieves the FulfilmentSite Canonical from the queue used for subscription."/>
+        <nsMappingTable nsPrefix="tns" namespace="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <nsMappingTable nsPrefix="Syn" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="App" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_FulfilmentSite.transaction.Start" eventIdentity="WMB_MQInput_FulfilmentSite.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseFulfilmentSite/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseFulfilmentSite/Syn:DataArea/Syn:FulfilmentSite/App:PartyIDs/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_FulfilmentSite.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_FulfilmentSite.transaction.End" eventIdentity="WMB_MQInput_FulfilmentSite.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseFulfilmentSite/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseFulfilmentSite/Syn:DataArea/Syn:FulfilmentSite/App:PartyIDs/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_FulfilmentSite.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_FulfilmentSite.terminal.catch" eventIdentity="WMB_MQInput_FulfilmentSite.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseFulfilmentSite/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseFulfilmentSite/Syn:DataArea/Syn:FulfilmentSite/App:PartyIDs/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_FulfilmentSite.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="590,229" destinationMode="list" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="FKI_MQOutput_FulfilmentSite"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Contains the output XML that is sent to FKI via Remote QM."/>
+        <longDescription xmi:type="utility:ConstantString" string="Contains the output XML that is sent to FKI via the Remote QM using Xmit queue and Sender Receiver Channels."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="385,228" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.FulfilmentSite#FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Map_FulfilmentSite_Canonical_FKI"/>
+        <shortDescription xmi:type="utility:ConstantString" string="The FulfilmentSite Canonical is mapped to the required FKI  structure."/>
+        <longDescription xmi:type="utility:ConstantString" string="The FulfilmentSite Canonical is mapped to the required FKI  structure through the Compute node."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="246,224">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Extract SOAP Envelope"/>
+        <longDescription xmi:type="utility:ConstantString" string="Extract SOAP Envelope"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_4" location="265,291">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="57,20">
+        <body xmi:type="utility:ConstantString" string="Name        - FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub&#xA;Author      - Ipsita Sahoo&#xA;Date         - 05/04/2013&#xA;&#xA;Description&#xA;1. The MQInput node retrieves the FulfilmentSite Canonical from the queue used for subscription.&#xA;2. The SOAP envelope is extracted.&#xA;3. The FulfilmentSite Canonical is mapped to the required FKI XML structure through the Compute node.&#xA;4. The MQOutput node contains output XML is sent ot FKI via Remote QM&#xA;5. Error Handler sub-flow is used to put the message into the error queue, for any error occuring during the execution of the flow."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

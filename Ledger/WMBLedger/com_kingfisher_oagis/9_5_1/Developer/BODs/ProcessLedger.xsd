@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         15 March 2015
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../WMBOAGISCanonicals/org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../../WMBOAGISCanonicals/com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../Nouns/Ledger.xsd"/>
+	<xsd:element name="ProcessLedger" type="ProcessLedgerType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The ProcessLedger provides the ability to request an application/ system to create a Ledger</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="ProcessLedgerType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:BusinessObjectDocumentType">
+				<xsd:sequence>
+					<xsd:element name="DataArea" type="ProcessLedgerDataAreaType">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Is where the information that the BOD message carries is provided, in this case ProcessLedger. The information consists of a Verb and one or more Nouns. The verb (Process) indicates the action to be performed on the Noun (Ledger).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ProcessLedgerDataAreaType">
+		<xsd:sequence>
+			<xsd:element ref="oa:Process"/>
+			<xsd:element maxOccurs="unbounded" ref="Ledger"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

@@ -1,0 +1,4 @@
+DEFINE QLOCAL(REFRESH.TEST) +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+DESCR('QL defination to refresh cache in POSBasketRJ') +
+REPLACE

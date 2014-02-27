@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Jon Mitchell
+  Revision:    1.0
+  Date:         29 Feb 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="Components.xsd"/>
+	<xsd:complexType name="LedgerEntryHeaderType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:LedgerID"/>
+			<xsd:element minOccurs="0" ref="oa:GLEntityID"/>
+			<xsd:element minOccurs="0" ref="oa:DocumentDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:AccountingDate">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">Is the date that is used to determine the accounting period the transaction is posted within.  It is also known as the effective or post date.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="SourceDocumentReference"/>
+			<xsd:group minOccurs="0" ref="LedgerAmountGroup"/>
+			<xsd:element minOccurs="0" ref="oa:EntryCreator"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:PaymentTerm"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Organisation"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:group minOccurs="0" ref="oa:ReferencesGroup"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="LedgerEntryLineType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:GLDestinationEntityID"/>
+			<xsd:group minOccurs="0" ref="LedgerEntryContent"/>
+			<xsd:group ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="oa:ReasonCode"/>
+			<xsd:element minOccurs="0" ref="WarehouseParty"/>
+			<xsd:group ref="oa:ReferencesGroup"/>
+			<xsd:element minOccurs="0" ref="oa:TaxJurisdicationCodes"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:group name="LedgerEntryContent">
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="LedgerAmountGroup"/>
+			<xsd:element minOccurs="0" ref="oa:GLAccount"/>
+			<xsd:element minOccurs="0" ref="oa:ProjectReference"/>
+			<xsd:element minOccurs="0" ref="Item">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">A product or substance that is bought, sold, manufactured, delivered, or is somehow handled in similar business processes.  It is the identifier of a "thing".SYNONYMS 	Material 	Part 	Resource 	Stock Keeping Unit (SKU)</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:Quantity"/>
+			<xsd:element minOccurs="0" ref="oa:EnterpriseUnit"/>
+			<xsd:element minOccurs="0" ref="oa:Employee"/>
+			<xsd:element minOccurs="0" ref="oa:EntryCreator">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">Is the user enterprise-wide identifier.  It is also known as the user code.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:element name="TransactionAnalysisCode" type="oa:CodeType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Is a segmenting code used to analyze accounting transactions.  It is commonly used in project accounting applications.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="CreditBaseType">
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="oa:IDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:GLElement">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">Is the primary balancing segment of the GL Account structure.  Typically, this is the owning entity for the transaction.  A G/L entity is the smallest organizational unit for which individual financial statements must be drawn up according to relevant commercial law.  P&amp;L statements are required at this level. </xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:ApprovalStatus"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Organisation"/>
+			<xsd:group minOccurs="0" ref="oa:ReferencesGroup"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TransferPaymentType">
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="oa:IDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:RequestedExecutionDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:FirstAgentPaymentMethodCode"/>
+			<xsd:element minOccurs="0" ref="DebtorParty"/>
+			<xsd:element minOccurs="0" ref="FirstAgentParty"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="PaymentTransaction"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TransferAgreementType">
+		<xsd:sequence>
+			<xsd:choice>
+				<xsd:element minOccurs="0" ref="oa:CreditTransferType"/>
+				<xsd:element minOccurs="0" ref="oa:ProprietaryText"/>
+			</xsd:choice>
+			<xsd:element minOccurs="0" ref="oa:PriorityCode"/>
+			<xsd:element minOccurs="0" ref="SettlementPriority"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="PaymentTransaction" type="PaymentTransactionType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information to communicate the payment transaction.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="PaymentTransactionType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information to communicate the payment transaction.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="PaymentIDGroup"/>
+			<xsd:choice>
+				<xsd:element minOccurs="0" ref="oa:PaymentPurposeCode"/>
+				<xsd:element minOccurs="0" ref="oa:ProprietaryText"/>
+			</xsd:choice>
+			<xsd:choice>
+				<xsd:element minOccurs="0" ref="oa:InstructedAmount"/>
+				<xsd:element minOccurs="0" ref="oa:EquivalentAmount"/>
+			</xsd:choice>
+			<xsd:element minOccurs="0" ref="ChequeInstruction"/>
+			<xsd:element minOccurs="0" ref="OriginatorParty"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="IntermediaryFinancialParty"/>
+			<xsd:element minOccurs="0" ref="CreditorParty"/>
+			<xsd:element minOccurs="0" ref="FinalParty"/>
+			<xsd:element minOccurs="0" ref="oa:ChargeBearerCode"/>
+			<xsd:element minOccurs="0" ref="oa:ExchangeContractReference"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RegulatoryReporting"/>
+			<xsd:element minOccurs="0" ref="FinalAgentInstructions"/>
+			<xsd:element minOccurs="0" ref="FirstAgentInstruction"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RemittanceInformation"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+			<xsd:element minOccurs="0" ref="oa:RejectionStatus"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+		<xsd:attribute name="sequence" type="oa:PositiveIntegerNumericType" use="optional"/>
+	</xsd:complexType>
+	<xsd:group name="PaymentIDGroup">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Group of elements used to provide further means of identifying the payment transaction. </xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:InstructionID"/>
+			<xsd:element minOccurs="0" ref="oa:TransactionID"/>
+			<xsd:element minOccurs="0" ref="oa:RemitID"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:element name="RegulatoryReporting" type="RegulatoryReportingType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information needed due to regulatory and statutory requirements,.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="RegulatoryReportingType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information needed due to regulatory and statutory requirements.
+
+Code - Specifies the regulatory reporting code.
+
+Amount - Amount of money and currency that may need to be reported for regulatory and statutory requirements.
+
+Note - Or Information - Additional details that cater for domestic regulatory requirements.
+
+</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+			<xsd:element minOccurs="0" ref="oa:Amount"/>
+			<xsd:element minOccurs="0" ref="oa:Note"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="ChequeInstruction" type="ChequeInstructionType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information related to a cheque instruction. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="ChequeInstructionType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">PmtInf/PmtTx/ChqInstr</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ChequeNumber"/>
+			<xsd:element minOccurs="0" ref="ChequeInstructionType"/>
+			<xsd:element minOccurs="0" ref="oa:DeliveryMethodCode"/>
+			<xsd:element minOccurs="0" ref="ChequeFromParty"/>
+			<xsd:element minOccurs="0" ref="DeliverToParty"/>
+			<xsd:element minOccurs="0" ref="oa:PriorityCode"/>
+			<xsd:element minOccurs="0" ref="oa:ChequeMaturityDate"/>
+			<xsd:element minOccurs="0" ref="oa:ChequeFormsCode"/>
+			<xsd:element minOccurs="0" ref="oa:ChequeMemoFieldText"/>
+			<xsd:element minOccurs="0" ref="oa:RegionalClearingZoneID"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:ChequeInstructionCodeContentType"/>
+	</xsd:complexType>
+	<xsd:element name="FirstAgentInstruction" type="FirstAgentInstructionType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Further information related to the processing of the payment instruction, which may need to be acted upon by the first agent, depending on agreement between customer and the first agent. The instruction can relate to a level of service between the
+customer and the first agent, or can be information required by the first agent.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="FirstAgentInstructionType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">PmtInf/PmtTx/InstrForFrstAgt</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ProprietaryText"/>
+			<xsd:element minOccurs="0" ref="oa:DebitPurposeText"/>
+			<xsd:element minOccurs="0" ref="oa:RemitLocationMethodCode"/>
+			<xsd:element minOccurs="0" ref="oa:RemitLocationURI"/>
+			<xsd:element minOccurs="0" ref="oa:RemitLocationPostalAddress"/>
+			<xsd:element minOccurs="0" ref="PaymentTransactionTax"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="PaymentTransactionTax" type="PaymentTransactionTaxType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Amount of money due to government or tax authority, according to various pre-defined parameters such as thresholds or income.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="PaymentTransactionTaxType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">PmtInf/PmtTx/InstrForFrstAgt/Tax</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:CreditorTaxID"/>
+			<xsd:element minOccurs="0" ref="oa:CreditorTaxType"/>
+			<xsd:element minOccurs="0" ref="oa:DebtorTaxID"/>
+			<xsd:element minOccurs="0" ref="oa:TaxReferenceNumber"/>
+			<xsd:element minOccurs="0" ref="oa:TotalTaxableBaseAmount"/>
+			<xsd:element minOccurs="0" ref="oa:TotalTaxAmount"/>
+			<xsd:element minOccurs="0" ref="Tax"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="RemittanceInformation" type="RemittanceInformationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information supplied to enable the matching of an entry with the items that the payment is intended to settle, eg, commercial invoices in an Accounts Receivable system.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="RemittanceInformationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">PmtInf/PmtTx/RmtInf</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="oa:IDsGroup"/>
+			<xsd:choice>
+				<xsd:element minOccurs="0" ref="oa:UnstructuredRemittanceText"/>
+				<xsd:element minOccurs="0" ref="StructuredRemittanceInformation"/>
+			</xsd:choice>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="CreditorDebitorPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PayerPartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:CountryCode"/>
+					<xsd:element minOccurs="0" ref="oa:FinancialAccount"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:element name="DebtorParty" type="CreditorDebitorPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Party that owes an amount of money to the creditor. In the context of the payment model, the debtor is also the debit account owner.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CreditorParty" type="CreditorDebitorPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Party that receives an amount of money from the debtor. In the context of the payment model, the creditor is also the credit account owner.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="SettlementPriorityType">
+		<xsd:sequence>
+			<xsd:choice>
+				<xsd:element minOccurs="0" ref="PaymentScheme"/>
+				<xsd:element minOccurs="0" ref="oa:PriorityCode"/>
+			</xsd:choice>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="SettlementPriority" type="SettlementPriorityType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Indicates the priority with which or the system through which the agents in the payment chain will clear and settle the payment transaction.
+
+IST requires the PriorityCode to contain one of two values: 
+HIGH - Indicates a prioity level of high.
+NORM - Indicates a priority level of normal</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="PaymentSchemeType">
+		<xsd:sequence>
+			<xsd:choice>
+				<xsd:element minOccurs="0" ref="oa:PaymentSchemeCode"/>
+				<xsd:element minOccurs="0" ref="oa:ProprietarySchemeText"/>
+			</xsd:choice>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="PaymentScheme" type="PaymentSchemeType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Pre agreed offering between clearing agents or channel through which the payment instruction is to be processed. This payment scheme can point to a specific rulebook governing the rules of clearing and settlement between two parties.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:group name="LedgerAmountGroup">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Amount"/>
+			<xsd:element minOccurs="0" ref="oa:DebitCreditCode"/>
+			<xsd:element minOccurs="0" ref="oa:TaxBaseAmount"/>
+			<xsd:element minOccurs="0" ref="oa:FunctionalAmount"/>
+			<xsd:element minOccurs="0" ref="oa:TaxBaseFunctionalAmount"/>
+			<xsd:element minOccurs="0" ref="oa:ExchangeRate"/>
+			<xsd:element minOccurs="0" ref="oa:CurrencyExchangeRate"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:element name="SourceDocumentReference" type="oa:DocumentReferenceType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">This is the link that ties back to a sub ledger transaction entry ID.  It is the identifier of an original/ source transaction or document.  The type indicates the type of document i.e. PurchaseOrder, Invoice, Receipt, Credit Memo, Voucher etc. For example, it could be the receipt or the summarized inventory activity.  This is the singular field that refers to an audit record.  Together with the Sender information, this is part of the referencing system, which will enable drill back audit trail functionality.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="FinalAgentInstructionsType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:FinalAgentInstructionCode"/>
+			<xsd:element minOccurs="0" ref="oa:ProprietaryText"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="StructuredRemittanceInformationType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:DocumentReference"/>
+			<xsd:element minOccurs="0" ref="RemittanceReferredDocumentAmounts"/>
+			<xsd:element minOccurs="0" ref="InvoicerParty"/>
+			<xsd:element minOccurs="0" ref="InvoiceeParty"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="StructuredRemittanceInformation" type="StructuredRemittanceInformationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Information, in structured form, which is supplied to enable the matching (reconciliation) of a payment with the items that the payment is intended to settle, such as commercial invoices in an Accounts Receivable system.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="RemittanceReferredDocumentAmountType">
+		<xsd:choice>
+			<xsd:element minOccurs="0" ref="oa:DuePayableAmount"/>
+			<xsd:element minOccurs="0" ref="oa:DiscountAppliedAmount"/>
+			<xsd:element minOccurs="0" ref="oa:RemittedAmount"/>
+			<xsd:element minOccurs="0" ref="oa:CreditNoteAmount"/>
+			<xsd:element minOccurs="0" ref="oa:TaxAmount"/>
+		</xsd:choice>
+	</xsd:complexType>
+	<xsd:element name="RemittanceReferredDocumentAmounts" type="RemittanceReferredDocumentAmountType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Amount of money and currency of a document referred to in the remittance section. The amount is typically either the original amount due and payable, or the amount actually remitted
+for the referenced document.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="AlternateIDs" type="oa:SequencedIDsType"/>
+	<xsd:element name="FinalAgentInstructions" type="FinalAgentInstructionsType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Further information related to the processing of the payment instruction, provided by the initiating party, and intended for the final agent.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ChequeInstructionType" type="oa:ChequeInstructionCodeType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Code type specifing the type of Cheque Instruction.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+</xsd:schema>

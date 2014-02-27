@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:gen_com_kingfisher_ukbq_Payment_ProcessMsg_commideagateway_ProcessPayment_VGISRequest.subflow="gen/com/kingfisher/ukbq/Payment/ProcessMsg_commideagateway_ProcessPayment_VGISRequest.subflow"
+    xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Payment/ProcessPayment_VGISRequest.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Payment_ProcessPayment_VGISRequest.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.IBODS" name="IBODS" lowerBound="1" defaultValueLiteral="MBODS">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="ProcessPayment_VGISRequest" bundleName="com/kingfisher/ukbq/Payment/ProcessPayment_VGISRequest" pluginId="Payment_processPayment-VGISRequest"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_processPayment-VGISRequest/icons/full/obj16/ProcessPayment_VGISRequest.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_processPayment-VGISRequest/icons/full/obj30/ProcessPayment_VGISRequest.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="101,350" queueName="SALESORDER.PAYMENT.VGIS.WMB.TRANSIT.WMB" messageDomainProperty="XMLNSC" parserXmlnscUseForXmlnsDomain="true" transactionMode="automatic">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_ProcessPaymentVGISRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="MQ Input node"/>
+        <longDescription xmi:type="utility:ConstantString" string="MQ input node triggered by Release/Charge message on an MQ queue"/>
+        <parserXmlnscOpaqueElements elements=""/>
+        <nsMappingTable nsPrefix="tns" namespace="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <nsMappingTable nsPrefix="Pro" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="App" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_ProcessPaymentVGISRequest.transaction.Start" eventIdentity="WMB_MQInput_ProcessPaymentVGISRequest.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_ProcessPaymentVGISRequest.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_ProcessPaymentVGISRequest.transaction.End" eventIdentity="WMB_MQInput_ProcessPaymentVGISRequest.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_ProcessPaymentVGISRequest.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_ProcessPaymentVGISRequest.terminal.catch" eventIdentity="WMB_MQInput_ProcessPaymentVGISRequest.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_ProcessPaymentVGISRequest.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="259,256" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#CreateVanguardVGISRequest_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="CreateVanguardVGISRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node for VanguardRequest Structure"/>
+        <longDescription xmi:type="utility:ConstantString" string="To create the  Vannguard request structure for VGIS Request call from the input message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="375,355" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="SOAP Envelope Node"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add a SOAP envelope to the created Vanguard request for webservice call."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="570,356" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#MapVanguardVGISResponse_Compute.Main">
+        <translation xmi:type="utility:ConstantString" string="MapVanguardVGISResponse"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node for Vanguard Response Mapping"/>
+        <longDescription xmi:type="utility:ConstantString" string="To create the  Vannguard response  according to Payment xsds and transmit the message to next node to upadate ODS table."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="655,256" dataSource="MBODS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#UpdateODSWithVGISSettlementStatus_Compute.Main">
+        <translation xmi:type="utility:ConstantString" string="UpdateODSWithVGISSettlementStatus"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node to update ODS table"/>
+        <longDescription xmi:type="utility:ConstantString" string="To update the ODS table(SALES_TRANSACTIONS_TENDER) with the settlement status."/>
+      </nodes>
+      <nodes xmi:type="gen_com_kingfisher_ukbq_Payment_ProcessMsg_commideagateway_ProcessPayment_VGISRequest.subflow:FCMComposite_1" xmi:id="FCMComposite_1_10" location="462,257">
+        <translation xmi:type="utility:ConstantString" string="VanguardVGIS_SOAPRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Invokes WSDL operation and extracts the response from SOAP message."/>
+        <longDescription xmi:type="utility:ConstantString" string="This subflow invokes the WSDL operation and extracts message body from the response message."/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="289,409">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.ProcessMsgResponse" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.IBODS">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.IBODS" bundleName="com/kingfisher/ukbq/Payment/ProcessPayment_VGISRequest" pluginId="Payment_processPayment-VGISRequest"/>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard>
+      <stickyNote location="55,34">
+        <body xmi:type="utility:ConstantString" string="Name            : ProcessPayment_VGISRequest.msgflow&#xA;Author          : Asif Hossain&#xA;Date             : 10-Apr-2013&#xA;Description   :  1.ProcessPayment_VGISRequest flow will be triggerd by ProcessPayment xml from either charge/release call.&#xA;                        2. CreateVanguardReleaseRequest node will create the CommIdea/Vanguard request structure for VGIS request&#xA;                        3. CommIdea sends the response back in soap/xml format, the response xml will be parsed(MapVanguardVGISResponse) and will be stored in environment.&#xA;                        4. Input message along with the response from CommIdea(UpdateODSWithVGISSettelementStatus) &#xA;                            will be used to update the settlement status in ODS(sales_transactions_tender) table.&#xA;"/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

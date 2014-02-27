@@ -1,0 +1,120 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateVanguardVGISRequest												*
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_processPayment-VGISRequest									*
+* Message Flow 				: ProcessPayment_VGISRequest											*
+* Message Flow Description  : The primary function of this message flow is to receive input from 	*
+* 							  Charge/Release flow and create Vanguard Webservice request Structure	*
+* 							  map the into environment to update ODS with Settlement Status.		*
+* Module Name 				: UpdateODSWithVGISSettlementStatus_Compute								*
+* Description 				: The primary function of this node is to update ODS with the settlement*
+*							  status.																*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1		21-MAR-2013 	Asif Hossain 	    The initial version. 								*
+****************************************************************************************************/
+CREATE COMPUTE MODULE UpdateODSWithVGISSettlementStatus_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;
+		
+		--Reference for ProcessPayment canonical
+		DECLARE REF_EnvDataArea 		REFERENCE TO Environment.InputCanonical.NS_dfns:ProcessPayment.NS_dfns:DataArea;
+		DECLARE REF_EnvProcPayment 		REFERENCE TO REF_EnvDataArea.NS_dfns:Payment;
+		DECLARE REF_EnvProcPaymentAuth 	REFERENCE TO REF_EnvProcPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE REF_SalesOrderHeader	REFERENCE TO REF_EnvDataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader;
+		DECLARE REF_EnvResponse			REFERENCE TO Environment.Response.Success.XMLNSC;
+		
+		--Declaring variables for update statement
+		DECLARE CH_SettlementResp		CHARACTER;
+		DECLARE CH_qryStr				CHARACTER;	
+		DECLARE CH_TransactionID		CHARACTER;
+		DECLARE CH_Token				CHARACTER;
+		DECLARE CH_Settled				CHARACTER;
+		
+		SET CH_TransactionID = REF_SalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID;
+		SET CH_Token		 = REF_EnvProcPaymentAuth.NS_dfns:Token;
+		
+		--Checking if the update is for Error condition or Success condition
+		IF Environment.Variables.processMsgType = 'ERROR'  OR (LENGTH(REF_EnvResponse.NS_vgis:vgisresponse.NS_vgis:errorcode)>0 AND LENGTH(REF_EnvResponse.NS_vgis:vgisresponse.NS_vgis:errormsg)>0) THEN
+			
+			SET CH_qryStr = 'SELECT SETTLEMENTRESP FROM SALES_TRANSACTIONS_TENDER WHERE TRANSACTION_ID = '''||CH_TransactionID ||''''
+							|| ' AND TOKEN= ''' || CH_Token ||''''
+							|| '';
+			
+			SET Environment.SettleResp 	= PASSTHRU(CH_qryStr);
+			
+			IF CONTAINS(Environment.SettleResp.SETTLEMENTRESP,'VGIS RESPONSE: ERROR') THEN
+				SET CH_SettlementResp 	= Environment.SettleResp.SETTLEMENTRESP;
+			ELSE
+				SET CH_SettlementResp 	= Environment.SettleResp.SETTLEMENTRESP || ' VGIS RESPONSE: ERROR; ';
+			END IF;
+			
+			--Updating SALES_TRANSACTIONS_TENDER with the settlement status for ERROR scenario
+			SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+						|| ' ,SETTLED  = ''N''' 
+						|| ' ,LAST_SETTLEMENT_REQ_DATE  = current_timestamp'
+						|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+						|| ' AND TOKEN = ''' || CH_Token || ''''
+						|| '';
+			PASSTHRU(CH_qryStr);
+			PASSTHRU('COMMIT');
+			
+			IF LENGTH(REF_EnvResponse.NS_vgis:vgisresponse.NS_vgis:errorcode)>0 AND LENGTH(REF_EnvResponse.NS_vgis:vgisresponse.NS_vgis:errormsg)>0 THEN
+				THROW USER EXCEPTION VALUES('Error response retured by Vanguard/CommIdea with errorcode: ' || REF_EnvResponse.NS_vgis:vgisresponse.NS_vgis:errorcode || ' and errormsg: '|| REF_EnvResponse.NS_vgis:vgisresponse.NS_vgis:errormsg );
+			ELSEIF Environment.Variables.processMsgType = 'ERROR' THEN
+				THROW USER EXCEPTION VALUES('Error response retured by Vanguard/CommIdea with errorcode: '||Environment.Response.Error.XMLNSC.ERROR.CODE || ' and Message Text: ' || Environment.Response.Error.XMLNSC.ERROR.MSGTXT);
+			END IF;
+			
+			RETURN FALSE;
+		
+		ELSE
+			--Retrieve the SETTLEMENTRESP coulmn value to append the settlement response returned by CommIdea with it
+			SET CH_qryStr = 'SELECT SETTLEMENTRESP FROM SALES_TRANSACTIONS_TENDER WHERE TRANSACTION_ID = '''||CH_TransactionID ||''''
+				|| ' AND TOKEN= ''' || CH_Token ||''''
+				|| '';
+			
+			SET Environment.SettleResp = PASSTHRU(CH_qryStr);
+			
+			IF CONTAINS(Environment.SettleResp.SETTLEMENTRESP,'VGIS RESPONSE: SUCCESS')THEN
+				SET CH_SettlementResp = Environment.SettleResp.SETTLEMENTRESP;
+			ELSE
+				SET CH_SettlementResp = Environment.SettleResp.SETTLEMENTRESP || ' VGIS RESPONSE: SUCCESS';
+			END IF;
+			
+			IF REF_EnvProcPaymentAuth.VGISReferenceID = '' THEN
+				SET CH_Settled = 'N';
+			ELSE
+				SET CH_Settled = 'S';	
+			END IF;
+			
+			--Updating SALES_TRANSACTIONS_TENDER with the settlement status for success scenario
+			SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+						|| ' ,SETTLED = ''' || CH_Settled ||''''
+						|| ' ,LAST_SETTLEMENT_REQ_DATE  = current_timestamp'
+						|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+						|| ' AND TOKEN = ''' || CH_Token || ''''
+						|| '';
+			PASSTHRU(CH_qryStr);
+			PASSTHRU('COMMIT');
+			
+		END IF;	
+		RETURN TRUE;
+	END;
+
+END MODULE;

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Adeline Trouvé
+  Revision:    1.0
+  Date:         12/10/2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../WMBOAGISCanonicals/org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../../WMBOAGISCanonicals/com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../../WMBOAGISCanonicals/com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd"/>
+	<xsd:element name="Supplier" type="SuppliererPartyMasterType"/>
+	<xsd:complexType name="SuppliererPartyMasterType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyMasterBaseType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BranchSubrangeParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SalesContact"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShippingContact"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="CustomerServiceContact"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipUnitReference"/>
+					<xsd:element maxOccurs="1" minOccurs="0" name="DeliveryDuration" type="oa:DurationMeasureType"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="PurchasingParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BuyerParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Allowance"/>
+					<xsd:element minOccurs="0" ref="oa:ParentID"/>
+					<xsd:element minOccurs="0" ref="Tax"/>
+					<xsd:element minOccurs="0" ref="BlockedIndicator"/>
+					<xsd:element minOccurs="0" ref="DeletionIndicator"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+</xsd:schema>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         10 May 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/SalesOrderService/1.0" xmlns:ns="http://www.openapplications.org/oagis/9" xmlns:ns1="http://www.openapplications.org/oagis/9/IANAMIMEMediaTypes:2003" xmlns:ns2="http://www.openapplications.org/oagis/9/currencycode/54217:2001" xmlns:ns3="http://www.openapplications.org/oagis/9/languagecode/5639:1988" xmlns:ns4="http://www.openapplications.org/oagis/9/unitcode/66411:2001" xmlns:ns5="http://www.openapplications.org/oagis/9/unqualifieddatatypes/1.1" xmlns:ns6="http://www.openapplications.org/oagis/9/codelists" xmlns:ns7="http://www.openapplications.org/oagis/9/qualifieddatatypes/1.1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+            								<xsd:include schemaLocation="../../../Developer/BODs/SynchroniseSalesOrder.xsd"/>
+            <xsd:include schemaLocation="../../../Developer/BODs/ProcessSalesOrder.xsd"/>
+        </xsd:schema>

@@ -1,0 +1,39 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: GetTokenMergeResponse													*				
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_getToken 														*
+* Message Flow 				: GetToken																*
+* Message Flow Description 	: The primary function of this message flow is to receieve SOAP input	*
+*							  from the calling service and use that input to create request			*
+*   						  structure for Vanguard to exchange									* 
+* 							  offline token with the Online token and send back the response to 	*
+*							  the calling service.													*
+* Module Name 				: GetTokenMergeResponse_Compute					 						*
+* Description 				: The primary function of this Node is to create actual SOAP 			*
+*							  reply message from Environment.										*
+*																									*
+* Version 	Date Author 	  Author 				Description										*
+* ======= 	===========		  ================ 		=================== 							*
+* 0.1		11-MAR-2013 	  Asif Hossain 		    The initial version. 							*
+****************************************************************************************************/
+CREATE COMPUTE MODULE GetTokenMergeResponse_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		SET OutputRoot.XMLNSC.NS_dfns:ShowPayment.(XMLNSC.NamespaceDecl)xmlns 		= NS_dfns;
+		SET OutputRoot.XMLNSC.NS_dfns:ShowPayment.(XMLNSC.NamespaceDecl)xmlns:oa 	= NS_oa;		
+		SET OutputRoot.XMLNSC.NS_dfns:ShowPayment									= Environment.Variables.NS_dfns:ShowPayment;
+		
+		RETURN TRUE;
+	END;
+
+END MODULE;

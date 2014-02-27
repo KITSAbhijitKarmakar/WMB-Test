@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmPublication.msgnode="ComIbmPublication.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Product/Product_notifyProduct_SAP_Pub.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Product_Product_notifyProduct_SAP_Pub.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="Product_notifyProduct_SAP_Pub" bundleName="com/kingfisher/ukbq/Product/Product_notifyProduct_SAP_Pub" pluginId="Product_notifyProduct_v1.1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Product_notifyProduct_v1.1/icons/full/obj16/Product_notifyProduct_SAP_Pub.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Product_notifyProduct_v1.1/icons/full/obj30/Product_notifyProduct_SAP_Pub.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="123,243" queueName="ZARTMASCP.SAP.INBOUND.WMB" messageDomainProperty="DataObject" messageTypeProperty="{http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp}:SapZartmasCp" messageFormatProperty="SAP ALE IDoc" validateTiming="immediate" orderMode="byQueueOrder" validateMaster="contentAndValue">
+        <translation xmi:type="utility:ConstantString" string="SAP_MQInput_Product"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Receives data from SAP and start the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="The MQInput node receives the ZARTMAS_CP IDOC in the form of Data Object from SAP Generic Inbound Flow."/>
+        <nsMappingTable nsPrefix="sap" namespace="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="SAP_MQInput_Product.transaction.Start" eventIdentity="SAP_MQInput_Product.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZartmasCp/SapZartmasCpIDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZartmasCp/SapZartmasCpIDocBO/SapZartmasCpDataRecord/SapZartmasCpZ2mara001/MATNR" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_Product.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="SAP_MQInput_Product.transaction.End" eventIdentity="SAP_MQInput_Product.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZartmasCp/SapZartmasCpIDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZartmasCp/SapZartmasCpIDocBO/SapZartmasCpDataRecord/SapZartmasCpZ2mara001/MATNR" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_Product.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="SAP_MQInput_Product.terminal.catch" eventIdentity="SAP_MQInput_Product.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZartmasCp/SapZartmasCpIDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZartmasCp/SapZartmasCpIDocBO/SapZartmasCpDataRecord/SapZartmasCpZ2mara001/MATNR" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_Product.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="279,243" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Product#Product_notifyProduct_SAP_Pub_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Product_NotifyMapping_Compute"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Convert to canonical and publish the message to a topic"/>
+        <longDescription xmi:type="utility:ConstantString" string="The IDOC is mapped into the Product canonical and set for Publication on the Topic information retrieved from MBTOPICS table of MBREPOS database through this Compute node"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPublication.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="614,248">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQPub_Product"/>
+        <shortDescription xmi:type="utility:ConstantString" string="The Product Canonical is published for subscription."/>
+        <longDescription xmi:type="utility:ConstantString" string="The Product Canonical is published for subscription with the retrieved Topic through the Publication node."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="475,244" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Creates a SOAP Envelope "/>
+        <longDescription xmi:type="utility:ConstantString" string="Creates a SOAP Envelope "/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_4" location="327,311">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="144,50">
+        <body xmi:type="utility:ConstantString" string="Name    :  Product_notifyProduct_SAP_Pub&#xA;Author  : Ipsita Sahoo&#xA;Date     : 26/03/2013   &#xA;&#xA;Description:&#xA;1. Receive the ZARTMAS_CP IDOC from the queue into which SAP generic Inbound flow puts the message&#xA;2. Transform the SAP IDOC into Product canonical&#xA;3. Add a SOAP envelope&#xA;4. Publish the message on to a specified topic."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

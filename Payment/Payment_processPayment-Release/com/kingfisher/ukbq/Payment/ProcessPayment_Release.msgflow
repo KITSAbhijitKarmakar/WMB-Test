@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow"
+    xmlns:gen_com_kingfisher_ukbq_Payment_CommIdeaGatewayProcessPaymentRelease.subflow="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentRelease.subflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Payment/ProcessPayment_Release.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Payment_ProcessPayment_Release.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.DSN" name="DSN" lowerBound="1" defaultValueLiteral="MBODS">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="ProcessPayment_Release" bundleName="com/kingfisher/ukbq/Payment/ProcessPayment_Release" pluginId="Payment_processPayment-Release"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_processPayment-Release/icons/full/obj16/ProcessPayment_Release.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_processPayment-Release/icons/full/obj30/ProcessPayment_Release.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="46,364" queueName="SALESORDER.PAYMENT.RELEASE.WMB.TRANSIT.WMB" messageDomainProperty="XMLNSC" transactionMode="automatic">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_ProcessPaymentRelease"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_MQInput_ProcessPaymentRelease Node"/>
+        <longDescription xmi:type="utility:ConstantString" string="ProcessPayment_Release flow will be triggerd by ProcessPayment xml from Orchestrator flow."/>
+        <nsMappingTable nsPrefix="tns" namespace="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <nsMappingTable nsPrefix="Pro" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="App" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_ProcessPaymentRelease.transaction.Start" eventIdentity="WMB_MQInput_ProcessPaymentRelease.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_ProcessPaymentRelease.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_ProcessPaymentRelease.transaction.End" eventIdentity="WMB_MQInput_ProcessPaymentRelease.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_ProcessPaymentRelease.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_ProcessPaymentRelease.terminal.catch" eventIdentity="WMB_MQInput_ProcessPaymentRelease.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Pro:ProcessPayment/Pro:DataArea/Pro:SalesOrder/Pro:SalesOrderHeader/Pro:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_ProcessPaymentRelease.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Pro" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="767,232" queueName="SALESORDER.PAYMENT.VGIS.WMB.OUTBOUND.WMB">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_VGISRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_MQOutput_VGISRequest Node"/>
+        <longDescription xmi:type="utility:ConstantString" string="Contains the message for VGIS call to Vanguard."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_14" location="277,356" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#CreateVanguardReleaseRequest_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="CreateVanguardReleaseRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node for VanguardRequest Structure"/>
+        <longDescription xmi:type="utility:ConstantString" string="To create the  Vannguard request structure for 'Release' call from the input canonical"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_15" location="396,232" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="SOAP Envelope Node"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add a SOAP envelope to the created Vanguard request for webservice call."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_18" location="562,227" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#MapVanguardReleaseResponse_Compute.Main">
+        <translation xmi:type="utility:ConstantString" string="MapVanguardReleaseResponse"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node for Vanguard Response Mapping"/>
+        <longDescription xmi:type="utility:ConstantString" string="To create the  Vannguard response  according to Payment xsds and transmit the message to next node to upadate ODS table."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_19" location="645,358" dataSource="MBODS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#UpdateODSWithReleaseSettlementStatus_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="UpdateODSWithReleaseSettlementStatus"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node to update ODS table"/>
+        <longDescription xmi:type="utility:ConstantString" string="To update the ODS table (SALES_TRANSACTIONS_TENDER) with the settlement status and propagate the incoming reponse message to MQ output node."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="206,250">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node will extract SOAP header from input message."/>
+        <longDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node will extract SOAP header from input message."/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_1" location="228,444">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <nodes xmi:type="gen_com_kingfisher_ukbq_Payment_CommIdeaGatewayProcessPaymentRelease.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="437,382">
+        <translation xmi:type="utility:ConstantString" string="CommIdeaGatewayProcessPaymentRelease"/>
+        <shortDescription xmi:type="utility:ConstantString" string="CommIdeaGatewayProcessPaymentRelease subflow will be called for the 'Release' call from Verifone."/>
+        <longDescription xmi:type="utility:ConstantString" string="CommIdeaGatewayProcessPaymentRelease subflow will be called for the 'Release' call from Verifone."/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_13" sourceNode="FCMComposite_1_19" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_15" sourceNode="FCMComposite_1_14" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_19" sourceNode="FCMComposite_1_18" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_14" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_15" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_18" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.ProcessMsgResponse" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.DSN">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.DSN" bundleName="com/kingfisher/ukbq/Payment/ProcessPayment_Release" pluginId="Payment_processPayment-Release"/>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard>
+      <stickyNote location="74,30">
+        <body xmi:type="utility:ConstantString" string="Name            : ProcessPayment_Release.msgflow&#xA;Author          : Asif Hossain&#xA;Date             : 10-Apr-2013&#xA;&#xA;Description   :  1. ProcessPayment_Release flow will be triggerd by ProcessPayment xml from Orchestrator flow.&#xA;                        2. ExtractSOAPEnvelope Node will extract SOAP header from input message.&#xA;                        3. CreateVanguardReleaseRequest Node will create the CommIdea/Vanguard request structure for 'Release' call.&#xA;                        4. CommIdea sends the response back in soap/xml format, the response xml will be parsed (MapVanguardReleaseResponse) to store it in environment.&#xA;                        5. Input message along with the response from CommIdea (UpdateODSWithReleaseSettelementStatus) is be used to update the settlement status in ODS &#xA;                           (SALES_TRANSACTIONS_TENDER) table and creates the input message for VGIS call."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

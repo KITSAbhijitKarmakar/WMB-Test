@@ -1,0 +1,81 @@
+
+
+Importing file: D:\Ipsita\WMB & WMQ\KITSSOAMASTER26062013\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\SalesOrderService.wsdl
+
+Copying source WSDL SalesOrderService.wsdl to SalesOrderService.wsdl.
+
+The following is a list of WS-I warning messages found when importing:
+WS-I BP 1.1: (BP2404) The transport attribute's value must be http://schemas.xmlsoap.org/soap/http., Line: 85, Column: 3
+WS-I BP 1.1: (BP2404) The transport attribute's value must be http://schemas.xmlsoap.org/soap/http., Line: 147, Column: 3
+
+
+The WSDL import will proceed with bindings RequestSalesOrderBinding, RequestSalesOrderJMSBinding, ResponseSalesOrderBinding, ResponseSalesOrderJMSBinding, SalesOrderBinding, SynchroniseSalesOrderBinding, SynchroniseSalesOrderJMSBinding.
+Creating wsdl schema document for file:///D:/Ipsita/WMB & WMQ/KITSSOAMASTER26062013/com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/SalesOrderService.wsdl.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}SynchroniseSalesOrderBinding.
+Parsing wsdl binding input SynchroniseSalesOrder.
+Parsing wsdl binding output SynchroniseSalesOrder.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}SynchroniseSalesOrderJMSBinding.
+Parsing wsdl binding input SynchroniseSalesOrder.
+Parsing wsdl binding output SynchroniseSalesOrder.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}ResponseSalesOrderJMSBinding.
+Parsing wsdl binding input RespondSalesOrder.
+Parsing wsdl binding output RespondSalesOrder.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}RequestSalesOrderBinding.
+Parsing wsdl binding input ChangeSalesOrder.
+Parsing wsdl binding output ChangeSalesOrder.
+Parsing wsdl binding input ProcessSalesOrder.
+Parsing wsdl binding output ProcessSalesOrder.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}RequestSalesOrderJMSBinding.
+Parsing wsdl binding input ChangeSalesOrder.
+Parsing wsdl binding output ChangeSalesOrder.
+Parsing wsdl binding input ProcessSalesOrder.
+Parsing wsdl binding output ProcessSalesOrder.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}SalesOrderBinding.
+Parsing wsdl binding input GetSalesOrder.
+Parsing wsdl binding output GetSalesOrder.
+Parsing wsdl binding fault GetSalesOrderFaultData.
+Parsing wsdl binding input ChangeSalesOrder.
+Parsing wsdl binding output ChangeSalesOrder.
+Parsing wsdl binding fault ChangeSalesOrderFaultData.
+Parsing wsdl binding {http://www.kingfisher.com/Services/SalesOrderService/1.0}ResponseSalesOrderBinding.
+Parsing wsdl binding input RespondSalesOrder.
+Parsing wsdl binding output RespondSalesOrder.
+Processing doc style for operation SynchroniseSalesOrder.
+Processing doc style for operation RespondSalesOrder.
+Processing doc style for operation ChangeSalesOrder.
+Processing doc style for operation ProcessSalesOrder.
+Processing doc style for operation GetSalesOrder.
+Processing doc style for operation ChangeSalesOrder.
+Populating WSDL schema com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/SalesOrderService.xsd.
+Creating file com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/SalesOrderService.xsd in the workspace.
+Creating file /WMBSalesOrder/SalesOrderService_InlineSchema1.xsd in the workspace.
+Creating file /WMBSalesOrder/SynchroniseSalesOrder.xsd in the workspace.
+Creating file /WMBSalesOrder/SalesOrder.xsd in the workspace.
+Creating file /WMBSalesOrder/Components.xsd in the workspace.
+Creating file /WMBSalesOrder/Meta.xsd in the workspace.
+Creating file /WMBSalesOrder/Fields.xsd in the workspace.
+Creating file /WMBSalesOrder/UnqualifiedDataTypes.xsd in the workspace.
+Creating file /WMBSalesOrder/CodeLists.xsd in the workspace.
+Creating file /WMBSalesOrder/CodeList_CurrencyCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_LanguageCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_MIMEMediaTypeCode_IANA_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_UnitCode_UNECE_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/QualifiedDataTypes.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/LogisticsComponents.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ProcessSalesOrder.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/GetSalesOrder.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ShowSalesOrder.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ChangeSalesOrder.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/RespondSalesOrder.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/FaultData.xsd in the workspace.
+
+Elapsed time processing this message definition file: 13.59 seconds
+Number of warnings for this message definition file: 0
+
+
+Number of files processed: 1
+
+

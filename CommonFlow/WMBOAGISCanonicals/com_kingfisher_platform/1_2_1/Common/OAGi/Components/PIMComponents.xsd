@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         11 Nov 2011
+  Copyright 2011, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ccts="urn:un:unece:uncefact:documentation:1.1" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="Components.xsd"/>
+	<xsd:element name="Attribute" type="AttributeType">
+		<xsd:annotation>
+			<xsd:documentation>This entity supports the need to control the information that should be captured for a particular product when it is assigned to a hierarchy.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Content" type="ContentType">
+		<xsd:annotation>
+			<xsd:documentation>This entity enables content to be assigned to a particular point in the hierarchy.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ConversionFactor" type="oa:QuantityType"/>
+	<xsd:element name="DiscountIndicator" type="ProductIndicatorType"/>
+	<xsd:element name="ItemSupplier" type="ItemSupplierType"/>
+	<xsd:element name="MerchandisingHierarchy" type="HierarchyType"/>
+	<xsd:element name="NavigableIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="PrimaryIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="PrimaryItemID" type="oa:IdentifierType"/>
+	<xsd:element name="ProductAssociation" type="ProductAssociationType">
+		<xsd:annotation>
+			<xsd:documentation>This entity provides the ability to link products together for various purposes.  These include:
+- regional variants, where each product is linked to an overarching product but have their own fulfilment constraints understood
+- product (multi sku) variants
+- Replacement products, where a new product has replaced an old
+- Forced cross sell </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductBrandChannelExclusion" type="BrandChannelType">
+		<xsd:annotation>
+			<xsd:documentation>This entity enables a product to be excluded from a particular brand and channel to support the need to temporarily remove it from the selling channel.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductBrandPriceComparisonBasis" type="ProductBrandPriceComparisonBasisType">
+		<xsd:annotation>
+			<xsd:documentation>This entity resolves the need to vary the basis for comparison across brands.  </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductFeature" type="ProductFeatureType">
+		<xsd:annotation>
+			<xsd:documentation>This entity allows key features for a product to be stated which are independent of the technical information.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductHierarchy" type="HierarchyType">
+		<xsd:annotation>
+			<xsd:documentation>This entity allows hierarchies to be defined for as many tiers as the business requires.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductItem" type="ProductItemType"/>
+	<xsd:element name="ProductNonDeliveryRegion" type="RegionType">
+		<xsd:annotation>
+			<xsd:documentation>This entity provides the ability to identify the regions (of post codes) to which a product cannot be delivered. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductSellingBrand" type="BrandType">
+		<xsd:annotation>
+			<xsd:documentation>This entity allows a products brand to be understood.
+</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductSellingQuantity" type="oa:QuantityType"/>
+	<xsd:element name="ProductSellingStatus" type="oa:StatusType">
+		<xsd:annotation>
+			<xsd:documentation>This entity enables a set of status and reason codes to be used to control availability of products for selling.  It supports the need to work on the enrichment of the product and subsequent publication</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductSetItem">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:group minOccurs="0" ref="oa:ItemIDsGroup"/>
+				<xsd:element minOccurs="0" ref="oa:UOMCode"/>
+				<xsd:element minOccurs="0" ref="oa:Quantity"/>
+			</xsd:sequence>
+			<xsd:attribute name="id" type="oa:NormalizedStringType"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ProductSetItems" type="ProductSetItemsType">
+		<xsd:annotation>
+			<xsd:documentation>This entity supports the need to have BOM sets where a table and chairs need to be grouped together</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ProductTechnicalInformation" type="ProductTechnicalInformationType">
+		<xsd:annotation>
+			<xsd:documentation>This entity allows the individual features/attributes for a product to be specified in addition to controlling the ability to disinherit an attribute value from the hierarchy.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Region" type="RegionType"/>
+	<xsd:element name="SellingHierarchy" type="SellingHierarchyType"/>
+	<xsd:element name="SellingRestriction" type="SellingRestrictionType">
+		<xsd:annotation>
+			<xsd:documentation>This entity enables individual purchase restrictions to be applied to a product</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="SellingStatus" type="oa:StatusType">
+		<xsd:annotation>
+			<xsd:documentation>This entity enables a set of status and reason codes to be used to control availability of products for selling.  It supports the need to work on the enrichment of the product and subsequent publication</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="SellingType" type="oa:CodeType"/>
+	<xsd:element name="Size" type="SizeType"/>
+	<xsd:element name="TechnicalType" type="oa:CodeType"/>
+	<xsd:element name="TradeStatus" type="TradeStatusType"/>
+	<xsd:element name="UOMPackage" type="UOMPackageType"/>
+	<xsd:element name="Value" type="ValueType"/>
+	<xsd:complexType name="AttributeType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:MandatoryIndicator"/>
+			<xsd:element minOccurs="0" ref="NavigableIndicator"/>
+			<xsd:element minOccurs="0" ref="SellingType"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Value"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ContentType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:OpenAttachmentType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:Sequence"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="HierarchyType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ParentID"/>
+			<xsd:element minOccurs="0" ref="oa:Name"/>
+			<xsd:element minOccurs="0" name="Codes" type="oa:SequencedCodesType"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="oa:CreationDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:TimePeriod"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="LongDescription"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BrandChannel"/>
+			<xsd:element minOccurs="0" ref="Template"/>
+			<xsd:element minOccurs="0" ref="Attribute"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ItemSupplierType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:SupplierItemID"/>
+			<xsd:element minOccurs="0" ref="oa:UOMCode"/>
+			<xsd:element minOccurs="0" ref="SupplierParty"/>
+			<xsd:element minOccurs="0" ref="oa:EffectiveTimePeriod"/>
+			<xsd:element minOccurs="0" ref="PrimaryIndicator"/>
+			<xsd:element minOccurs="0" ref="MinimumValueRequiredIndicator"/>
+			<xsd:element minOccurs="0" ref="CostPrice"/>
+			<xsd:element minOccurs="0" ref="ReturnPolicyCode"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ProductAssociationType">
+		<xsd:sequence>
+			<xsd:group maxOccurs="unbounded" minOccurs="0" ref="oa:ItemIDsGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="UOMPackage"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+			<xsd:element minOccurs="0" ref="oa:Indicator"/>
+			<xsd:element minOccurs="0" ref="oa:Quantity"/>
+		</xsd:sequence>
+		<xsd:attribute name="id" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="ProductBrandPriceComparisonBasisType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+			<xsd:element minOccurs="0" ref="Brand"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ProductFeatureType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:Text"/>
+			<xsd:element minOccurs="0" ref="oa:LanguageCode"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ProductItemType">
+		<xsd:sequence>
+			<xsd:group maxOccurs="unbounded" minOccurs="0" ref="oa:ItemIDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:UOMCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ParentItemID"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Packaging"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Dimensions"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Size"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Name">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/oagis/9">Is the name of the Product.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="oa:ItemStatus"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="PriceComparisonBasisCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="DiscountIndicator"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductIndicator"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Tax"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SellingRestriction">
+				<xsd:annotation>
+					<xsd:documentation>This entity enables individual selling restrictions to be applied to a product</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="HazardousMaterial"/>
+			<xsd:element minOccurs="0" ref="VOCGLevelCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" name="HierarchyID">
+				<xsd:annotation>
+					<xsd:documentation>ID of the Product Hierarchy to which the Product belongs</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:complexContent>
+						<xsd:extension base="oa:IdentifierType">
+							<xsd:attribute name="primaryIndicator" type="oa:IndicatorType"/>
+						</xsd:extension>
+					</xsd:complexContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductAssociation"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="UOMPackage"/>
+			<xsd:element minOccurs="0" ref="ShippingGroupCategoryCode"/>
+			<xsd:element minOccurs="0" ref="ProductSellingBrand"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductTechnicalInformation"/>
+			<xsd:element minOccurs="0" ref="MerchandisingHierarchy"/>
+			<xsd:element minOccurs="0" ref="oa:ShelfLifeDuration"/>
+			<xsd:element minOccurs="0" ref="ShelfLifeExpirationDateTime"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ItemSupplier"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RecommendationGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ShippingInstructions"/>
+			<xsd:element minOccurs="0" ref="ItemColour"/>
+			<xsd:element minOccurs="0" ref="oa:TransportationMethodCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="StockStatus"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ProductSellingExclusionType">
+		<xsd:sequence/>
+	</xsd:complexType>
+	<xsd:complexType name="ProductSetItemsType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductSetItem"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:StringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="ProductTechnicalInformationType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Sequence"/>
+			<xsd:element minOccurs="0" ref="oa:Description"/>
+			<xsd:element minOccurs="0" ref="oa:NameValue"/>
+			<xsd:element minOccurs="0" name="InheritAttributeValueIndicator" type="oa:IndicatorType"/>
+			<xsd:element minOccurs="0" ref="TechnicalType"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="RegionType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:Name"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SellingHierarchyType">
+		<xsd:complexContent>
+			<xsd:extension base="HierarchyType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Content"/>
+					<xsd:element minOccurs="0" name="SellingStatus" type="oa:StatusType"/>
+				</xsd:sequence>
+				<xsd:attribute name="rootindicator" type="xsd:boolean"/>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="SellingRestrictionType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+			<xsd:element minOccurs="0" ref="oa:Name"/>
+			<xsd:element minOccurs="0" ref="oa:CountryCode"/>
+			<xsd:element minOccurs="0" ref="oa:Description"/>
+			<xsd:element minOccurs="0" ref="Region"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SizeType">
+		<xsd:simpleContent>
+			<xsd:extension base="oa:StringType">
+				<xsd:attribute name="unitCode" type="oa:StringType"/>
+				<xsd:attribute name="type" type="oa:StringType"/>
+			</xsd:extension>
+		</xsd:simpleContent>
+	</xsd:complexType>
+	<xsd:complexType name="UOMPackageType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:UOMCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:UPCID">
+				<xsd:annotation>
+					<xsd:documentation>Scheme name could be used to identify the Main UPCID against the schemeName attribute</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:UnitPackaging"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ConversionFactor">
+				<xsd:annotation>
+					<xsd:documentation>This is the conversion value against the base UOM package and the type attribute could be NUMERATOR and DENOMINATOR</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="BaseUOMIndicator"/>
+			<xsd:element minOccurs="0" ref="DeliveryIssueUOMIndicator"/>
+			<xsd:element minOccurs="0" ref="OrderingUOMIndicator"/>
+			<xsd:element minOccurs="0" ref="SellingUOMIndicator"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ValueType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:NameValue"/>
+			<xsd:element minOccurs="0" ref="oa:Sequence"/>
+			<xsd:element minOccurs="0" ref="oa:Description"/>
+			<xsd:element minOccurs="0" name="ConstrainedValueIndicator" type="oa:IndicatorType"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TradeStatusType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" ref="oa:Code"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TemplateType">
+		<xsd:simpleContent>
+			<xsd:extension base="oa:StringType">
+				<xsd:attribute name="type" type="oa:StringType"/>
+			</xsd:extension>
+		</xsd:simpleContent>
+	</xsd:complexType>
+	<xsd:element name="Template" type="TemplateType"/>
+	<xsd:element name="RecommendationGroup" type="oa:CodeType"/>
+	<xsd:complexType name="ProductRequirementBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:HeaderType">
+				<xsd:sequence>
+					<xsd:element ref="ProductItem"/>
+					<xsd:element minOccurs="0" ref="oa:RequiredQuantity">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The required quantity of items</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="RequiredQuantityAvailableDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:RequiredDateTime">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The timestamp that the item is required.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="SalesOrderReference"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:element name="ItemColour" type="oa:StringType"/>
+	<xsd:element name="StockLevelCode" type="oa:CodeType"/>
+	<xsd:element name="StockStatus" type="oa:StatusType"/>
+	<xsd:element name="MinimumValueRequiredIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="ItemSalesOrganisation" type="ItemSalesOrganisationType"/>
+	<xsd:complexType name="ItemSalesOrganisationType">
+		<xsd:complexContent>
+			<xsd:extension base="SalesOrganisationType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:GroupID"/>
+					<xsd:element minOccurs="0" ref="oa:EffectiveTimePeriod"/>
+					<xsd:element minOccurs="0" ref="WEEECategoryCode"/>
+					<xsd:element minOccurs="0" ref="WEEESubCategoryCode"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:element name="WEEECategoryCode" type="oa:CodeType"/>
+	<xsd:element name="WEEESubCategoryCode" type="oa:CodeType"/>
+	<xsd:element name="BusinesPolicyCodes" type="oa:SequencedCodesType"/>
+	<xsd:element name="BaseUOMIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="DeliveryIssueUOMIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="OrderingUOMIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="SellingUOMIndicator" type="oa:IndicatorType"/>
+</xsd:schema>

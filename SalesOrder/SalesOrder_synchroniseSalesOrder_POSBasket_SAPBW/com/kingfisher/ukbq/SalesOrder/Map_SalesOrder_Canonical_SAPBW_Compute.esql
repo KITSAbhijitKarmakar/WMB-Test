@@ -1,0 +1,823 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+DECLARE NS_ns NAMESPACE 'http://www.ukbq.kingfisher.com/SAPR3/sapzabapssrfcinterface';
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				: Map_SalesOrder_Canonical_SAPBW													* 
+* Interface Id 				:  																					*
+* Interface Name 			: SalesOrder_synchroniseSalesOrder_POSBasket										*
+* Message Flow 				: SalesOrder_synchroniseSalesOrder_SAPBW_Sub										*
+* Message Flow Description  : This flow will retrieve the SynchroniseSalesOrder         						*
+*  							  canonical from the queue used for subscription and map it to the 					*
+*							  Zabap_ss_rfc_interface interface in the form of Data Object to SAP Generic 		*
+*							  Outbound Flow, update ODS tables or both according to config value retrieved from *
+* 							  MBCONFIG table for canval  'BWDataDestination'.				                    *
+* Module Name 				: Map_SalesOrder_Canonical_ODS_Compute												*
+* Description 				: Map SynchroniseSalesOrder canonical to the Zabap_ss_rfc_interface interface in	*
+*							  the form of Data Object to SAP Generic Outbound Flow.								*																												
+*																												*
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	==================== 									*
+* 0.1	  	09-Apr-2013   	Subir Bhaumik				The initial version. 									*
+* 0.2	  	18-Jun-2013   	Subir Bhaumik				Updated the code to populate PriceType irrespective of  *
+*														the existence of PriceType in POSBasket xml. Defect #66.*
+* 0.3	  	19-Jun-2013   	Subir Bhaumik				Updated the code to populate Customer Type, Trade Card  *
+*														Number, PO Number. Defect #71, #72, #73.				*
+* 0.4		01-Jul-2013   	Subir Bhaumik				Updated the code for version 0.4  						*
+* 0.5		08-Jul-2013   	Subir Bhaumik				Updated the code for version 0.5  						*
+* 0.6		19-Sep-2013   	Subir Bhaumik				Fixe for incident #INC0114435  							*
+****************************************************************************************************************/
+DECLARE IBODS		EXTERNAL NAME 'MBODS';
+
+CREATE COMPUTE MODULE Map_SalesOrder_Canonical_SAPBW_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Calling Procedure  PROC_SynchroniseSOBW()
+		CALL PROC_SynchroniseSOBW();
+		
+		RETURN TRUE;
+	END;
+		
+	DECLARE CH_PriceType CHARACTER;
+	DECLARE BL_WriteFlag 				BOOLEAN;
+	DECLARE CH_ExceptionType 			CHARACTER '';
+	DECLARE CH_ExceptionValue 			CHARACTER '';
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_SynchroniseSOBW									 	 			*
+	* Input Parameters	: None																 	*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure maps the data retrieved from 							*
+	*					  SynchroniseSalesOrder canonical to Zabap_ss_rfc_interface interface	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_SynchroniseSOBW() BEGIN
+		
+		--Declaring input references
+		DECLARE REF_In						REFERENCE TO InputRoot.XMLNSC;
+		DECLARE REF_SynchroniseSalesOrder	REFERENCE TO REF_In.NS_Dfns:SynchroniseSalesOrder;
+		DECLARE REF_SalesOrder 				REFERENCE TO REF_SynchroniseSalesOrder.NS_Dfns:DataArea.NS_Dfns:SalesOrder;
+		DECLARE REF_SOSalesTrans 			REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderHeader.NS_Dfns:SalesTransaction;
+		DECLARE REF_SOHeader 				REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderHeader;
+		DECLARE REF_SOLines 				REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		DECLARE REF_SOLinesEx 				REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		DECLARE REF_Allowance 				REFERENCE TO REF_SOLines.NS_Dfns:Allowance;
+		
+		--Declaring output references
+		DECLARE REF_SapZabapSsRfc 			REFERENCE TO OutputRoot.DataObject.NS_ns:SapZabapSsRfcInterface;
+		DECLARE REF_SAPHeader 				REFERENCE TO REF_SapZabapSsRfc.SapPITHeaders;
+		DECLARE REF_SAPLines 				REFERENCE TO REF_SapZabapSsRfc.SapPITLines;
+		DECLARE REF_SAPPriceMod 			REFERENCE TO REF_SapZabapSsRfc.SapPITPriceModifications;
+		DECLARE REF_SAPTaxes 				REFERENCE TO REF_SapZabapSsRfc.SapPITTaxes;
+		DECLARE REF_SAPTenders 				REFERENCE TO REF_SapZabapSsRfc.SapPITTenders;
+		DECLARE REF_Payment 				REFERENCE TO REF_SOHeader.NS_Dfns:Payment;
+		DECLARE REF_SAPTendersDup 			REFERENCE TO REF_SapZabapSsRfc.SapPITTenders;
+		
+		--Delaring variables
+		DECLARE CH_spaceField      			CHARACTER ' ';
+		DECLARE CH_ItemCode 				CHARACTER;
+		DECLARE CH_VoidStatCode 			CHARACTER;
+		DECLARE INT_LineNumber 				INTEGER 0;
+		DECLARE BOOL_StoreCoupon 			BOOLEAN false;
+		DECLARE DC_BdStCAmount 				DECIMAL 0;
+		DECLARE BOOL_FoundTradeDisc 		BOOLEAN false;
+		DECLARE BOOL_Trade 					BOOLEAN false;
+		DECLARE CH_TempPMId 				CHARACTER '';
+		DECLARE INT_Index 					INTEGER 0;
+		DECLARE CH_CardNumber 				CHARACTER;
+		DECLARE CH_DiscCardType 			CHARACTER;
+		DECLARE CH_TradeCardNo				CHARACTER;
+		
+		--Creating output fields
+		CREATE FIELD OutputRoot.DataObject.NS_ns:SapZabapSsRfcInterface AS REF_SapZabapSsRfc;
+		CREATE FIELD REF_SapZabapSsRfc.SapPITHeaders AS REF_SAPHeader;
+		
+		IF EXISTS(REF_SalesOrder.NS_Dfns:SalesOrderLine[]) THEN
+			X : WHILE LASTMOVE(REF_SOLines) DO
+				
+			 	IF CONTAINS(REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code, 'VOID') AND CONTAINS(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type, 'RETURN') THEN
+					--Code change starts for version 0.4
+					SET INT_LineNumber 					= INT_LineNumber + 1;
+					--Code change ends for version 0.4
+					MOVE REF_SOLines NEXTSIBLING REPEAT TYPE NAME;
+					ITERATE X;
+				END IF;
+				CREATE LASTCHILD OF REF_SapZabapSsRfc AS REF_SAPLines NAME 'SapPITLines';
+				
+				--Calling procedure PROC_CreateExceptionTypeValue()
+				
+				IF REF_SOLines.NS_oa:Description = 'Item' OR REF_SOLines.NS_oa:Description = 'NoSale' THEN
+			 		CALL PROC_CreateExceptionTypeValue(REF_SOLinesEx, REF_SOHeader, REF_SOLines, REF_SAPLines);
+				END IF;
+				
+			  	SET CH_ItemCode 	= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UPCID;
+			  	SET CH_ItemCode 	= TRIM(LEADING '0' FROM CH_ItemCode);
+			  	IF CH_ItemCode = '215' THEN
+			  		MOVE REF_SOLines NEXTSIBLING REPEAT TYPE NAME;
+			  		ITERATE X;
+			  	END IF;
+			  	
+			  	IF REF_SOLines.NS_oa:Description = 'Item' OR REF_SOLines.NS_oa:Description = 'Other' THEN --is Sale / Return?
+			  		
+			  		--Calling Procedure  PROC_LineItem_RFC()
+			  		CALL PROC_LineItem_RFC(REF_SOHeader,REF_SOLines, REF_SAPLines);			  		
+				  	SET REF_SAPLines.TRANSACTION_ID 	= REF_SOSalesTrans.NS_oa:ID;
+				  	SET REF_SAPLines.SOURCE_SYSTEM 		= REF_SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+				  	SET REF_SAPLines.STORE_CODE 		= FIELDVALUE(REF_SOHeader.NS_oa:SourceID);
+				  	SET REF_SAPLines.LINE_NUMBER 		= CAST(INT_LineNumber AS CHARACTER);
+				  	SET INT_LineNumber 					= INT_LineNumber + 1;
+				  	IF COALESCE(REF_SOSalesTrans.NS_oa:StartDateTime, '') <> '' THEN
+				  		SET REF_SAPLines.BEGIN_DATE_TIME 	= SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 6 FOR 2)
+				  	 										|| SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 12 FOR 8);
+				  	END IF;
+				  	IF COALESCE(REF_SOSalesTrans.NS_oa:EndDateTime, '') <> '' THEN
+				  		SET REF_SAPLines.END_DATE_TIME 		= SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 6 FOR 2)
+				  	 										|| SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 12 FOR 8);
+				  	END IF;
+					
+					SET REF_SAPLines.CURRENCY_CODE 		= REF_SOSalesTrans.NS_oa:CurrencyCode;
+				  	
+				  	CREATE LASTCHILD OF REF_SapZabapSsRfc AS REF_SAPTaxes NAME 'SapPITTaxes';
+				  	
+				  	--Calling Procedure  PROC_SalesTax_RFC()
+				  	CALL PROC_SalesTax_RFC(REF_SOLines, REF_SAPTaxes);
+				  	
+				  	SET REF_SAPTaxes.TRANSACTION_ID 	= REF_SOSalesTrans.NS_oa:ID;
+				  	SET REF_SAPTaxes.LINE_NUMBER 		= INT_LineNumber;
+				  	SET REF_SAPTaxes.CURRENCY_CODE 		= REF_SOSalesTrans.NS_oa:CurrencyCode;
+				  	
+				  	IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+				  		
+				  		MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+				  		Y : WHILE LASTMOVE(REF_Allowance) DO
+				  			
+				  			IF FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'PRODUCT SALE' AND REF_Allowance.NS_oa:Description = 'Priceoverride' THEN
+				  				MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+				  				ITERATE Y;
+				  			END IF;
+				  			--Code change starts for version 0.5
+				  			IF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'STORECOUPONTRANSACTION' THEN
+				  			--Code change ends for version 0.5
+				  				SET BOOL_StoreCoupon 	= TRUE;
+				  				IF REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract' THEN
+				  					SET DC_BdStCAmount 	= CAST(DC_BdStCAmount AS DECIMAL) + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					 			ELSE
+					 				SET DC_BdStCAmount 	= CAST(DC_BdStCAmount AS DECIMAL) - CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					 			END IF;
+					 			MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					 			ITERATE Y;
+				  			END IF;
+				  			IF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT35' THEN
+				  				SET BOOL_FoundTradeDisc = TRUE;
+				  			END IF;
+				  			
+				  			SET CH_TempPMId = REF_Allowance.NS_oa:ID || CAST(INT_LineNumber AS CHARACTER);
+				  			IF NOT EXISTS(SELECT F.* FROM Environment.Variables.ID[] AS F WHERE F = CH_TempPMId) THEN
+				  				CREATE LASTCHILD OF REF_SapZabapSsRfc AS REF_SAPPriceMod NAME 'SapPITPriceModifications';
+				  				
+				  				--Calling Procedure  PROC_Price_Modifier_RFC()
+				  				CALL PROC_Price_Modifier_RFC(REF_Allowance, REF_SAPPriceMod);
+				  				SET REF_SAPPriceMod.TRANSACTION_ID 			= REF_SOSalesTrans.NS_oa:ID;
+				  				SET REF_SAPPriceMod.LINE_NUMBER 			= INT_LineNumber;
+				  				SET REF_SAPPriceMod.CURRENCY_CODE 			= REF_SOSalesTrans.NS_oa:CurrencyCode;
+				  				SET INT_Index = INT_Index + 1;
+				  				SET Environment.Variables.ID[INT_Index] 	= CH_TempPMId;
+				  				SET Environment.Variables.Allowance.Obj[INT_Index] = REF_SAPPriceMod;
+				  			ELSE
+				  				IF EXISTS(SELECT REF_SAPPriceMod.* FROM Environment.Variables.Allowance.Obj[] AS REF_SAPPriceMod 
+				  					WHERE REF_SAPPriceMod.LINE_NUMBER = INT_LineNumber AND REF_SAPPriceMod.MODIFIER_ID = REF_Allowance.NS_oa:ID) THEN
+					  				SET REF_SAPPriceMod.AMOUNT = CAST(Environment.Variables.PriceMod_Amount AS DECIMAL) + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					  				IF REF_Allowance.NS_oa:Description = 'PriceRule' THEN
+					  					IF REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract' THEN
+					  						SET REF_SAPPriceMod.PROMOTION_DISCOUNT_VALUE 		= CAST(Environment.Variables.PriceMod_PromDiscountValue AS DECIMAL) - CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					  					ELSE
+					  						SET REF_SAPPriceMod.PROMOTION_DISCOUNT_VALUE 		= CAST(Environment.Variables.PriceMod_PromDiscountValue AS DECIMAL) + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					  					END IF;
+					  				END IF;
+				  				END IF;
+				  			END IF;
+				  		MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;	 
+				  		END WHILE Y;
+				  	END IF;
+				END IF;
+			  	
+				MOVE REF_SOLines NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE X;
+			
+			SET CH_CardNumber 									= REF_SOHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number;
+			CREATE LASTCHILD OF REF_SapZabapSsRfc AS REF_SAPPriceMod NAME 'SapPITPriceModifications';
+			IF COALESCE(CH_CardNumber, '') <> '' THEN
+				
+				SET CH_DiscCardType 							= SUBSTRING(CH_CardNumber FROM 7 FOR 2);
+				IF CH_DiscCardType = '35' AND NOT BOOL_FoundTradeDisc THEN
+					SET REF_SAPPriceMod.TRANSACTION_ID 			= REF_SOSalesTrans.NS_oa:ID;
+					SET REF_SAPPriceMod.MODIFIER_ID 			= 'VALIDATEKFDISCOUNT35';
+					--SET REF_SAPPriceMod.METHOD_CODE 			= 'TransactionEmployeeDiscount';
+					SET REF_SAPPriceMod.LINE_NUMBER 			= '1';
+					SET REF_SAPPriceMod.ACTION_CODE 			= 'Subtract';
+					SET REF_SAPPriceMod.CURRENCY_CODE 			= 'GBP';
+					SET REF_SAPPriceMod.AMOUNT 					= '0.00';
+					SET Environment.Variables.PriceMod_Amount	= '0.00';
+					SET REF_SAPPriceMod.PERCENT 				= '0.00';
+					SET REF_SAPPriceMod.DISCOUNT_TYPE 			= 'TD';
+					SET REF_SAPPriceMod.CARD_DISCOUNT_VALUE 	= '0.00';
+				END IF;
+			END IF;
+			
+		END IF;
+		
+		MOVE REF_Payment TO REF_SOHeader.NS_Dfns:Payment;
+		IF EXISTS(REF_SOHeader.NS_Dfns:Payment[]) THEN
+			Z : WHILE LASTMOVE(REF_Payment) DO
+				CREATE LASTCHILD OF REF_SapZabapSsRfc AS REF_SAPTenders NAME 'SapPITTenders';
+				
+				--Calling Procedure  PROC_SalesTender_RFC()
+				CALL PROC_SalesTender_RFC(REF_Payment, REF_SAPTenders);
+				IF Environment.Variables.SalesTender_TenderId = 'ChangeNotIssued' THEN
+					MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+					ITERATE Z;
+				END IF;
+				
+				SET REF_SAPTenders.TRANSACTION_ID				= REF_SOSalesTrans.NS_oa:ID;
+				SET REF_SAPTenders.LINE_NUMBER 					= INT_LineNumber;
+				SET INT_LineNumber 								= INT_LineNumber + 1;
+				
+				IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+					SET REF_SAPTenders.VOID_FLAG 				= 'true';
+				END IF;
+				
+				IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+					SET REF_SAPTenders.VOIDED_ENTRY_FLAG 		= 'true';
+				END IF;
+				
+				
+				--Code change starts for version 0.5 
+				SET REF_SAPTenders.ITEM_TYPE_FILTER 			= 'N';
+				--Code change ends for version 0.5
+				SET REF_SAPTenders.ENTRY_METHOD 				= FIELDVALUE(REF_Payment.NS_Dfns:EntryType);
+				--Code change starts for version 0.5
+				IF REF_Payment.NS_oa:CashIndicator = 'true' THEN
+					SET REF_SAPTenders.PARAMETER 				= 'Cash';
+				END IF;
+				IF COALESCE(REF_Payment.NS_Dfns:Cheque.NS_Dfns:ManualKeyingIndicator, '') <> '' THEN
+					SET REF_SAPTenders.PARAMETER 				= 'Cheque';
+				END IF;
+				--Code change ends for version 0.5
+				SET REF_SAPTenders.ACTION_CODE 					= REF_SOSalesTrans.NS_oa:ActionCode;
+				SET REF_SAPTenders.CURRENCY_CODE 				= REF_SOSalesTrans.NS_oa:CurrencyCode;
+				--Code change starts for version 0.5
+				SET REF_SAPTenders.TRANSACTION_LINE_TYPE 	= 'TenderMerch';
+				--Code change ends for version 0.5
+--				Code change starts for Version 0.3 and Defect #71
+				IF Environment.Variables.SalesTender_TenderId 	= 'Tradecard' THEN
+					
+--				Code change ends for Version 0.3 and Defect #71
+					SET CH_TradeCardNo = REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber;
+					SET BOOL_Trade 								= TRUE;
+				END IF;
+				IF BOOL_StoreCoupon THEN
+					CREATE LASTCHILD OF REF_SapZabapSsRfc AS REF_SAPTendersDup NAME 'SapPITTenders';
+					SET REF_SAPTendersDup = REF_SAPTenders;
+					
+					SET REF_SAPTendersDup.LINE_NUMBER 				= INT_LineNumber;
+					SET INT_LineNumber 								= INT_LineNumber + 1;
+					SET REF_SAPTendersDup.VOID_FLAG 				= ' ';
+					SET REF_SAPTendersDup.VOIDED_ENTRY_FLAG 		= ' ';
+					SET REF_SAPTendersDup.ITEM_TYPE_FILTER 			= ' ';
+					SET REF_SAPTendersDup.AMOUNT 					= DC_BdStCAmount;
+					SET REF_SAPTendersDup.PAYMENT_VALUE 			= DC_BdStCAmount;
+					SET REF_SAPTendersDup.CHANGE_AMOUNT 			= ' ';
+					SET REF_SAPTendersDup.TENDER_ID 				= 'StoreCoupon';
+					SET Environment.Variables.SalesTender_TenderId 	= 'StoreCoupon';
+					SET REF_SAPTendersDup.PAYMENT_TYPE 				= 'CC';
+					SET BOOL_StoreCoupon 							= FALSE;
+				END IF;
+				
+			MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE Z;
+		END IF;
+		-- END Tenders Mapping
+		
+		-- Headers Mapping Starts		
+		IF BOOL_Trade THEN
+			SET REF_SAPHeader.CUSTOMER_TYPE 	= 'T';
+		END IF;
+		SET REF_SAPHeader.TRANSACTION_ID 		= REF_SOSalesTrans.NS_oa:ID;
+		SET REF_SAPHeader.SOURCE_SYSTEM 		= REF_SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET REF_SAPHeader.STORE_CODE 			= FIELDVALUE(REF_SOHeader.NS_oa:SourceID);
+		SET REF_SAPHeader.WORKSTATION_ID 		= REF_SOSalesTrans.NS_Dfns:WorkstationID;
+		SET REF_SAPHeader.TILL_ID 				= REF_SOSalesTrans.NS_Dfns:TillID;
+		IF COALESCE(REF_SOSalesTrans.NS_Dfns:OperatorID, '') <> ''  THEN
+			SET REF_SAPHeader.OPERATOR_ID 		= REF_SOSalesTrans.NS_Dfns:OperatorID;
+		ELSE
+			SET REF_SAPHeader.OPERATOR_ID 		= '1';
+		END IF;
+		SET REF_SAPHeader.TRAINING_MODE_FLAG 	= REF_SOSalesTrans.NS_Dfns:TrainingModeIndicator;
+		SET REF_SAPHeader.CANCEL_FLAG 			= REF_SOSalesTrans.NS_Dfns:CancelledIndicator;
+		IF COALESCE(REF_SOSalesTrans.NS_oa:StartDateTime, '') <> '' THEN
+			SET REF_SAPHeader.BEGIN_DATE_TIME 		= SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 6 FOR 2)
+				  	 								|| SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 12 FOR 8);
+		END IF;
+		IF COALESCE(REF_SOSalesTrans.NS_oa:EndDateTime, '') <> '' THEN
+			SET REF_SAPHeader.END_DATE_TIME 		= SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 6 FOR 2)
+				  	 								|| SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 12 FOR 8);
+		END IF;
+		
+		SET REF_SAPHeader.BUSINESS_DAY_DATE 	= REF_SOSalesTrans.NS_Dfns:BusinessDayID;
+		--Code change starts for version 0.5
+		SET REF_SAPHeader.CURRENCY_CODE 		= REF_SOSalesTrans.NS_oa:CurrencyCode;
+		--Code change ends for version 0.5
+		SET REF_SAPHeader.SEQUENCE_NUMBER 		= REF_SOSalesTrans.NS_oa:Sequence;
+		SET REF_SAPHeader.SUSPEND_FLAG 			= REF_SOSalesTrans.NS_Dfns:SuspendedTransactionIndicator;
+		SET REF_SAPHeader.DISCOUNT_CARD_NO 		= REF_SOHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number;
+		IF COALESCE(REF_SOSalesTrans.NS_oa:LastModificationDateTime, '') <> '' THEN
+			SET REF_SAPHeader.TIME_STAMP 			= SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 6 FOR 2)
+				  	 								|| SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 9 FOR 2)|| ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 12 FOR 8);
+		END IF;
+		
+		IF COALESCE(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID, '') <> '' AND LENGTH(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID) > 10 THEN
+			SET REF_SAPHeader.PO_NUMBER = SUBSTRING(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID FROM 1 FOR 10);
+		ELSEIF COALESCE(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID, '') <> '' THEN
+			SET REF_SAPHeader.PO_NUMBER = REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID;
+		ELSE
+			SET REF_SAPHeader.PO_NUMBER = ' ';
+		END IF;
+		
+
+--		Code change starts for Version 0.3 and Defect #72
+		
+		IF BOOL_Trade THEN
+			SET REF_SAPHeader.TRADE_CARD_NUMBER 	= CH_TradeCardNo;
+		END IF;
+--		Code change ends for Version 0.3 and Defect #72
+		
+		SET REF_SAPHeader.OLD_TRADE_CARD 		= REF_SOHeader.NS_Dfns:Payment.NS_Dfns:PaymentCard.NS_oa:OldTradeCard;
+		SET REF_SAPHeader.TRANSACTION_TYPE 		= 'RetailTransactionStockView';
+		IF REF_SOSalesTrans.NS_Dfns:ReserveAndCollectIndicator = 'true' THEN
+			SET REF_SAPHeader.RANDC_INDICATOR 	= 'Y';
+		ELSE
+			SET REF_SAPHeader.RANDC_INDICATOR 	= 'N';
+		END IF;
+--		Code change starts for version 0.5
+		
+		IF COALESCE(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '') <> '' AND STARTSWITH(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '2900') THEN
+			SET REF_SAPHeader.TRADEP_INDICATOR 	= 'X';
+		ELSE
+			SET REF_SAPHeader.TRADEP_INDICATOR 	= ' ';
+		END IF;
+--		Code change ends for version 0.5
+		SET REF_SAPHeader.CUSTOMER_NO 			= REF_SOHeader.NS_Dfns:CustomerParty.NS_oa:ID;
+				
+--		Code change starts for Version 0.3
+		
+		
+		IF COALESCE(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '') = '' OR NOT STARTSWITH(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '2900') THEN
+			SET REF_SAPHeader.TRADEP_CARD_NO 		= ' ';
+		ELSE
+			SET REF_SAPHeader.TRADEP_CARD_NO 		= REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID;
+		END IF;
+		
+--		Code change ends for Version 0.3
+
+		IF EXISTS(REF_SapZabapSsRfc.SapPITLines[]) THEN
+			DECLARE IN_LinesCount INTEGER CARDINALITY(REF_SapZabapSsRfc.SapPITLines[]);
+			WHILE IN_LinesCount > 0 DO
+				IF COALESCE(REF_SapZabapSsRfc.SapPITLines[IN_LinesCount].TRANSACTION_ID, '') = '' THEN
+					SET REF_SapZabapSsRfc.SapPITLines[IN_LinesCount] = NULL;
+				END IF;
+				SET IN_LinesCount = IN_LinesCount - 1;
+			END WHILE;
+		END IF;
+		
+		IF EXISTS(REF_SapZabapSsRfc.SapPITPriceModifications[]) THEN
+			DECLARE IN_PriceModCount INTEGER CARDINALITY(REF_SapZabapSsRfc.SapPITPriceModifications[]);
+			WHILE IN_PriceModCount > 0 DO
+				IF COALESCE(REF_SapZabapSsRfc.SapPITPriceModifications[IN_PriceModCount].TRANSACTION_ID, '') = '' THEN
+					SET REF_SapZabapSsRfc.SapPITPriceModifications[IN_PriceModCount] = NULL;
+				END IF;
+				SET IN_PriceModCount = IN_PriceModCount - 1;
+			END WHILE;
+		END IF;
+		
+		IF EXISTS(REF_SapZabapSsRfc.SapPITTaxes[]) THEN
+			DECLARE IN_TaxCount INTEGER CARDINALITY(REF_SapZabapSsRfc.SapPITTaxes[]);
+			WHILE IN_TaxCount > 0 DO
+				IF COALESCE(REF_SapZabapSsRfc.SapPITTaxes[IN_TaxCount].TRANSACTION_ID, '') = '' THEN
+					SET REF_SapZabapSsRfc.SapPITTaxes[IN_TaxCount] = NULL;
+				END IF;
+				SET IN_TaxCount = IN_TaxCount - 1;
+			END WHILE;
+		END IF;
+		
+		IF EXISTS(REF_SapZabapSsRfc.SapPITTenders[]) THEN
+			DECLARE IN_TenderCount INTEGER CARDINALITY(REF_SapZabapSsRfc.SapPITTenders[]);
+			WHILE IN_TenderCount > 0 DO
+				IF COALESCE(REF_SapZabapSsRfc.SapPITTenders[IN_TenderCount].TRANSACTION_ID, '') = '' THEN
+					SET REF_SapZabapSsRfc.SapPITTenders[IN_TenderCount] = NULL;
+				END IF;
+				SET IN_TenderCount = IN_TenderCount - 1;
+			END WHILE;
+		END IF;
+		
+	END; -- END Procedure PROC_SynchroniseSOBW()
+		
+	/********************************************************************************************
+	* Procedure Name	: PROC_SalesTender_RFC									 	 			*
+	* Input Parameters	: REF_Payment, REF_SAPTenders											*
+	* Output Parameters	: REF_SAPTenders													 	*
+	* Description		: The procedure maps the tender data retrieved from 					*
+	*					  SynchroniseSalesOrder canonical to Zabap_ss_rfc_interface interface	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	============= 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_SalesTender_RFC(IN REF_Payment REFERENCE, INOUT REF_SAPTenders REFERENCE)
+	BEGIN
+		
+		SET REF_SAPTenders.TENDER_ID 					= FIELDVALUE(REF_Payment.(XMLNSC.Attribute)id);
+		SET Environment.Variables.SalesTender_TenderId 	= FIELDVALUE(REF_Payment.(XMLNSC.Attribute)id);
+		SET REF_SAPTenders.CHANGE_AMOUNT 				= FIELDVALUE(REF_Payment.NS_Dfns:ChangeAmount);
+		SET REF_SAPTenders.AMOUNT 						= FIELDVALUE(REF_Payment.NS_oa:Amount);
+		SET Environment.Variables.PriceMod_Amount 		= FIELDVALUE(REF_Payment.NS_oa:Amount);
+		
+		SET REF_SAPTenders.PAYMENT_TYPE 				= THE(SELECT ITEM M.PANDORATENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS M WHERE M.TENDERID = FIELDVALUE(REF_Payment.(XMLNSC.Attribute)id));
+		
+		IF COALESCE(FIELDVALUE(REF_Payment.NS_oa:Amount), '') <> '' THEN
+			SET REF_SAPTenders.PAYMENT_VALUE 			= FIELDVALUE(REF_Payment.NS_oa:Amount);
+		ELSEIF COALESCE(FIELDVALUE(REF_Payment.NS_Dfns:ChangeAmount), '') <> '' THEN
+			SET REF_SAPTenders.PAYMENT_VALUE 			= 0 - (CAST(FIELDVALUE(REF_Payment.NS_Dfns:ChangeAmount) AS DECIMAL));
+		ELSE 
+			
+		END IF;
+			
+	END; -- END Procedure PROC_SalesTender_RFC()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_Price_Modifier_RFC									 	 		*
+	* Input Parameters	: REF_Allowance, REF_SAPPriceMod										*
+	* Output Parameters	: REF_SAPPriceMod													 	*
+	* Description		: The procedure maps the price modifier data retrieved from 			*
+	*					  SynchroniseSalesOrder canonical to Zabap_ss_rfc_interface interface	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_Price_Modifier_RFC(IN REF_Allowance REFERENCE, INOUT REF_SAPPriceMod REFERENCE)
+	BEGIN
+							
+		SET REF_SAPPriceMod.MODIFIER_ID 							= REF_Allowance.NS_oa:ID;
+		SET REF_SAPPriceMod.METHOD_CODE 							= SUBSTRING(REF_Allowance.NS_oa:Description FROM 1 FOR 24);
+		SET REF_SAPPriceMod.ACTION_CODE								= REF_Allowance.NS_oa:Calculation.NS_oa:Description;
+		SET REF_SAPPriceMod.PERCENT									= REF_Allowance.NS_oa:Calculation.NS_oa:RateNumeric;
+		SET REF_SAPPriceMod.VOID_FLAG 								= REF_Allowance.NS_oa:Voided;
+		
+		IF REF_Allowance.NS_oa:Description = 'PriceRule' THEN
+			SET REF_SAPPriceMod.BONUS_BUY_TYPE 						= '07';
+			IF LENGTH(COALESCE(REF_Allowance.NS_oa:ID, '')) > 12 THEN
+				SET REF_SAPPriceMod.PROMOTION_ID					= SUBSTRING(COALESCE(REF_Allowance.NS_oa:ID, '') FROM 1 FOR 12);
+			ELSE
+				SET REF_SAPPriceMod.PROMOTION_ID					= REF_Allowance.NS_oa:ID;
+			END IF;
+		ELSE
+			SET REF_SAPPriceMod.BONUS_BUY_TYPE 						= '';
+		END IF;
+
+		IF REF_Allowance.NS_oa:Description = 'PriceRule' THEN
+			SET REF_SAPPriceMod.PROMOTION_DISCOUNT_VALUE 			= FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+			SET Environment.Variables.PriceMod_PromDiscountValue 	= FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+			IF (REF_Allowance.NS_oa:Calculation.NS_oa:Description 	= 'Subtract') AND NOT STARTSWITH(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), '-') THEN
+				SET REF_SAPPriceMod.PROMOTION_DISCOUNT_VALUE		= '-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+				SET Environment.Variables.PriceMod_PromDiscountValue = '-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+			END IF;
+		END IF;
+		
+		IF REF_Allowance.NS_oa:Description = 'TransactionEmployeeDiscount' THEN
+			SET REF_SAPPriceMod.CARD_DISCOUNT_VALUE 				= FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+			IF REF_Allowance.NS_oa:Calculation.NS_oa:Description 	= 'Subtract' AND NOT STARTSWITH(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), '-') THEN
+				--Code change starts for version 0.5
+				SET REF_SAPPriceMod.CARD_DISCOUNT_VALUE 			= '-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+				--Code change ends for version 0.5
+			END IF;
+		END IF;
+		
+		IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+			SET REF_SAPPriceMod.MARKDOWN_DISCOUNT_VALUE 			= FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+			IF REF_Allowance.NS_oa:Calculation.NS_oa:Description 	= 'Subtract' AND NOT STARTSWITH(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), '-') THEN
+				SET REF_SAPPriceMod.MARKDOWN_DISCOUNT_VALUE 		= '-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+			END IF;
+		END IF;
+		
+		SET REF_SAPPriceMod.AMOUNT 									= FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+		SET Environment.Variables.PriceMod_Amount					= FIELDVALUE(REF_Allowance.NS_oa:BasisAmount);
+		
+		IF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'DIAMOND' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'CD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'VALIDATEKFDISCOUNT35' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'TD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'VALIDATEKFDISCOUNT01' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'SD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'VALIDATEKFDISCOUNT03' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'SD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'VALIDATEKFDISCOUNT04' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'SD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'VALIDATEKFDISCOUNT' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'GD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'STORECOUPONTRANSACTION' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'CC';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) = 'PM3' THEN
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= '';
+		ELSE
+			SET REF_SAPPriceMod.DISCOUNT_TYPE 						= 'GD';
+		END IF;
+	END; -- END Procedure PROC_Price_Modifier_RFC()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_SalesTax_RFC									 	 				*
+	* Input Parameters	: REF_SOLines, REF_SAPTaxes												*
+	* Output Parameters	: REF_SAPTaxes														 	*
+	* Description		: The procedure maps the sales tax data retrieved from 					*
+	*					  SynchroniseSalesOrder canonical to Zabap_ss_rfc_interface interface	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	============= 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_SalesTax_RFC(IN REF_SOLines REFERENCE, INOUT REF_SAPTaxes REFERENCE)
+	BEGIN
+		
+		DECLARE CH_Pattern CHARACTER '#,##0.00';
+		
+		SET REF_SAPTaxes.TAX_GROUP_ID 	= REF_SOLines.NS_Dfns:Tax.NS_oa:Code;
+		--Code change starts for version 0.5
+		SET REF_SAPTaxes.TAX_AMOUNT 	= ROUND(CAST(FIELDVALUE(REF_SOLines.NS_Dfns:Tax.NS_oa:Amount) AS DECIMAL), 2 MODE ROUND_HALF_UP);
+		--Code change ends for version 0.5
+		SET REF_SAPTaxes.PERCENT 		= REF_SOLines.NS_Dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric;
+		
+	END;	-- END PROCEDURE PROC_SalesTax_RFC()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_LineItem_RFC									 	 				*
+	* Input Parameters	: REF_SOHeader, REF_SOLines, REF_SAPLines								*
+	* Output Parameters	: REF_SAPLines														 	*
+	* Description		: The procedure maps the sales line item data retrieved from 			*
+	*					  SynchroniseSalesOrder canonical to Zabap_ss_rfc_interface interface	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_LineItem_RFC(IN REF_SOHeader REFERENCE, IN REF_SOLines REFERENCE, INOUT REF_SAPLines REFERENCE)
+	BEGIN
+		
+		DECLARE CH_spaceField      	CHARACTER ' ';
+		DECLARE DC_PromAmount 		DECIMAL 0.00;
+		DECLARE DC_Quantity 		DECIMAL;
+		
+	    SET REF_SAPLines.TRANSACTION_ID						= REF_SOHeader.NS_Dfns:SalesTransaction.NS_oa:ID;
+		SET REF_SAPLines.LINE_NUMBER						= REF_SOHeader.NS_Dfns:Payment.NS_oa:LineNumber;
+		--Code change starts for version 0.5
+		IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET REF_SAPLines.VOID_FLAG = 'true';
+		END IF;
+		
+		IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+			SET REF_SAPLines.VOIDED_ENTRY_FLAG				= 'true';
+		END IF;
+		--Code change ends for version 0.5
+		SET REF_SAPLines.TRANSACTION_LINE_TYPE		= REF_SOLines.NS_oa:Description;
+		SET REF_SAPLines.ITEM_TYPE_FILTER 			= 'N';
+		IF FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'ACCOUNT PAYMENT RETURN' THEN
+			SET REF_SAPLines.PARAMETER 						= '000003039731';
+		END IF;
+		
+		IF FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'PRODUCT RETURN' THEN
+			SET REF_SAPLines.DETAIL_TYPE					= 'R';
+		ELSE
+		  	SET REF_SAPLines.DETAIL_TYPE					= 'S';
+		END IF;
+		
+--		Code change starts for Version 0.2 and Defect #66
+		
+		IF COALESCE(FIELDVALUE(REF_SOLines.NS_Dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name), '') <> '' AND FIELDVALUE(REF_SOLines.NS_Dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name) <> ' ' THEN
+			SET CH_PriceType 								= FIELDVALUE(REF_SOLines.NS_Dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name);
+		  	SET REF_SAPLines.PRICE_TYPE 					= CH_PriceType;
+		ELSE
+			SET CH_PriceType 								= '1';
+		  	SET REF_SAPLines.PRICE_TYPE						= CH_PriceType;
+		END IF;
+		
+--		Code change ends for Version 0.2 and Defect #66
+		
+		SET REF_SAPLines.ITEM_CODE 							= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UPCID;
+		SET REF_SAPLines.ITEM_TYPE 							= REF_SOLines.NS_Dfns:ProductItem.NS_oa:Type;
+		SET REF_SAPLines.SALE_TYPE							= REF_SOLines.NS_Dfns:ProductItem.NS_oa:SaleType;
+		SET REF_SAPLines.UOM 								= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UOMCode;
+		SET REF_SAPLines.QUANTITY 							= REF_SOLines.NS_oa:Quantity;
+		SET REF_SAPLines.EXTENDED_AMOUNT 					= FIELDVALUE(REF_SOLines.NS_oa:ExtendedAmount);
+		SET REF_SAPLines.REGULAR_SALES_UNIT_PRICE 			= FIELDVALUE(REF_SOLines.NS_oa:UnitPrice.NS_oa:Amount);
+--		Code change starts for Version 0.5
+		SET REF_SAPLines.ACTUAL_SALES_UNIT_PRICE			= FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount);
+		SET REF_SAPLines.FINAL_ACTUAL_SALES_UNIT_PRICE		= FIELDVALUE(REF_SOLines.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount);
+--		Code change ends for Version 0.5
+		IF REF_SOLines.NS_Dfns:ProductItem.NS_oa:UOMCode <> 'each' AND REF_SOLines.NS_Dfns:ProductItem.NS_oa:UOMCode <> '' THEN
+			SET REF_SAPLines.WEIGHT_MEASURE_INDICATOR 		= 'Y';
+		END IF;
+		  	
+		IF FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'PRODUCT RETURN' THEN
+			SET REF_SAPLines.RETURN_REASON					= REF_SOLines.NS_Dfns:ReturnStatus.NS_oa:Reason;
+			SET REF_SAPLines.RETURN_REASON_CODE				= FUNC_Truncate(REF_SOLines.NS_Dfns:ReturnStatus.NS_oa:ReasonCode, 4);
+			IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+				FOR REF_Allowance AS REF_SOLines.NS_Dfns:Allowance[] DO
+					IF TRIM(BOTH CH_spaceField FROM REF_Allowance.NS_oa:Description) = 'PriceRule' THEN
+						SET DC_PromAmount 					= DC_PromAmount + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					END IF;
+				END FOR;
+			END IF;
+			
+			SET DC_Quantity 								= CAST(REF_SOLines.NS_oa:Quantity AS DECIMAL);
+			IF DC_Quantity <> 0 AND DC_PromAmount <> 0 THEN
+				--Fix for Production incident #INC0114435. The price is being rounded upto to decimal places.
+				--SET REF_SAPLines.ACTUAL_SALES_UNIT_PRICE 	= CAST(FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount) AS DECIMAL) - CAST((DC_PromAmount/DC_Quantity) AS DECIMAL);
+				SET REF_SAPLines.ACTUAL_SALES_UNIT_PRICE 	= ROUND(CAST(FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount) AS DECIMAL) - ROUND(CAST((DC_PromAmount/DC_Quantity) AS DECIMAL), 2 MODE ROUND_HALF_UP), 2 MODE ROUND_HALF_UP);
+			END IF;
+		END IF;
+		IF CH_PriceType = '3' THEN
+			SET REF_SAPLines.CUSTOMER_PRICE_GROUP 		= THE( SELECT ITEM(M.SAPCUSTSEGMENTCODE) FROM CACHE_CONFIGDATA.CUSTOMERSEGMENT[] AS M WHERE M.SAPCUSTSEGMENTCODE = REF_SOHeader.NS_Dfns:CustomerParty.NS_oa:Type);
+		
+		ELSEIF CH_PriceType = '2' THEN
+			SET REF_SAPLines.CUSTOMER_PRICE_GROUP		= 'TP';
+		ELSE
+			SET REF_SAPLines.CUSTOMER_PRICE_GROUP		= ' ';  			
+		END IF;
+	END;	-- END PROCEDURE PROC_LineItem_RFC()
+	
+	/************************************************************************************
+	* Procedure Name     :PROC_CreateExceptionTypeValue                          		*
+	* Input Parameters   :REF_SOLinesEx, REF_SOHeader, REF_SOLines, REF_SAPLines		*
+	* Output Parameters  :                                                     			*
+	* Description        :Populates the Exception Type and Exception Value		        *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	12-JUL-2013 	Subir Bhaumik 	The initial version.                    *
+	************************************************************************************/
+	
+	CREATE PROCEDURE PROC_CreateExceptionTypeValue(IN REF_SOLinesEx REFERENCE, IN REF_SOHeader REFERENCE, IN REF_SOLines REFERENCE, INOUT REF_SAPLines REFERENCE) BEGIN
+		
+		DECLARE CH_ReturnItem				CHARACTER;
+		DECLARE CH_ReturnQty				CHARACTER;
+		DECLARE CH_ItemCode					CHARACTER;
+		DECLARE CH_Quantity					CHARACTER;
+		
+		DECLARE REF_Allowance 				REFERENCE TO REF_SOLines.NS_Dfns:Allowance;
+		
+		SET CH_ExceptionValue = FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount);
+		SET BL_WriteFlag = FALSE;
+						
+						
+		IF UPPER(COALESCE(REF_SOHeader.NS_Dfns:SalesTransaction.NS_Dfns:TrainingModeIndicator, '')) = 'TRUE' THEN
+			SET CH_ExceptionType  						= 'TR';
+			SET BL_WriteFlag 							= TRUE;
+						
+		ELSEIF UPPER(COALESCE(REF_SOHeader.NS_Dfns:SalesTransaction.NS_Dfns:CancelledIndicator, '')) = 'TRUE' THEN
+			SET CH_ExceptionType  						= 'MV';
+			SET BL_WriteFlag 							= TRUE;
+						
+		ELSEIF UPPER(COALESCE(REF_SOLines.NS_oa:Description, '')) = 'NOSALE' THEN	
+			SET CH_ExceptionType  						= 'NS';
+			SET BL_WriteFlag 							= TRUE;
+					
+		ELSEIF CONTAINS(COALESCE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type, ''), 'RETURN') THEN
+			SET BL_WriteFlag 							= TRUE;
+			SET CH_ExceptionType  						= 'R';	
+			SET CH_ExceptionValue   					= FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount);
+			SET CH_ReturnItem							= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UPCID;
+			SET CH_ReturnQty							= REF_SOLines.NS_oa:Quantity;
+							
+			IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'VM';															
+						END IF;
+						LEAVE LinePriceMods;
+						MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE LinePriceMods;						
+				END IF;
+							
+			ELSE
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'MR';
+							LEAVE LinePriceMods;														
+						END IF;
+						MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE LinePriceMods;						
+				END IF;
+			END IF;
+						
+			--Loop back through the array to check whether this is an exchange
+							
+			IF EXISTS(REF_SOLinesEx.NS_Dfns:SalesOrderLine[]) THEN
+				REF_SOLinesEx:
+				WHILE LASTMOVE(REF_SOLinesEx) DO
+					IF CONTAINS(COALESCE(REF_SOLinesEx.NS_oa:DocumentReference.(XMLNSC.Attribute)type, ''), 'SALE') THEN
+						IF STARTSWITH(CH_ReturnQty,'-') THEN
+							SET CH_ReturnQty 					= SUBSTRING(CH_ReturnQty FROM 2);					
+						END IF;
+						SET CH_ItemCode		 					= REF_SOLinesEx.NS_Dfns:ProductItem.NS_oa:UPCID; --need to check
+						SET CH_Quantity		 					= REF_SOLinesEx.NS_oa:Quantity; --need to check
+						
+						IF STARTSWITH(CH_Quantity,'-') THEN
+							SET CH_Quantity 					= SUBSTRING(CH_Quantity FROM 2);
+						END IF;
+						
+						IF CH_ItemCode = CH_ReturnItem AND CH_Quantity = CH_ReturnQty THEN
+							SET CH_ExceptionType				= 'VS';
+							LEAVE REF_SOLinesEx;
+						END IF;
+					END IF;
+					MOVE REF_SOLinesEx NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE REF_SOLinesEx;	
+			END IF;
+		ELSEIF CONTAINS(COALESCE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type, ''), 'SALE')	THEN --Line_Sale
+			IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+				SET BL_WriteFlag						= TRUE;
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					REF_LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'MC';
+							SET BL_WriteFlag 			= TRUE;
+							LEAVE REF_LinePriceMods;
+						END IF;
+					MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE REF_LinePriceMods;					
+				END IF;
+			ELSE
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					REF_LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'MK';
+							SET BL_WriteFlag 			= TRUE;
+							LEAVE REF_LinePriceMods;
+						END IF;
+					MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE REF_LinePriceMods;					
+				END IF;
+			END IF;
+		END IF;				
+		IF BL_WriteFlag THEN
+			IF CH_ExceptionType <> '' AND REF_SOLines.NS_oa:Description = 'Item'  THEN
+				SET REF_SAPLines.EXCEPTION_TYPE	 	= CH_ExceptionType;
+				SET REF_SAPLines.EXCEPTION_VALUE	= FUNC_Truncate(CH_ExceptionValue, 8);
+			END IF;
+		END IF;
+		
+	END; -- END Procedure PROC_CreateExceptionTypeValue()
+	
+	/************************************************************************************
+	* Procedure Name     :FUNC_Truncate                          						*
+	* Input Parameters   :CH_Value, IN_Digit                          					*
+	* Output Parameters  :CH_Return                                                     *
+	* Description        :Truncates input(Character) value upto supplied digits		    *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	18-JUL-2013 	Subir Bhaumik 	The initial version.                    *
+	************************************************************************************/
+ 	CREATE FUNCTION FUNC_Truncate(CH_Value CHARACTER NULLABLE, IN_Digit INTEGER) RETURNS CHARACTER
+	BEGIN
+		
+		DECLARE CH_Return CHARACTER;
+		IF COALESCE(CH_Value, '') = '' THEN
+			RETURN CH_Value;
+		END IF;
+		IF LENGTH(CH_Value) > IN_Digit THEN
+			SET CH_Return = SUBSTRING(CH_Value FROM 1 FOR IN_Digit);
+		ELSE
+			SET CH_Return = CH_Value;
+		END IF;
+		RETURN CH_Return;	
+	END;
+	-- END Function FUNC_Truncate()
+	
+END MODULE;

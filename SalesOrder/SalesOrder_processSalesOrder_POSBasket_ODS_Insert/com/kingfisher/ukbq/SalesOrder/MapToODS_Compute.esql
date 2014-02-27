@@ -1,0 +1,1737 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: MapToODS																*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: SynchroniseSalesOrder_ODS												*
+* Message Flow Description 	: This subflow will check if the message contains any encrypted card    *
+*                             information and based on that will call encrypt/decrypt functionality *
+*							  and insert ProcessSalesOrder message into ODS tables			        *
+* Module Name 				: MapToODS_Compute														*
+* Description 				: This node insert message into ODS tables(Count,Tender,Item & Discount)*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		15-MAY-2013 	Sourav Banu 		The initial version. 								*
+* 0.2 		23-MAY-2013 	Sourav Banu 		Correction of  GL Tender Type logic					*
+* 0.3 		18-JUN-2013 	Sourav Banu 		Correction of  SALE_RETURN logic and SAPCO_FILTER	*
+* 0.4 		20-JUN-2013 	Asif Hossain 		Changed xpath for version 0.4 to populate accoundId *
+* 												for CardTenderItem whcih is populated in the JCN	*
+* 0.5 		25-JUN-2013 	Asif Hossain 		Fix for version 0.5 defect#99 and 100,conditions	*
+*												were changed to populate solve_peg_filter and added	*
+*												filter logic to discard extra salesorder line for 	*
+*												orders.												*
+* 0.6		29-JUN-2013		Sourav Banu			Correction of logic for TerminalCountryCode			*
+* 0.7		01-JUL-2013		Sourav Banu			Correction of logic for SvcCardType defect #125		*
+* 0.8		03-JUL-2013		Subir Bhaumik		Updated the code to insert into Discount table if 	*
+*												Allowance Description is not Priceoverride			*
+* 0.9		30-SEP-2013		Asif Hossain		conacate first date of any month with the year month* 
+											 	format and pass it to FUNC_GetLastDayOfMonth 		*
+											 	function,incident #INC0121575						*
+****************************************************************************************************/
+CREATE COMPUTE MODULE MapToODS_Compute
+
+	DECLARE DSN  EXTERNAL NAME 'MBODS';
+	
+	DECLARE NS_dfns 	NAMESPACE 'http://www.kingfisher.com/oagis/9';
+	DECLARE NS_oa  		NAMESPACE 'http://www.openapplications.org/oagis/9';
+		--Declaring variables 
+		DECLARE CH_Id 						CHARACTER;
+		DECLARE CH_SourceId 				CHARACTER;
+		DECLARE CH_Type		 				CHARACTER;
+		DECLARE CH_WorkstationID			CHARACTER;
+		DECLARE CH_Sequence	 				CHARACTER;
+		DECLARE CH_BusinessDayId 			CHARACTER;
+		DECLARE CH_ProcessDirect 			CHARACTER;
+		DECLARE CH_EndDateTime				CHARACTER;
+		DECLARE CH_ProcessSEOD	 			CHARACTER;
+		DECLARE CH_ProcessASEOD	 			CHARACTER;		
+		DECLARE CH_AccountId				CHARACTER '';
+		DECLARE CH_ItemCode					CHARACTER;
+		DECLARE CH_LineNumber				CHARACTER;
+		DECLARE CH_SqlQry					CHARACTER;
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	
+	IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.VATDATA[]) = FALSE OR 
+		EXISTS(CACHE_CONFIGDATA.MBCONFIG[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.DISCOUNTTYPE[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBTOPICS[])=FALSE THEN
+		
+		--Atomic block to prevent multiple thread to execute this section simultaneously 
+		CACHE_CONFIGDATA:BEGIN ATOMIC	
+			IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.TENDERDATA[] = (SELECT * FROM Database.TENDERDATA);
+			END IF; 
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBSTRCD[] = (SELECT * FROM Database.MBSTRCD);
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.VATDATA[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.VATDATA[] = (SELECT * FROM Database.VATDATA);
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBCONFIG[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBCONFIG[] = (SELECT * FROM Database.MBCONFIG);
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.DISCOUNTTYPE[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.DISCOUNTTYPE[] = (SELECT * FROM Database.DISCOUNTTYPE);
+			END IF;	
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBTOPICS[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBTOPICS[] = (SELECT * FROM Database.MBTOPICS);
+			END IF;
+		END ;	
+		
+	END IF;
+		
+		--Declaring references for input root
+		DECLARE REF_ProcessSalesOrder		REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_DataArea				REFERENCE TO REF_ProcessSalesOrder.NS_dfns:DataArea;
+		DECLARE REF_AppArea					REFERENCE TO REF_ProcessSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_SalesOrder				REFERENCE TO REF_DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_SalesOrderHeader 		REFERENCE TO REF_SalesOrder.NS_dfns:SalesOrderHeader;
+		DECLARE REF_SalesTransaction 		REFERENCE TO REF_SalesOrderHeader.NS_dfns:SalesTransaction;
+		DECLARE REF_Env						REFERENCE TO Environment.Variables.Value;
+		DECLARE REF_INSalesOrder            REFERENCE TO REF_ProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE CH_SourceID					CHARACTER REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+		DECLARE REF_INSalesOrderLine        REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+		DECLARE REF_Payment					REFERENCE TO REF_SalesOrderHeader.NS_dfns:Payment;
+		DECLARE REF_INPaymentAuthorization	REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE CH_ProcessPayment 			CHARACTER;
+		DECLARE CH_SAPBWFlag				CHARACTER;
+		DECLARE CH_CDB						CHARACTER;
+		DECLARE CH_SAPCO					CHARACTER;
+		DECLARE CH_PaymentFlag				CHARACTER;
+		
+		
+		CREATE FIELD Environment.Variables.Value AS REF_Env;
+		
+		
+		SET Environment.Variables.SourceSystem = REF_AppArea.NS_oa:Sender.NS_oa:LogicalID;
+		
+		DECLARE CH_TransactionID			CHARACTER REF_SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID;
+		DECLARE CH_OrderType     			CHARACTER;
+		DECLARE CH_OrderTypeFlag			CHARACTER;
+		
+		
+		SET Environment.Variables.SQLRoute[] = PASSTHRU('SELECT BW,CCCP, SETTLEMENT, SAPCO FROM SALES_TRANSACTIONS_COUNT WHERE TRANSACTION_ID = ?' TO Database.{DSN} VALUES(CH_TransactionID));	
+			
+			IF EXISTS(Environment.Variables.SQLRoute[]) = FALSE THEN	
+				
+				IF EXISTS(REF_SalesOrderHeader.NS_dfns:Payment[]) = FALSE THEN
+					SET CH_ProcessPayment	= 'N';
+				ELSE
+					SET CH_PaymentFlag   = 'Y';
+				END IF;
+				
+				IF(CH_PaymentFlag = 'Y') THEN
+					ProcessPayment:WHILE LASTMOVE(REF_Payment) DO 
+				
+						IF COALESCE(REF_INPaymentAuthorization.NS_dfns:Token,'') <> '' THEN
+					
+							--Checking if VoidStatus exists or not
+							IF CONTAINS(COALESCE(REF_Payment.NS_dfns:VoidStatus.NS_oa:Code,''),'VOID') = FALSE THEN
+								SET CH_ProcessPayment = 'Y';
+								LEAVE ProcessPayment;
+							ELSE 
+								SET CH_ProcessPayment = 'N';
+							END IF;
+						ELSE
+							SET CH_ProcessPayment = 'N';
+						END IF;
+						
+						MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+						MOVE REF_INPaymentAuthorization TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+					END WHILE;
+					
+				END IF;
+					
+				
+				IF(Environment.Variables.SourceSystem = 'SAPCO') THEN
+					SET CH_SAPBWFlag = 'N';
+				ELSE
+					SET CH_SAPBWFlag = 'Y';
+				END IF;
+				
+				SET CH_CDB = 'Y';
+				
+				Line: WHILE LASTMOVE(REF_INSalesOrderLine) DO
+				SET CH_OrderType = REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type;
+					IF CONTAINS(CH_OrderType,'ACCOUNT PAYMENT')  THEN
+						SET CH_OrderTypeFlag	= 'true';
+						LEAVE Line;				
+					END IF;
+				MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;		
+			MOVE REF_INSalesOrderLine TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+			
+			IF (CH_SourceID = 'EPOS' AND CH_OrderTypeFlag = 'true') OR CH_SourceID = 'SAPCO' THEN
+			
+			
+				SalesOrderLineLoop : WHILE LASTMOVE(REF_INSalesOrderLine) DO
+					IF CONTAINS(REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'ACCOUNT PAYMENT') OR (REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' AND REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type <> 'Tax') THEN			
+--				IF EXISTS(InputRoot.XMLNSC.NS_dfns:LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader.NS_dfns:SalesOrderReference[]) THEN
+						
+							SET CH_SAPCO = 'Y';
+							LEAVE SalesOrderLineLoop;
+					ELSE
+						SET CH_SAPCO = 'N';
+					END IF;
+					MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE;
+--				END IF;
+			ELSE
+				SET CH_SAPCO = 'N';		
+			END IF;
+				
+				
+			--Calling method to insert into SALES_TRANSACTIONS_COUNT table
+			CALL InsertAndUpdateCountTable(REF_SalesOrder,REF_SalesOrderHeader,REF_SalesTransaction,REF_AppArea,REF_Env,CH_ProcessPayment,CH_SAPBWFlag,CH_CDB,CH_SAPCO/*,REF_SalesOrderLine,REF_PaymentCard,REF_PaymentAuthorization,REF_Application,REF_EntryDevice*/);
+
+			SET OutputRoot=InputRoot;
+			
+			DECLARE IN_Index INTEGER;
+			SET IN_Index = 1;
+			
+			SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[IN_Index] = 'CDB';
+			
+			IF CH_SAPBWFlag = 'Y' THEN
+				SET IN_Index=IN_Index+1;
+				SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[IN_Index] = 'BW';
+			END IF;
+			
+			IF CH_SAPCO = 'Y' THEN
+				SET IN_Index=IN_Index+1;
+				SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[IN_Index] = 'SAPCO';
+			END IF;
+			
+			
+			IF CH_ProcessPayment = 'Y' THEN
+				SET IN_Index=IN_Index+1;
+				SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[IN_Index] = 'SETTLEMENT';
+			END IF;
+			
+--			SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[1] = 'BW';
+--			SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[2] = 'SAPCO'  ;
+--			SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[3] = 'SETTLEMENT';
+--			SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[4] = 'CDB';
+
+		
+		--Testting: Code added to to track duplicate transactions in both EPOS and SAPCO		
+		ELSEIF EXISTS(Environment.Variables.SQLRoute[]) = TRUE THEN
+			MOVE REF_Env TO Environment.Variables.SQLRoute;
+			SET OutputRoot=InputRoot;
+		
+			DECLARE INT_Count INTEGER;
+			SET INT_Count = 1;
+			
+			IF(REF_Env.BW = 'N' AND CH_SourceID = 'EPOS') THEN
+				SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[INT_Count] = 'BW';
+				SET INT_Count = INT_Count + 1;
+				PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET BW = ?  WHERE TRANSACTION_ID = ?' TO Database.{DSN} 
+																	VALUES('Y',CH_TransactionID);
+			END IF;
+			
+			IF (REF_Env.CCCP = 'N') THEN
+				SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[INT_Count] = 'CDB';
+				SET INT_Count = INT_Count + 1;
+				PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET CCCP = ?  WHERE TRANSACTION_ID = ?' TO Database.{DSN} 
+																	VALUES('Y',CH_TransactionID);
+			END IF;
+			
+			IF(REF_Env.SAPCO = 'N') THEN
+				Line: WHILE LASTMOVE(REF_INSalesOrderLine) DO
+				SET CH_OrderType = REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type;
+					IF CONTAINS(CH_OrderType,'ACCOUNT PAYMENT')  THEN
+						SET CH_OrderTypeFlag	= 'true';
+						LEAVE Line;				
+					END IF;
+				MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;		
+				MOVE REF_INSalesOrderLine TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+				
+				IF (CH_SourceID = 'EPOS' AND CH_OrderTypeFlag = 'true') OR CH_SourceID = 'SAPCO' THEN
+				
+					SalesOrderLineLoop : WHILE LASTMOVE(REF_INSalesOrderLine) DO
+						IF CONTAINS(REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'ACCOUNT PAYMENT') OR (REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' AND REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type <> 'Tax') THEN			
+	--				IF EXISTS(InputRoot.XMLNSC.NS_dfns:LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader.NS_dfns:SalesOrderReference[]) THEN
+							
+							SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[INT_Count] = 'SAPCO';
+							SET INT_Count = INT_Count + 1;
+							
+							PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET SAPCO = ?  WHERE TRANSACTION_ID = ?' TO Database.{DSN} 
+																	VALUES('Y',CH_TransactionID);	
+							LEAVE SalesOrderLineLoop;
+						END IF;
+						MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+						END WHILE;
+	--				END IF;
+																
+	--				END IF;
+				END IF;
+			END IF;
+			
+			IF(REF_Env.SETTLEMENT = 'N') THEN
+				
+			IF EXISTS(REF_SalesOrderHeader.NS_dfns:Payment[]) = FALSE THEN
+--					
+--					SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[INT_Count] = 'SETTLEMENT';
+--					SET INT_Count = INT_Count + 1;
+--					
+--					PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET SETTLEMENT = ?  WHERE TRANSACTION_ID = ?' TO Database.{DSN} 
+--																		VALUES('Y',CH_TransactionID);
+--				END IF;
+--			END IF;
+			
+					SET CH_PaymentFlag	= 'N';
+				ELSE
+					SET CH_PaymentFlag   = 'Y';
+			END IF;
+				
+				IF(CH_PaymentFlag = 'Y') THEN
+					ProcessPayment:WHILE LASTMOVE(REF_Payment) DO 
+				
+						IF COALESCE(REF_INPaymentAuthorization.NS_dfns:Token,'') <> '' THEN
+					
+							--Checking if VoidStatus exists or not
+							IF CONTAINS(COALESCE(REF_Payment.NS_dfns:VoidStatus.NS_oa:Code,''),'VOID') = FALSE THEN
+								SET OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[INT_Count] = 'SETTLEMENT';
+								SET INT_Count = INT_Count + 1;
+					
+								PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET SETTLEMENT = ?  WHERE TRANSACTION_ID = ?' TO Database.{DSN} 
+																		VALUES('Y',CH_TransactionID);
+								LEAVE ProcessPayment;
+							ELSE 
+								SET CH_ProcessPayment = 'N';
+							END IF;
+						ELSE
+							SET CH_ProcessPayment = 'N';
+						END IF;
+						
+						MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+						MOVE REF_INPaymentAuthorization TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+					END WHILE;
+				END IF;
+			END IF;
+					
+			
+			PROPAGATE TO TERMINAL 'out1' DELETE NONE;
+			
+		END IF;
+		
+		--Checking if the messages is eligible to go to Orchestrator ot not
+		IF EXISTS(OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver[]) THEN
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;
+		END IF;		
+	
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: InsertAndUpdateCountTable 										 *
+	* Input Parameters	: REF_SalesOrder,REF_SalesOrder,REF_SalesTransaction				 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Insert and Update in COUNT table					 *								
+	*****************************************************************************************/
+	
+	CREATE PROCEDURE InsertAndUpdateCountTable (IN REF_SalesOrder REFERENCE, IN REF_SalesOrderHeader REFERENCE, IN REF_SalesTransaction REFERENCE, IN REF_AppArea REFERENCE, IN REF_Env REFERENCE,IN CH_ProcessPayment CHARACTER,IN CH_SAPBWFlag CHARACTER,IN CH_CDB CHARACTER,IN CH_SAPCO CHARACTER/*, IN REF_SalesOrderLine REFERENCE, IN REF_PaymentCard REFERENCE, IN REF_PaymentAuthorization REFERENCE, IN REF_Application REFERENCE,IN REF_EntryDevice REFERENCE*/)
+	BEGIN
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK' TO Database.{DSN};
+			RESIGNAL;
+		END;
+			 	
+		--Declaring variables	
+		DECLARE CH_TotalAmount 				CHARACTER '';
+		DECLARE CH_StoreFormat				CHARACTER '';
+		DECLARE CH_SaleReturn	 			CHARACTER '';
+		DECLARE CH_TotalTax		 			CHARACTER '';
+		DECLARE CH_SourceSystem	 			CHARACTER '';
+		DECLARE CH_SourceReference 			CHARACTER '';
+		DECLARE IN_Count					INTEGER;
+		
+		DECLARE REF_SalesOrderLine 			REFERENCE TO REF_SalesOrder.NS_dfns:SalesOrderLine;
+		DECLARE REF_Payment					REFERENCE TO REF_SalesOrderHeader.NS_dfns:Payment;
+		DECLARE REF_PaymentCard				REFERENCE TO REF_Payment.NS_dfns:PaymentCard;
+		DECLARE REF_PaymentAuthorization 	REFERENCE TO REF_PaymentCard.NS_dfns:PaymentAuthorization; 
+		DECLARE REF_EntryDevice				REFERENCE TO REF_PaymentCard.NS_dfns:EntryDevice; 
+		DECLARE REF_Application				REFERENCE TO REF_EntryDevice.NS_dfns:Application; 
+		
+		--Setting the values from the input to respective variables
+		SET CH_Id 				= COALESCE(REF_SalesTransaction.NS_oa:ID,'');
+		SET CH_SourceId 		= COALESCE(REF_SalesOrderHeader.NS_oa:SourceID,'');
+		SET CH_BusinessDayId 	= COALESCE(REF_SalesTransaction.NS_dfns:BusinessDayID,'0');
+				
+--		SET CH_SqlQry = 'SELECT STORETYPE,NONMFSTORE FROM MBSTRCD WHERE GENERICSTORECODE = '''
+--		||CH_SourceId ||'''';
+--			
+--		SET REF_Env.MBSTRCD[] = PASSTHRU(CH_SqlQry);
+		
+--		SET REF_Env.MBSTRCD[] = PASSTHRU('SELECT STORETYPE,NONMFSTORE FROM MBSTRCD WHERE GENERICSTORECODE = ?'
+--								VALUES(CH_SourceId));
+		
+		SET REF_Env.MBSTRCD[] = SELECT M.STORETYPE,M.NONMFSTORE FROM CACHE_CONFIGDATA.MBSTRCD[] AS M WHERE M.GENERICSTORECODE = CH_SourceId;
+		
+		
+		-- Store format
+		SET CH_StoreFormat = REF_Env.MBSTRCD[1].STORETYPE;
+		
+		-- Process direct
+		--Code change starts for  Process direct
+          SET CH_ProcessDirect = COALESCE(REF_Env.MBSTRCD[1].NONMFSTORE,'');
+          --IF REF_Env.MBSTRCD[1].NONMFSTORE <> 'Y' THEN
+          IF CH_ProcessDirect <> 'Y' THEN
+          --Code change ends for  Process direct
+             SET CH_ProcessDirect = 'N';
+          END IF;
+		
+		
+		-- Loop through SalesOrderLine to populate SaleReturn
+		IF EXISTS(REF_SalesOrder.NS_dfns:SalesOrderLine[])OR EXISTS(REF_SalesOrderHeader.NS_dfns:Payment[]) THEN
+			
+		LOOPLINES: WHILE LASTMOVE(REF_SalesOrderLine) DO
+				--Code change starts for version 0.3
+				--IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type = 'PRODUCT SALE' THEN
+				IF CONTAINS(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type, 'SALE') THEN
+					SET CH_SaleReturn = 'I';
+					LEAVE LOOPLINES;
+				--ELSEIF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type = 'PRODUCT RETURN' THEN
+				ELSEIF CONTAINS(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'RETURN') THEN
+					--Code change ends for version 0.3
+					SET CH_SaleReturn = 'C';
+					LEAVE LOOPLINES;
+				--Code commented for version 0.3 changes
+				--ELSE
+				--	SET CH_SaleReturn = 'X';
+				--Code commented for version 0.3 changes
+				END IF;
+				
+				MOVE REF_SalesOrderLine NEXTSIBLING;
+			END WHILE;
+		--Code change starts for version 0.3
+		ELSE
+			SET CH_SaleReturn = 'X';
+		--Code change ends for version 0.3	
+		END IF;
+
+		
+		SET CH_TotalAmount 		= COALESCE(REF_SalesOrderHeader.NS_oa:TotalAmount,''); -- total amount 
+		SET CH_TotalTax		 	= COALESCE(REF_SalesOrderHeader.NS_dfns:Tax.NS_oa:Amount,''); -- total tax
+		SET CH_SourceSystem 	= COALESCE(REF_AppArea.NS_oa:Sender.NS_oa:LogicalID,''); -- source system
+		SET CH_ProcessSEOD 		= 'U'; -- process seod
+		SET CH_ProcessASEOD 	= 'U'; -- process aseod
+		
+		IF CH_SourceSystem = 'SAPCO' THEN
+			SET CH_SourceReference	= 'SAPCO Payments';
+		ELSE
+			SET CH_SourceReference	= '';
+		END IF;
+		
+		SET Environment.RetVal[] = PASSTHRU('INSERT INTO SALES_TRANSACTIONS_COUNT (TRANSACTION_ID,STORE_CODE,BUSINESS_DAY_DATE,
+		STORE_FORMAT,SALE_RETURN,TOTAL_AMOUNT,TOTAL_TAX,SOURCE_SYSTEM,PROCESSED_SEOD,PROCESSED_ASEOD,PROCESS_DIRECT,SOURCE_REFERENCE,SETTLEMENT,SAPCO,BW,CCCP)  
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' TO Database.{DSN} VALUES(CH_Id,CH_SourceId,CH_BusinessDayId,CH_StoreFormat,CH_SaleReturn,CH_TotalAmount,CH_TotalTax,CH_SourceSystem,CH_ProcessSEOD,CH_ProcessASEOD,CH_ProcessDirect,CH_SourceReference,CH_ProcessPayment,CH_SAPCO,CH_SAPBWFlag,CH_CDB)) ;
+		
+		
+		MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_dfns:SalesOrderLine;
+		SET IN_Count =1;
+		-- Loop through Payment and call InsertAndUpdateTenderTable method for each iteration		
+		FOR REF_Payment AS REF_SalesOrderHeader.NS_dfns:Payment[] DO
+			
+			MOVE REF_PaymentCard TO Environment;
+			
+			MOVE REF_PaymentCard 			TO REF_Payment.NS_dfns:PaymentCard;
+			MOVE REF_PaymentAuthorization 	TO REF_PaymentCard.NS_dfns:PaymentAuthorization;
+			MOVE REF_EntryDevice 			TO REF_PaymentCard.NS_dfns:EntryDevice;
+			MOVE REF_Application 			TO REF_EntryDevice.NS_dfns:Application;
+			
+			--If duplicate payment segement exists then Tendertable will not be updated for those entries
+			IF COALESCE(REF_Payment.NS_dfns:VoidStatus.NS_oa:Code,'') NOT IN('VOID ENTRY','VOID LINE') THEN
+				--Calling method to insert into SALES_TRANSACTIONS_TENDER table
+				CALL InsertAndUpdateTenderTable(REF_SalesOrder,REF_SalesOrderHeader,REF_SalesTransaction,REF_Payment,REF_PaymentCard,REF_PaymentAuthorization,REF_Env,REF_SalesOrderLine,REF_Application,REF_EntryDevice,REF_AppArea, IN_Count);
+			END IF;
+			--Increment SalesOrderLine for each iteration
+			MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+		END FOR;
+		
+		
+		MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_dfns:SalesOrderLine;
+		-- Loop through SalesOrderLine to populate item
+		FOR REF_SalesOrderLine AS REF_SalesOrder.NS_dfns:SalesOrderLine[] DO
+			
+			--Code Change starts for version 0.5 defect #100
+			IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type <> 'Tax' THEN
+				--Calling method to insert into SALES_TRANSACTIONS_ITEM table
+				CALL InsertAndUpdateItemTable(REF_SalesOrder,REF_SalesOrderHeader,REF_SalesTransaction,REF_SalesOrderLine,REF_AppArea,REF_Env);
+			END IF;
+			--Code Change starts for version 0.5 defect #100
+			
+		END FOR;
+			
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: InsertAndUpdateTenderTable 										 *
+	* Input Parameters	: 																	 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Insert and Update in TENDER table					 *								 
+	*****************************************************************************************/
+	CREATE PROCEDURE InsertAndUpdateTenderTable (IN REF_SalesOrder REFERENCE, IN REF_SalesOrderHeader REFERENCE, IN REF_SalesTransaction REFERENCE, IN REF_Payment REFERENCE, IN REF_PaymentCard REFERENCE, IN REF_PaymentAuthorization REFERENCE,  IN REF_Env REFERENCE, IN REF_SalesOrderLine REFERENCE, IN REF_Application REFERENCE, IN REF_EntryDevice REFERENCE, IN REF_AppArea REFERENCE, INOUT IN_Count INTEGER)
+	BEGIN
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK' TO Database.{DSN};
+			RESIGNAL;
+		END;
+		
+		--Declaring variables
+		DECLARE  CH_TenderId						CHARACTER '';
+		DECLARE  CH_SqlQry							CHARACTER '';
+		DECLARE  CH_TenderType 						CHARACTER '';
+		DECLARE  CH_JournalCode						CHARACTER '';
+		DECLARE  DC_CreditAmount					DECIMAL 0 ;
+		DECLARE  DC_DebitAmount						DECIMAL 0 ;
+		DECLARE  CH_Amount							CHARACTER '';
+		DECLARE  CH_ChangeAmount					CHARACTER '';
+		DECLARE  CH_TrainingCancelFilter			CHARACTER '';
+		DECLARE  CH_ReconciliationFilter			CHARACTER '';
+		DECLARE	 CH_TenderControlTrans				CHARACTER '';
+		DECLARE  CH_ApplicationCryptogram			CHARACTER '';
+		DECLARE  CH_ApplicationId					CHARACTER '';
+		DECLARE  CH_ApplInterchangeProfile			CHARACTER '';
+		DECLARE  CH_ApplTransacnCounter				CHARACTER '';
+		DECLARE  CH_ApplUsageControl				CHARACTER '';
+		DECLARE  CH_ApplVersion						CHARACTER '';
+		DECLARE  CH_AuthorisationAmount				CHARACTER '';
+		DECLARE  CH_AuthorisationCode				CHARACTER '';
+		DECLARE  CH_AuthorisationRecDtTime			CHARACTER '';
+		DECLARE  CH_BeginDateTime					CHARACTER '';
+		DECLARE  CH_CardholderVerifnResult			CHARACTER '';
+		DECLARE  CH_CryptogramInfoData				CHARACTER '';
+		DECLARE  CH_CryptogramTransType				CHARACTER '';
+		DECLARE  CH_CurrencyCode					CHARACTER '';
+		DECLARE  CH_EntryMethod						CHARACTER '';
+		DECLARE  CH_ExpirationDate					CHARACTER '';
+		DECLARE  CH_Icc								CHARACTER '';
+		DECLARE  CH_IssueNumber						CHARACTER '';
+		DECLARE  CH_IssuerApplData					CHARACTER '';
+		DECLARE  CH_MerchantNumber					CHARACTER '';
+		DECLARE  CH_SapCo							CHARACTER '';
+		DECLARE  CH_PriceFormat						CHARACTER '';
+		DECLARE  CH_tc								BOOLEAN FALSE;
+		DECLARE  CH_hfctc							BOOLEAN;
+		DECLARE  CH_sapco							BOOLEAN;
+		DECLARE  CH_SolvePFGFilter					CHARACTER '';
+		DECLARE  CH_CountryCode						CHARACTER '';
+		DECLARE  CH_TerminalCapabilities			CHARACTER '';
+		DECLARE  CH_TerminalCountryCode				CHARACTER '';
+		DECLARE  CH_TerminalIFD						CHARACTER '';
+		DECLARE  CH_TerminalType					CHARACTER '';
+		DECLARE  CH_TerminalVerifResult				CHARACTER '';
+		DECLARE  CH_TransnStatusInfo				CHARACTER '';
+		DECLARE  CH_TransactionType					CHARACTER '';
+		DECLARE  CH_UnpredictableNum				CHARACTER '';
+		DECLARE  CH_TrainingFlag					CHARACTER '';
+		DECLARE  CH_VoidFlag						CHARACTER '';
+		DECLARE  CH_AuthRespCode					CHARACTER '';
+		DECLARE  CH_LayAwayFilter					CHARACTER '';
+		DECLARE  CH_SeqNumber						CHARACTER '';
+		DECLARE  CH_SrcSystem						CHARACTER '';
+		DECLARE  CH_HostAuthorised					CHARACTER '';
+		DECLARE  CH_CustPresent						CHARACTER '';
+		DECLARE  CH_ProcessedSEOD					CHARACTER '';
+		DECLARE  CH_ProcessedASEOD					CHARACTER '';
+		DECLARE  CH_PoNumber						CHARACTER '';
+		DECLARE  CH_respInd							CHARACTER '';
+		DECLARE  CH_authOnline						CHARACTER '';
+		DECLARE  CH_hostRef							CHARACTER '';
+		DECLARE  CH_authCode						CHARACTER '';
+		DECLARE  CH_authCodeEnt						CHARACTER '';
+		DECLARE  CH_PoGeneralRef					CHARACTER '';
+		DECLARE  CH_PoCostCentre					CHARACTER '';
+		DECLARE  CH_ProcessedDBankRec				CHARACTER '';
+		DECLARE  CH_amountValue						CHARACTER '';
+		DECLARE  CH_glcode							CHARACTER '';
+		DECLARE  CH_GlTenderType					CHARACTER '';
+		DECLARE  CH_SecurityTransId					CHARACTER '';
+		DECLARE  CH_SecurityCav						CHARACTER '';
+		DECLARE  CH_SecurityResult					CHARACTER '';
+		DECLARE  CH_SecProtocolNm					CHARACTER '';
+		DECLARE  CH_SecurityEci						CHARACTER '';
+		DECLARE  CH_MaskedAcctId					CHARACTER '';
+		DECLARE  CH_EncryptedAcctId					CHARACTER '';
+		DECLARE  CH_HashedAcctId					CHARACTER '';
+		DECLARE  CH_MdStatus						CHARACTER '';
+		DECLARE  CH_IvData							CHARACTER '';
+		DECLARE  CH_PanSeqNumber					CHARACTER '';
+		DECLARE  CH_Token							CHARACTER '';
+		DECLARE  CH_CashManageNotes					CHARACTER '';
+		DECLARE  CH_CommIdeaAuthDb					CHARACTER '';
+		DECLARE  CH_CommIdeaTransId					CHARACTER '';
+		DECLARE  CH_Settled							CHARACTER '';
+		DECLARE  TS_TimeStamp 						TIMESTAMP;
+		DECLARE  CH_CustomerId 						CHARACTER '';
+		DECLARE	 CH_TransactionEndDateTime  		CHARACTER '';
+		DECLARE  CH_tenderTyp						CHARACTER '';
+		DECLARE  CH_SolveEncryptedCardDetails		CHARACTER '';
+		DECLARE  CH_SvcCardType						CHARACTER '';
+		DECLARE  DC_Amount							DECIMAL;
+		DECLARE CH_AccountId						CHARACTER '';
+		
+		SET CH_TenderId = COALESCE(REF_Payment.(XMLNSC.Attribute)id,''); 
+		
+		IF COALESCE(REF_Payment.(XMLNSC.Attribute)id,'')<>'' THEN 
+			
+--			SET REF_Env.TENDERDATA[] = PASSTHRU('SELECT TENDERTYPE,HEXFORMAT,GLTENDERTYPE FROM TENDERDATA WHERE TENDERID = ?'
+--										VALUES(CH_TenderId));
+			
+			SET REF_Env.TENDERDATA[] = SELECT T.TENDERTYPE,T.HEXFORMAT,T.GLTENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS T WHERE T.TENDERID=CH_TenderId;
+			
+			SET CH_glcode = REF_Env.TENDERDATA[1].GLTENDERTYPE;
+			
+			IF COALESCE(REF_Env.TENDERDATA[1].TENDERTYPE,'') <> '' THEN
+				SET CH_TenderType = REF_Env.TENDERDATA[1].TENDERTYPE;
+			ELSE 
+				SET CH_TenderType = '';
+			END IF;
+		END IF;
+		
+		--Journal code
+		IF COALESCE(REF_Payment.(XMLNSC.Attribute)id, '')<>'' THEN 
+			SET CH_JournalCode 					= REF_Env.TENDERDATA[1].HEXFORMAT;
+			
+			IF COALESCE(CH_JournalCode,'') = '' THEN
+				SET CH_JournalCode 				= '';
+			END IF;
+		END IF;
+		
+		
+		--CreditAmount
+		IF COALESCE(REF_Payment.NS_oa:Amount,'') <> '' THEN
+			
+			SET DC_Amount 						= CAST(REF_Payment.NS_oa:Amount AS DECIMAL);
+			SET CH_Amount 						= CAST(DC_Amount AS CHARACTER);
+			
+			IF (DC_Amount > 0) THEN
+				
+				SET DC_DebitAmount 				= DC_Amount;
+				SET DC_CreditAmount 			= '0';
+				
+			ELSEIF DC_Amount <=0 THEN
+				
+				SET DC_CreditAmount 			= DC_Amount * -1; 
+				SET DC_DebitAmount 				= '0';	
+			END IF;
+			
+		ELSEIF COALESCE(REF_Payment.NS_dfns:ChangeAmount,'') <> '' THEN
+			SET DC_CreditAmount 				= '0';
+			SET DC_DebitAmount 					= '0';
+			SET CH_Amount 						= '0';
+		END IF;	
+		
+		--ChangeAmount
+		IF COALESCE(REF_Payment.NS_dfns:ChangeAmount,'') <> '' THEN
+			SET CH_ChangeAmount 							= REF_Payment.NS_dfns:ChangeAmount;
+		ELSE
+			SET CH_ChangeAmount 							= '0';
+		END IF;
+		
+		--Business day date
+		SET CH_BusinessDayId = COALESCE(REF_SalesTransaction.NS_dfns:BusinessDayID,'0');
+		
+		--Training cancel filter
+		IF REF_SalesTransaction.NS_dfns:TrainingModeIndicator = 'true' OR REF_SalesTransaction.NS_dfns:CancelledIndicator = 'true' THEN
+			SET CH_TrainingCancelFilter = 'Y';
+		ELSE
+			SET CH_TrainingCancelFilter = 'N';
+		END IF;
+		
+		--Reconciliation filter
+		SET CH_ReconciliationFilter = '5';
+		IF COALESCE(REF_Payment.(XMLNSC.Attribute)id,'') <> '' THEN
+--			SET CH_SqlQry = 'SELECT RECONCILIATIONFLAG FROM TENDERDATA WHERE TENDERID = '''
+--			||CH_TenderId ||'''';
+--			
+--			SET REF_Env.RECONCILIATIONFLAG = PASSTHRU(CH_SqlQry);
+			
+--			SET REF_Env.RECONCILIATIONFLAG = PASSTHRU('SELECT RECONCILIATIONFLAG FROM TENDERDATA WHERE TENDERID = ?'
+--												VALUES(CH_TenderId));
+		
+			SET REF_Env.RECONCILIATIONFLAG = THE(SELECT ITEM(T.RECONCILIATIONFLAG) FROM CACHE_CONFIGDATA.TENDERDATA[] AS T WHERE T.TENDERID = CH_TenderId);
+												
+		
+			--SET CH_ReconciliationFilter = REF_Env.RECONCILIATIONFLAG.RECONCILIATIONFLAG;
+			
+			SET CH_ReconciliationFilter = REF_Env.RECONCILIATIONFLAG;
+			
+			IF COALESCE(CH_ReconciliationFilter,'') = '' THEN
+				THROW USER EXCEPTION VALUES('No value returned from TENDERDATA'); 
+				--SET CH_ReconciliationFilter = '5';
+			END IF;
+		END IF;
+		
+        --TenderControlTransFilter		
+		SET CH_TenderControlTrans = 'N';
+		
+		IF (UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'LOAN TENDER') THEN
+			SET CH_AccountId = COALESCE(REF_Payment.NS_dfns:Loan.NS_oa:Number,''); --account id
+		END IF;
+		
+		IF (UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'RECHARGEABLE VOUCHER TENDER') THEN
+			SET CH_AccountId 		= COALESCE(REF_Payment.NS_dfns:GiftCard.NS_oa:Number,''); --account id
+			SET CH_MerchantNumber 	= COALESCE(REF_Payment.NS_dfns:GiftCard.NS_dfns:MerchantNumber,''); -- merchant number
+		END IF;
+		
+		--Code change for version 0.5 to populate ODS table for SAPCO orders
+		--IF (UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CARD TENDER','TOKENISED CARD TENDER')) THEN
+		
+		IF EXISTS(REF_Payment.NS_dfns:PaymentCard[]) THEN	
+		--Code change for version 0.5 to populate ODS table for SAPCO orders
+		
+			--Code comments starts for version 0.4
+			--SET CH_AccountId 				= COALESCE(REF_PaymentCard.NS_oa:Number,''); -- account  id
+			--Code comments ends for version 0.4
+			
+			--Code change starts for version 0.4
+			SET CH_AccountId 				= COALESCE(REF_PaymentCard.NS_dfns:CleartextNumber,''); -- account  id
+			--Code change ends for version 0.4
+			
+			SET CH_ApplicationCryptogram 	= COALESCE(REF_Application.NS_dfns:Cryptogram,''); -- appl cryptogram
+			SET CH_ApplicationId 			= COALESCE(REF_Application.NS_oa:ID,''); -- appl id
+			SET CH_ApplInterchangeProfile 	= COALESCE(REF_Application.NS_dfns:InterchangeProfileID,''); -- appl interchange profile
+			SET CH_ApplTransacnCounter 		= COALESCE(REF_Application.NS_dfns:TransactionCounter,''); --appl transaction counter
+			SET CH_ApplUsageControl 		= COALESCE(REF_Application.NS_dfns:UsageControlID,''); --appl usage control
+			SET CH_ApplVersion 				= COALESCE(REF_Application.NS_dfns:VersionID,''); --appl version
+			SET CH_AuthorisationAmount 		= COALESCE(REF_PaymentAuthorization.NS_oa:Amount,'0'); -- authorisation amount
+			
+			IF (UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CHEQUE TENDER', 'TOKENISED CHEQUE TENDER')) THEN -- authorisation code
+				SET CH_AuthorisationCode		= COALESCE(REF_Payment.NS_dfns:Cheque.NS_oa:AuthorizationCode,''); 
+			ELSE 
+				SET CH_AuthorisationCode		= COALESCE(REF_PaymentAuthorization.NS_oa:ResponseCode,''); 	
+			END IF;
+			
+			IF COALESCE (REF_PaymentAuthorization.NS_dfns:AuthorizationDateTime) <> '' THEN -- authorisation rec dt time
+				--SET TS_TimeStamp						= CAST(REF_PaymentAuthorization.NS_dfns:AuthorizationDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ' );
+				SET CH_AuthorisationRecDtTime			= CAST(REF_PaymentAuthorization.NS_dfns:AuthorizationDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ' );
+				
+				--SET CH_AuthorisationRecDtTime			='to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy HH24:mi:ss'')';
+			ELSE
+				--SET CH_AuthorisationRecDtTime 			= '''''';
+				SET CH_AuthorisationRecDtTime 			= '';
+			END IF;
+			
+			SET CH_CardholderVerifnResult 	= COALESCE(REF_PaymentAuthorization.NS_dfns:CV2CheckResponseCode,''); --cardholder_verfctn reslt
+			SET CH_CryptogramInfoData		= COALESCE(REF_Application.NS_dfns:CryptogramInformation,''); -- cryptogram infrmtn data
+			SET CH_CryptogramTransType 		= COALESCE(REF_PaymentCard.NS_dfns:EntryDevice.NS_dfns:Application.NS_dfns:CryptogramTransactionType,''); --cryptogram_trans_type
+			
+			IF EXISTS(REF_PaymentCard.NS_oa:Expiration[]) THEN -- authorisation rec dt time
+				
+				--Code change starts for production fix version 0.9 incident #INC0121575
+				--SET CH_ExpirationDate				= CAST((FUNC_GetLastDayOfMonth(REF_PaymentCard.NS_oa:Expiration.NS_oa:Year||'.' || REF_PaymentCard.NS_oa:Expiration.NS_oa:Month, 'yyyy.MM')||'/' || REF_PaymentCard.NS_oa:Expiration.NS_oa:Month ||'/'|| REF_PaymentCard.NS_oa:Expiration.NS_oa:Year ) AS DATE FORMAT 'dd/MM/yyyy');
+				
+				SET CH_ExpirationDate				= CAST((FUNC_GetLastDayOfMonth(REF_PaymentCard.NS_oa:Expiration.NS_oa:Year||'.' || REF_PaymentCard.NS_oa:Expiration.NS_oa:Month||'.01', 'yyyy.MM.dd')||'/' || REF_PaymentCard.NS_oa:Expiration.NS_oa:Month ||'/'|| REF_PaymentCard.NS_oa:Expiration.NS_oa:Year ) AS DATE FORMAT 'dd/MM/yyyy');
+				--Code change starts for production fix version 0.9 incident #INC0121575
+			ELSE
+				--SET CH_ExpirationDate			= '''''';
+				SET CH_ExpirationDate			= '';
+			END IF;
+			
+			IF REF_Payment.(XMLNSC.Attribute)type = 'CARD TENDER' THEN
+				IF COALESCE(REF_PaymentCard.NS_dfns:ICCIndicator,'')<>'' THEN -- issue number
+				SET CH_Icc = REF_PaymentCard.NS_dfns:ICCIndicator;
+			ELSE
+				SET CH_Icc = '';
+			END IF;
+			
+			IF (CH_Icc = 'true') THEN
+				SET CH_IssueNumber = COALESCE(REF_PaymentCard.NS_dfns:PANSequenceNumber,'');
+			ELSE
+				SET CH_IssueNumber = COALESCE(REF_PaymentCard.NS_dfns:IssueNumber,'');
+			END IF;
+			END IF;
+			
+			
+			SET CH_IssuerApplData 		= COALESCE(REF_PaymentAuthorization.NS_dfns:IssuerApplicationData,''); -- issuer appl data
+			SET CH_MerchantNumber 		= COALESCE(REF_PaymentCard.NS_dfns:MerchantNumber,''); -- merchant number
+			SET CH_TerminalCapabilities = COALESCE(REF_PaymentAuthorization.NS_dfns:Terminal.NS_dfns:CapabilitiesCode,''); --terminal capabilities
+			SET CH_TerminalIFD 			= COALESCE(REF_PaymentAuthorization.NS_dfns:Terminal.NS_dfns:EFTID,''); --terminal ifd
+			SET CH_TerminalType 		= COALESCE(REF_PaymentAuthorization.NS_dfns:Terminal.NS_oa:Type,''); -- terminal type
+			
+			SET CH_TerminalVerifResult 	= COALESCE(REF_PaymentAuthorization.NS_dfns:Terminal.NS_dfns:VerificationResultCode,''); -- terminal verification result
+			
+			SET CH_TransnStatusInfo 	= COALESCE(REF_PaymentAuthorization.NS_dfns:TransactionStatus.NS_oa:Description,''); -- transaction status information
+			SET CH_UnpredictableNum 	= COALESCE(REF_EntryDevice.NS_dfns:UnpredictableNumber,''); --unprdedicatable number
+			SET CH_AuthRespCode 		= COALESCE(REF_PaymentAuthorization.NS_dfns:OverallResponseCode,''); --auth reponse code
+			SET CH_HostAuthorised 		= COALESCE(REF_PaymentAuthorization.NS_dfns:HostAuthorizationIndicator,''); --host authorised
+			SET CH_MaskedAcctId 		= COALESCE(REF_PaymentCard.NS_oa:Number,''); --masked account id
+			SET CH_EncryptedAcctId 		= COALESCE(REF_PaymentCard.NS_dfns:EncryptedNumber,''); --encrypted account id
+			SET CH_HashedAcctId 		= COALESCE(REF_PaymentCard.NS_dfns:HashedNumber,''); -- hashed account id
+			SET CH_PanSeqNumber 		= REF_PaymentCard.NS_dfns:PANSequenceNumber; --pan sequence number
+			
+		END IF;
+		
+		-- Begin date time
+		IF COALESCE(REF_SalesTransaction.NS_oa:StartDateTime, '') <> '' THEN
+			--SET TS_TimeStamp		= CAST(REF_SalesTransaction.NS_oa:StartDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET CH_BeginDateTime	= CAST(REF_SalesTransaction.NS_oa:StartDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			--SET CH_BeginDateTime	= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy HH24:mi:ss'')';
+			--SET CH_BeginDateTime	= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy HH24:mi:ss'')';
+		ELSE
+			--SET CH_BeginDateTime	= '''''';
+			SET CH_BeginDateTime	= '';
+		END IF;
+			
+		
+		-- End date time
+		IF COALESCE(REF_SalesTransaction.NS_oa:EndDateTime, '') <> '' THEN
+			--SET TS_TimeStamp		= CAST(REF_SalesTransaction.NS_oa:EndDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET CH_EndDateTime		= CAST(REF_SalesTransaction.NS_oa:EndDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			--SET CH_EndDateTime	= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy HH24:mi:ss'')';
+			--SET CH_EndDateTime	= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy HH24:mi:ss'')';
+		ELSE
+			SET CH_EndDateTime		= '';
+		END IF;
+		
+		
+		IF COALESCE(REF_SalesTransaction.NS_oa:CurrencyCode,'')<>'' THEN 
+			SET CH_CurrencyCode = REF_SalesTransaction.NS_oa:CurrencyCode;
+		ELSE
+			SET CH_CurrencyCode = 'GBP';
+		END IF;
+		
+		SET CH_EntryMethod 				= COALESCE(REF_Payment.NS_dfns:EntryType,''); 
+		
+		--Code change starts for version 0.5 to populate ODS table for SAPCO orders
+		-- Sap co
+		--IF (REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN('ACCOUNT PAYMENT RETURN','ACCOUNT PAYMENT SALE') )THEN
+		--	SET CH_SapCo 				= 'Y';
+		--ELSE
+		--	SET CH_SapCo 				= 'N';
+		--END IF;
+		
+		SalesOrderLine:WHILE LASTMOVE(REF_SalesOrderLine) DO			 
+			IF (REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN('ACCOUNT PAYMENT RETURN','ACCOUNT PAYMENT SALE') OR Environment.Variables.SourceSystem = 'SAPCO')THEN
+				SET CH_SapCo 				= 'Y';
+				LEAVE SalesOrderLine;
+			ELSE
+				SET CH_SapCo 				= 'N';			
+			END IF;
+			MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE; 
+		
+		--Code change ends for version 0.5 to populate ODS table for SAPCO orders
+		
+		-- Solve pfg filter
+--		SET CH_SqlQry 					= 'SELECT PRICEFORSTORECODE FROM MBSTRCD WHERE GENERICSTORECODE = '''||REF_SalesOrderHeader.NS_oa:SourceID ||'''';
+--		
+--		SET REF_Env.PRICEfORMAT 		= PASSTHRU(CH_SqlQry);
+		
+--		SET REF_Env.PRICEfORMAT 		= PASSTHRU('SELECT PRICEFORSTORECODE FROM MBSTRCD WHERE GENERICSTORECODE = ?'
+--											VALUES(REF_SalesOrderHeader.NS_oa:SourceID));
+		
+		SET REF_Env.PRICEfORMAT 		= THE(SELECT ITEM(M.PRICEFORSTORECODE) FROM CACHE_CONFIGDATA.MBSTRCD[] AS M WHERE M.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID);
+		
+		--SET CH_PriceFormat 				= REF_Env.PRICEfORMAT.PRICEFORSTORECODE;
+		
+		SET CH_PriceFormat 				= REF_Env.PRICEfORMAT;
+		
+		--IF ((UPPER(CH_PriceFormat) = 'WH') AND UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'TRADECARD') THEN
+		IF ((UPPER(CH_PriceFormat) = 'WH') AND UPPER(REF_Payment.(XMLNSC.Attribute)id) = 'TRADECARD') THEN
+			SET CH_SolvePFGFilter 		= 'N';
+		
+		--Code change starts for Defect #99 version 0.5 to populate ODS table for SAPCO orders 
+		--ELSEIF (UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CARD TENDER','TOKENISED CARD TENDER') AND COALESCE(REF_PaymentAuthorization.NS_dfns:Token,'')<>'') THEN
+		ELSEIF (EXISTS(REF_Payment.NS_dfns:PaymentCard[]) AND COALESCE(REF_PaymentAuthorization.NS_dfns:Token,'')<>'') THEN
+		--Code change ends for Defect #99 version 0.5 to populate ODS table for SAPCO orders 
+			SET CH_SolvePFGFilter 		= 'N';
+		ELSE
+			--IF UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'TRADECARD' THEN
+			IF UPPER(REF_Payment.(XMLNSC.Attribute)id) = 'TRADECARD' THEN
+				SET CH_tc 				= TRUE;
+			--ELSEIF UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'HFCTRADECARD' THEN
+			ELSEIF UPPER(REF_Payment.(XMLNSC.Attribute)id) = 'HFCTRADECARD' THEN
+				SET CH_hfctc 			= TRUE;
+			ELSE
+				SET CH_hfctc 			= FALSE;
+			END IF;
+		
+			IF UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'SAPCUSTOMERORDER' THEN
+				SET CH_sapco 			= TRUE;
+			ELSE
+				SET CH_sapco 			= FALSE;
+			END IF;
+			
+			IF ((CH_PriceFormat <> 'WH') AND (CH_sapco = TRUE) AND (CH_tc = TRUE)) THEN
+				SET CH_SolvePFGFilter 	= 'N';
+			ELSEIF (CH_hfctc = TRUE) THEN
+				SET CH_SolvePFGFilter 	= 'N';
+			ELSE
+				SET CH_SolvePFGFilter 	= 'Y';
+			END IF;
+		END IF;
+
+		-- Terminal country code
+		--Code comment starts for version 0.6
+		--IF COALESCE (REF_SalesOrderHeader.NS_dfns:SupplierParty.NS_dfns:Contact.NS_dfns:Location.NS_oa:Address.NS_oa:CountryCode,'')<>'' THEN
+		--	SET CH_CountryCode 			= REF_SalesOrderHeader.NS_dfns:SupplierParty.NS_dfns:Contact.NS_dfns:Location.NS_oa:Address.NS_oa:CountryCode;
+		--	IF (COALESCE(CH_CountryCode,'') = '') OR (CH_CountryCode = 'GB') THEN
+		--		SET CH_CountryCode 		= 'GBR';							
+		--	END IF;
+		--	SET CH_TerminalCountryCode  = CH_CountryCode;
+		--END IF;
+		--Code comment ends for version 0.6
+		
+		--Code Change starts for version 0.6
+		SET CH_CountryCode 			= COALESCE(REF_SalesOrderHeader.NS_dfns:SupplierParty.NS_dfns:Contact.NS_dfns:Location.NS_oa:Address.NS_oa:CountryCode,'');
+		
+		IF CH_CountryCode = '' OR CH_CountryCode = 'GB' THEN
+			SET CH_CountryCode 		= 'GBR';
+		END IF;
+		
+		SET CH_TerminalCountryCode  = CH_CountryCode;
+		--Code Change ends for version 0.6
+		
+		SET CH_TransactionType 			= COALESCE(REF_SalesTransaction.NS_oa:Type,''); 
+		SET CH_WorkstationID 			= COALESCE(REF_SalesTransaction.NS_dfns:WorkstationID,''); 
+		
+		IF (REF_SalesTransaction.NS_dfns:TrainingModeIndicator = 'true') THEN
+			SET CH_TrainingFlag 		= 'Y';
+		ELSE
+			SET CH_TrainingFlag 		= 'N';
+		END IF;
+		
+		IF (REF_SalesTransaction.NS_dfns:CancelledIndicator = 'true') THEN 
+			SET CH_VoidFlag 			= 'Y';
+		ELSE
+			SET CH_VoidFlag 			= 'N';
+		END IF;
+		
+		--Layaway filter
+		IF ( COALESCE(REF_SalesTransaction.NS_dfns:SuspendedTransactionIndicator,'')<>'' AND (REF_SalesTransaction.NS_dfns:SuspendedTransactionIndicator) = 'true') THEN
+			SET CH_LayAwayFilter 		= 'Y';
+		ELSE
+			SET CH_LayAwayFilter		= 'N';
+		END IF;
+		
+		SET CH_SeqNumber 				= REF_SalesTransaction.NS_oa:Sequence; -- sequence number
+		
+		SET CH_SrcSystem 				= REF_AppArea.NS_oa:Sender.NS_oa:LogicalID; -- source system
+		
+		-- Transaction end date time
+		SET CH_TransactionEndDateTime 	= REPLACE(REF_SalesTransaction.NS_oa:EndDateTime ,'T',''); 
+		
+		 -- Customer present
+		SET CH_CustPresent 				= COALESCE(REF_Payment.NS_dfns:CustomerPresentIndicator,'');
+		SET CH_ProcessedSEOD 			= 'U'; 
+		SET CH_ProcessedASEOD 			= 'U';
+		
+		-- Po number
+		SET CH_PoNumber 				= COALESCE(REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID,'');
+		
+		
+		--Response indicator
+		SET CH_respInd 					= '1';
+		
+		IF (REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO') THEN
+			SET CH_respInd = '0';
+		END IF;
+		
+		IF ((UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CARD TENDER', 'TOKENISED CARD TENDER')) AND COALESCE(REF_PaymentAuthorization.NS_dfns:OnlineAuthorizationIndicator,'')<>'') THEN
+			SET CH_authOnline = REF_PaymentAuthorization.NS_dfns:OnlineAuthorizationIndicator;
+		ELSE
+			SET CH_authOnline = '';
+		END IF;
+		
+		IF ((UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CARD TENDER', 'TOKENISED CARD TENDER')) AND COALESCE(REF_PaymentCard.NS_dfns:Referral.NS_dfns:HostReferredIndicator,'')<>'') THEN
+			SET CH_hostRef = REF_PaymentCard.NS_dfns:Referral.NS_dfns:HostReferredIndicator;
+		ELSE
+			SET CH_hostRef = '';
+		END IF;
+		
+		IF ((UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CARD TENDER', 'TOKENISED CARD TENDER')) AND COALESCE(REF_PaymentAuthorization.NS_oa:ResponseCode,'')<>'') THEN
+			SET CH_authCode = REF_PaymentAuthorization.NS_oa:ResponseCode;		
+		ELSEIF ((REF_Payment.(XMLNSC.Attribute)type = 'CHEQUE TENDER') AND COALESCE(REF_Payment.NS_dfns:Cheque.NS_oa:AuthorizationCode,'')<>'') THEN
+			SET CH_authCode = REF_Payment.NS_dfns:Cheque.NS_oa:AuthorizationCode;
+		ELSEIF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID='SAPCO' THEN
+			SET CH_authCode = REF_PaymentAuthorization.NS_oa:ResponseCode;
+		ELSE
+			SET CH_authCode = '';
+		END IF;
+		
+		
+		SET CH_authCodeEnt = '';
+		IF ((UPPER(REF_Payment.(XMLNSC.Attribute)type) IN ('CARD TENDER', 'TOKENISED CARD TENDER')) AND COALESCE(REF_PaymentCard.NS_dfns:Referral.NS_dfns:ManualAuthCodeEntryIndicator,'')<>'') THEN
+			SET CH_authCodeEnt = REF_PaymentCard.NS_dfns:Referral.NS_dfns:ManualAuthCodeEntryIndicator;
+		END IF;
+		IF ((REF_Payment.(XMLNSC.Attribute)type = 'CHEQUE TENDER') AND COALESCE(REF_Payment.NS_dfns:Cheque.NS_dfns:ManualKeyingIndicator,'')<>'') THEN
+			SET CH_authCodeEnt = REF_Payment.NS_dfns:Cheque.NS_dfns:ManualKeyingIndicator;
+		END IF;
+		
+		IF (((CH_authOnline = 'true') OR (CH_hostRef = 'true')) AND (CH_authCode <> '')) THEN
+			SET CH_respInd = '2';
+		--END IF;
+		ELSEIF ((CH_authCodeEnt = 'true') AND LENGTH(CH_authCode) > 1) THEN
+			SET CH_respInd = '3';
+		END IF;
+		
+		--Process direct
+--		SET CH_SqlQry = 'SELECT NONMFSTORE FROM MBSTRCD WHERE GENERICSTORECODE = '''
+--		||REF_SalesOrderHeader.NS_oa:SourceID ||''''|| '';
+--			
+--		SET REF_Env.ProcessDirect = PASSTHRU(CH_SqlQry);
+		
+		
+--		SET REF_Env.ProcessDirect = PASSTHRU('SELECT NONMFSTORE FROM MBSTRCD WHERE GENERICSTORECODE = ?'
+--										VALUES(REF_SalesOrderHeader.NS_oa:SourceID));
+		
+		SET REF_Env.ProcessDirect.NONMFSTORE = THE(SELECT ITEM(M.NONMFSTORE) FROM CACHE_CONFIGDATA.MBSTRCD[] AS M WHERE M.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID);
+		
+		
+		--Code change starts for ProcessDirect
+		SET CH_ProcessDirect	   = COALESCE(REF_Env.ProcessDirect.NONMFSTORE,'');		
+
+		--IF REF_Env.ProcessDirect.NONMFSTORE <> 'Y' THEN
+		IF CH_ProcessDirect <> 'Y' THEN
+			SET CH_ProcessDirect = 'N';
+		--Code change ends for ProcessDirect
+		END IF;
+		
+		--Po general reference
+		SET CH_PoGeneralRef 		= COALESCE(REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:Description,'');
+		
+		--Po cost centre
+		SET CH_PoCostCentre 		= COALESCE(REF_Payment.NS_oa:CostCenterID,'');
+		
+		--Processed DBank Reference
+		SET CH_ProcessedDBankRec	= 'U';
+		
+		--Svc card type
+		SET CH_SvcCardType			= REF_Payment.NS_dfns:GiftCard.NS_oa:Type ;
+			
+			
+		--Code change starts for version 0.2 fix	
+		--GL Tender Type
+		SET CH_amountValue 			= COALESCE(REF_Payment.NS_oa:Amount,'0');
+		
+		IF (UPPER(TRIM(CH_TenderId)) = 'CREDITNOTE') THEN
+			
+			IF (CAST(CH_amountValue AS DECIMAL) > 0) THEN
+				SET CH_GlTenderType = 'CreditNoteRedemption';
+			ELSE
+				SET CH_GlTenderType = 'CreditNoteIssue';
+			END IF;
+			
+		ELSEIF(COALESCE(CH_glcode,'') <> '')THEN
+		
+			IF UPPER(CH_glcode) = 'GOGWCARDREDEMPTION' AND CAST(CH_amountValue AS DECIMAL) < 0 THEN
+				SET CH_GlTenderType = 'GOGWCardIssue';
+			ELSE			
+				SET CH_GlTenderType 	= CH_glcode;
+			END IF;								
+		
+		END IF;
+		
+		--Code change ends for version 0.2 fix
+		
+		SET CH_SecurityTransId 	= COALESCE(REF_PaymentAuthorization.NS_oa:TransactionID,'');
+		SET CH_SecurityCav 		= COALESCE(REF_PaymentAuthorization.NS_dfns:CAVCode,'');
+		SET CH_SecurityResult 	= COALESCE(REF_PaymentAuthorization.NS_oa:Result,'');
+		SET CH_SecProtocolNm 	= COALESCE(REF_PaymentAuthorization.NS_dfns:ProtocolName,'');
+		SET CH_SecurityEci 		= COALESCE(REF_PaymentAuthorization.NS_dfns:ElectronicCommerceIndicatorID,'');
+		SET CH_MdStatus 		= COALESCE(REF_PaymentAuthorization.NS_dfns:MDStatusCode,'');
+	    
+		IF COALESCE(REF_PaymentCard.NS_dfns:IVData,'')<>'' THEN
+			SET CH_IvData = COALESCE(REF_PaymentCard.NS_dfns:IVData,'');
+		END IF;
+		
+		--Mapping for Token
+		IF COALESCE(REF_PaymentAuthorization.NS_dfns:Token,'')<>'' THEN
+			SET CH_Token = COALESCE(REF_PaymentAuthorization.NS_dfns:Token,''); 
+		END IF;
+		
+		IF (UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'TOKENISED CARD TENDER') THEN
+			SET CH_CommIdeaAuthDb 	= COALESCE(REF_PaymentAuthorization.NS_dfns:AuthorizationDatabaseID,'');
+			SET CH_CommIdeaTransId 	= COALESCE(REF_PaymentAuthorization.NS_dfns:ExternalTransactionID,'');
+		END IF;			
+		
+		--Checking if TOken is present in input
+		IF (((COALESCE(CH_Token,'')<>'') AND LENGTH(CH_Token) > 0)
+			OR ((COALESCE(CH_CommIdeaTransId,'')<>'') AND LENGTH(CH_CommIdeaTransId) > 0)
+			OR ((COALESCE(CH_CommIdeaAuthDb,'')<>'') AND LENGTH(CH_CommIdeaAuthDb) > 0)) THEN
+			SET CH_Settled = 'N';
+		END IF;
+		
+		 
+		 PASSTHRU 'INSERT INTO SALES_TRANSACTIONS_TENDER (
+            STORE_CODE,
+            TRANSACTION_ID,
+            TENDER_ID,
+            TENDER_TYPE,
+            JOURNAL_CODE,
+            CREDIT_AMOUNT,
+            DEBIT_AMOUNT,
+            AMOUNT,
+            CHANGE_AMOUNT,
+            BUSINESS_DAY_DATE,
+            TRAINING_CANCEL_FILTER,
+            BANKING_STORERET_FILTER,
+            RECONCILIATION_FILTER,
+            TENDER_CONTROL_TRANS_FILTER,
+            ACCOUNT_ID,
+            APPL_CRYPTOGRAM,
+            APPL_ID,
+            APPL_INTERCHANGE_PROFILE,
+            APPL_TRANSACTION_COUNTER,
+            APPL_USAGE_CONTROL,
+            APPL_VERSION,
+            AUTHORISATION_AMOUNT,
+            AUTHORISATION_CODE,
+            AUTHORISATION_REC_DATE_TIME,
+            BEGIN_DATE_TIME,
+            END_DATE_TIME,
+            CARDHOLDER_VERIFICATION_RESULT,
+            CRYPTOGRAM_INFORMATION_DATA,
+            CRYPTOGRAM_TRANSACTION_TYPE,
+            CURRENCY_CODE,
+            ENTRY_METHOD,
+            EXPIRATION_DATE,
+            ISSUE_NUMBER,
+            ISSUER_APPLICATION_DATA,
+            MERCHANT_NUMBER,
+            RECEIVED_DATE_TIME,
+            SAP_CO,
+            SOLVE_PFG_FILTER,
+            TERMINAL_CAPABILITIES,
+            TERMINAL_COUNTRY_CODE,
+            TERMINAL_IFD,
+            TERMINAL_TYPE,
+            TERMINAL_VERIFICATION_RESULT,
+            TRANSACTION_STATUS_INFORMATION,
+            TRANSACTION_TYPE,
+            UNPREDICTABLE_NUMBER,
+            WORKSTATION_ID,
+            TRAINING_FLAG,
+            VOID_FLAG,
+            AUTH_RESPONSE_CODE,
+            LAYAWAY_FILTER,
+            SEQUENCE_NUMBER,
+            CUSTOMER_ID,
+            TRADE_ORDER_DATE,
+            SOURCE_SYSTEM,
+            TRANSACTION_END_TIME,
+            HOST_AUTHORISED,
+            CUSTOMER_PRESENT,
+            PROCESSED_ASEOW,
+            PROCESSED_SEOD,
+			PROCESSED_ASEOD,
+			PO_NUMBER,
+            RESPONSE_INDICATOR,
+			PROCESS_DIRECT,
+			PO_GENERAL_REFERENCE,
+			PO_COST_CENTRE,
+            PROCESSED_DBANKREC,
+			SVCCARD_TYPE,
+			GL_TENDER_TYPE,
+            ACTION_TYPE,
+			TAX_AMOUNT,
+			GL_REASON_CODE,
+			SECURITYTRANSID,
+			SECURITYCAV,
+			SECURITYRESULT,
+			SECURITYPROTOCOLNAME,
+            SECURITYECI,
+			MASKED_ACCOUNT_ID,
+			ENCRYPTED_ACCOUNT_ID,
+			HASHED_ACCOUNT_ID,
+			MD_STATUS,
+			IV_DATA,
+			PAN_SEQUENCE_NUMBER,
+            TOKEN,
+			COMMIDEA_AUTH_DB,
+			COMMIDEA_TRANSACTION_ID,
+			SETTLED)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' 
+            
+            TO Database.{DSN} VALUES(
+            			CH_SourceId,
+                        CH_Id,
+                        CH_TenderId,             
+                        CH_TenderType,
+                        CH_JournalCode,
+                        CAST(DC_CreditAmount AS CHARACTER),                                 
+                        CAST(DC_DebitAmount AS CHARACTER),    
+                        CAST(CH_Amount AS CHARACTER),
+                        CAST(CH_ChangeAmount AS CHARACTER),
+                        CH_BusinessDayId,
+                        CH_TrainingCancelFilter,
+                        '',
+                        CH_ReconciliationFilter,
+                        CH_TenderControlTrans,         
+                        CH_AccountId,
+                        CH_ApplicationCryptogram,
+                        CH_ApplicationId,
+                        CH_ApplInterchangeProfile,
+                        CH_ApplTransacnCounter,
+                        CH_ApplUsageControl,
+                        CH_ApplVersion,
+                        CH_AuthorisationAmount,
+                        CH_authCode,
+                        CH_AuthorisationRecDtTime,
+                        CH_BeginDateTime,
+                        CH_EndDateTime,
+                        CH_CardholderVerifnResult,
+                        CH_CryptogramInfoData,
+                        CH_CryptogramTransType,
+                        CH_CurrencyCode,
+                        CH_EntryMethod,
+                        CH_ExpirationDate,
+                        CH_IssueNumber,
+                        CH_IssuerApplData,
+                        CH_MerchantNumber,
+                        '',
+                        CH_SapCo,
+                        CH_SolvePFGFilter,
+                        CH_TerminalCapabilities,
+                        CH_TerminalCountryCode,
+                        CH_TerminalIFD,
+                        CH_TerminalType,
+                        CH_TerminalVerifResult,
+                        CH_TransnStatusInfo,
+                        CH_TransactionType,
+                        CH_UnpredictableNum,
+                        CH_WorkstationID,
+                        CH_TrainingFlag,
+                        CH_VoidFlag,
+                        CH_AuthRespCode,
+                        CH_LayAwayFilter,
+                        CH_SeqNumber,
+                        CH_CustomerId,
+                        '',
+                        CH_SrcSystem,
+                        CH_EndDateTime,
+                        CH_HostAuthorised,
+                        CH_CustPresent,
+                        '',
+                        CH_ProcessedSEOD,
+                        CH_ProcessASEOD,
+                        CH_PoNumber,
+                        CH_respInd,
+                        CH_ProcessDirect,
+                        CH_PoGeneralRef,
+                        CH_PoCostCentre ,
+                        CH_ProcessedDBankRec,
+                        CH_SvcCardType,
+                        CH_GlTenderType,
+                        '',
+                        '',
+                        '',
+                        CH_SecurityTransId,
+                        CH_SecurityCav,
+                        CH_SecurityResult,
+                        CH_SecProtocolNm,
+                        CH_SecurityEci,
+                        CH_MaskedAcctId,
+                        CH_EncryptedAcctId,
+                        CH_HashedAcctId,
+                        CH_MdStatus,
+                        CH_IvData,
+                        CH_PanSeqNumber,
+                        CH_Token,
+                        CH_CommIdeaAuthDb,
+                        CH_CommIdeaTransId,
+                        CH_Settled
+                        );
+		 
+		
+END;
+	
+			
+	/*****************************************************************************************
+	* Procedure Name	: InsertAndUpdateItemTable 										 	 *
+	* Input Parameters	: 																	 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Insert and Update in ITEM table						 *								
+	*****************************************************************************************/
+	CREATE PROCEDURE InsertAndUpdateItemTable (IN REF_SalesOrder REFERENCE, IN REF_SalesOrderHeader REFERENCE, IN REF_SalesTransaction REFERENCE, IN REF_SalesOrderLine REFERENCE, IN REF_AppArea REFERENCE, IN REF_Env REFERENCE)
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK' TO Database.{DSN};
+			RESIGNAL;
+		END;
+		
+		--Declaring variables
+		DECLARE CH_Uom		 				CHARACTER '';
+		DECLARE CH_Quantity 				CHARACTER '';
+		DECLARE CH_ExtAmount 				CHARACTER '';
+		DECLARE CH_Department 				CHARACTER '';
+		DECLARE CH_ExtAmountNonCo			CHARACTER '';
+		DECLARE CH_BusinessDayDate			CHARACTER '';
+		DECLARE CH_VoidFilter 				CHARACTER '';
+		DECLARE CH_itemType 				CHARACTER '';
+		DECLARE CH_ItemTypeFilter 			CHARACTER '';
+		DECLARE CH_SapcoFilter	 			CHARACTER '';
+		DECLARE CH_ItemTaxGroupId			CHARACTER '';
+		DECLARE CH_SourceSystem				CHARACTER '';
+		DECLARE CH_VatAmount				CHARACTER '';
+		DECLARE CH_RegionId					CHARACTER '';
+		DECLARE CH_transDate				CHARACTER '';
+		DECLARE CH_vatChangeDate			CHARACTER '';
+		DECLARE CH_VatRate	 				CHARACTER '';
+		DECLARE CH_TradeSellPrice 			CHARACTER '';
+		DECLARE CH_FullVatAmount 			CHARACTER '';
+		DECLARE CH_NetAmount 				CHARACTER '';
+		DECLARE CH_SaleReturn 				CHARACTER '';
+		DECLARE CH_MerchantNumber			CHARACTER '';
+		DECLARE CH_TaxableTotal 			CHARACTER '';
+		DECLARE CH_TrainingCancelFilter		CHARACTER '';
+		DECLARE CH_Currency 				CHARACTER '';
+		DECLARE CH_SvcCardType				CHARACTER '';
+		DECLARE DT_Date 					DATE;		
+		DECLARE DC_VatRate 					CHARACTER '';
+		DECLARE CH_LAYAWAY_FILTER 			CHARACTER '';
+		DECLARE DC_EAmount					DECIMAL 0.0;
+		DECLARE DC_SVatAmount 				DECIMAL 0.0;
+		DECLARE DC_SFullVatAmount			DECIMAL 0.0;
+		DECLARE SNetAmount					DECIMAL 0.0;
+		DECLARE DC_BdeAmount 				DECIMAL;
+		DECLARE DC_BdVatrate				DECIMAL;
+		DECLARE DC_BdNetAmount				DECIMAL;
+		DECLARE DC_BdVatAmount				DECIMAL;
+		DECLARE CH_Glreg					CHARACTER '';
+		DECLARE	CH_AccountId				CHARACTER '';
+		DECLARE DT_EndDateTime				DATE;
+		
+		
+		SET CH_ItemCode 	= REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID; 
+		SET CH_Uom 			= REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UOMCode; 
+		SET CH_Quantity 	= REF_SalesOrderLine.NS_oa:Quantity;
+		SET CH_ExtAmount 	= REF_SalesOrderLine.NS_oa:ExtendedAmount;
+		
+		--Check if Type = 'Department' and populate Department
+		IF (REF_SalesOrderLine.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:Type = 'Department') THEN
+			SET CH_Department = REF_SalesOrderLine.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:ID;
+		END IF;
+		
+		--Ext Amount Non Co
+		IF LENGTH(CH_ItemCode) > 1 THEN
+			SET CH_ExtAmountNonCo = SUBSTRING(CH_ItemCode FROM 1 FOR 2);
+			IF CH_ExtAmountNonCo = '91' THEN
+				SET CH_ExtAmountNonCo = '0';
+			ELSE
+				SET CH_ExtAmountNonCo = CH_ExtAmount;
+			END IF;
+		END IF;
+		
+		IF COALESCE(REF_SalesOrderLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime,'') <> ''THEN
+			SET CH_EndDateTime =CAST(COALESCE(SUBSTRING(REF_SalesOrderLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime FROM 1 FOR 10),'') AS DATE FORMAT 'yyyy-MM-dd'); -- business day date
+		END IF;
+		
+		--Business Day Date
+		SET CH_BusinessDayDate = COALESCE(REF_SalesTransaction.NS_dfns:BusinessDayID,'0');
+
+		--Check if Code = 'VOID LINE' OR 'VOID ENTRY' and populate Void Filter
+		IF (REF_SalesOrderLine.NS_dfns:VoidStatus.NS_oa:Code = 'VOID LINE'
+			OR REF_SalesOrderLine.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY') THEN
+			SET CH_VoidFilter = 'Y';
+		ELSE
+			SET CH_VoidFilter = 'N';
+		END IF;
+		
+		
+		--Item Type Filter
+		SET CH_itemType = COALESCE(REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:Type,'');
+		
+		IF CH_itemType IN( 'Stock','Other','NotOnFile') THEN
+			SET CH_ItemTypeFilter = 'Y';
+		ELSE
+			SET CH_ItemTypeFilter = 'N';
+		END IF;
+		
+		--SAPCO filter
+		--Code change starts for version 0.3
+		--IF (UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type) IN 
+		--	('ACCOUNT PAYMENT RETURN', 'ACCOUNT PAYMENT SALE')) THEN
+		IF (UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type) IN 
+			('ACCOUNT PAYMENT RETURN', 'ACCOUNT PAYMENT SALE'))OR REF_AppArea.NS_oa:Sender.NS_oa:LogicalID ='SAPCO' THEN	
+		--Code change ends for version 0.3
+			SET CH_SapcoFilter = 'Y';
+		ELSE
+			SET CH_SapcoFilter = 'N';
+		END IF;
+
+		--Item Tax group id
+		SET CH_ItemTaxGroupId = COALESCE(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code,'');
+		
+		--Source System
+		SET CH_SourceSystem = COALESCE(REF_AppArea.NS_oa:Sender.NS_oa:LogicalID,'');
+		
+		
+		--Setting VatRate,TradeSellPrice,FullVatAmount,VatAmount
+		
+--		SET Environment.VatRate[] = PASSTHRU('SELECT TRFVATCODE FROM VATDATA WHERE EPOSVATCODE =?' 
+--		VALUES(UPPER(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code)));
+		
+		SET Environment.VatRate[] = SELECT V.TRFVATCODE FROM CACHE_CONFIGDATA.VATDATA[] AS V WHERE V.EPOSVATCODE = UPPER(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code);
+		
+			
+		SET DC_VatRate = CAST(Environment.VatRate[1].TRFVATCODE AS DECIMAL);
+		
+		IF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'EPOS' THEN
+			SET DC_SVatAmount		= 0;
+			SET DC_SFullVatAmount 	= 0;
+			
+			SET DC_EAmount = CAST(REF_SalesOrderLine.NS_oa:TotalAmount AS DECIMAL);
+			
+			--IF ROUND(CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL),2) <> '' THEN
+			IF COALESCE(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount,'')  <> '' THEN	
+				--SET DC_SVatAmount = ROUND(CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL),2);
+				SET DC_SVatAmount = ROUND(CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL),2 MODE ROUND_HALF_UP);
+				--IF ROUND(CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL),10) <> '' THEN
+				IF COALESCE(ROUND(CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL),10),'') <> '' THEN
+					SET DC_SFullVatAmount = ROUND(CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL),10);
+				END IF;
+			
+			END IF;
+			
+			SET SNetAmount 			= DC_EAmount - DC_SVatAmount; 
+			SET CH_VatAmount		= CAST(DC_SVatAmount AS CHARACTER); 
+			SET CH_FullVatAmount 	= CAST(DC_SFullVatAmount AS CHARACTER);  
+			SET CH_TradeSellPrice 	= CAST(SNetAmount AS CHARACTER);	
+			SET CH_VatRate			= CAST(DC_VatRate AS CHARACTER);
+			
+		ELSE
+			
+			SET DC_EAmount  	= CAST(CH_ExtAmount AS DECIMAL);
+			SET DC_BdeAmount	= DC_EAmount * 100;
+			SET DC_BdVatrate	= CAST(DC_VatRate AS DECIMAL) + 100;
+			SET DC_BdNetAmount	= ROUND(DC_BdeAmount / DC_BdVatrate,2 );
+			SET DC_BdVatAmount	= DC_EAmount - DC_BdNetAmount;
+			
+			SET CH_VatAmount		= CAST(DC_BdVatAmount AS CHARACTER); 
+			SET CH_FullVatAmount 	= CAST(DC_BdVatAmount AS CHARACTER);  
+			SET CH_TradeSellPrice 	= CAST(DC_BdNetAmount AS CHARACTER);	
+			SET CH_VatRate			= CAST(DC_VatRate     AS CHARACTER);
+			
+		END IF;	
+		
+	
+		SET CH_RegionId 	= '';
+		
+		IF COALESCE(REF_SalesOrderHeader.NS_dfns:PayFromParty.NS_dfns:Contact.NS_dfns:Location.NS_oa:Address.NS_oa:CountrySubDivisionCode,'')<>'' THEN
+			SET CH_RegionId = REF_SalesOrderHeader.NS_dfns:PayFromParty.NS_dfns:Contact.NS_dfns:Location.NS_oa:Address.NS_oa:CountrySubDivisionCode ;	
+		END IF;
+		
+		--Change for VatRate
+		DECLARE DT_EndDate 			DATE;
+		DECLARE CH_VatChangeDate 	CHARACTER;
+		DECLARE DT_VatChangeDate 	DATE;
+		DECLARE TS_Date				TIMESTAMP;
+		
+--		SET CH_VatChangeDate = THE(SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL='VATChangeDate');
+		
+		SET CH_VatChangeDate = THE(SELECT ITEM M.CONFIGVALUE FROM CACHE_CONFIGDATA.MBCONFIG[] AS M WHERE M.CANVAL='VATChangeDate');
+		
+		
+		SET TS_Date		= CAST(REF_SalesTransaction.NS_oa:EndDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		
+		SET DT_EndDate 			= CAST(TS_Date AS DATE FORMAT 'yyyy-MM-dd');
+		
+		SET DT_VatChangeDate 	= CAST(CAST(CH_VatChangeDate AS TIMESTAMP FORMAT 'yyyyMMdd') AS  DATE FORMAT 'yyyy-MM-dd');
+		
+		
+		IF UPPER(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code) ='UKVATSTD' AND CH_RegionId = 'UK' AND DT_VatChangeDate>DT_EndDate THEN
+--			SET CH_VatRate = THE(SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL='OldVATRate' );
+			
+			SET CH_VatRate = THE(SELECT ITEM M.CONFIGVALUE FROM CACHE_CONFIGDATA.MBCONFIG[] AS M WHERE M.CANVAL='OldVATRate' );
+			
+		END IF ;
+		
+		--Change for VatRate
+		
+		
+--		SET Environment.variables.GLRegionColumn = THE(SELECT ITEM P.GLREGIONCOLUMN   FROM Database.MBSTRCD AS P WHERE 
+--												  P.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID);
+		
+		
+		SET Environment.variables.GLRegionColumn = THE(SELECT ITEM P.GLREGIONCOLUMN   FROM CACHE_CONFIGDATA.MBSTRCD[] AS P WHERE 
+												  P.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID);
+		
+												  
+		SET CH_Glreg	= Environment.variables.GLRegionColumn;
+		IF UPPER(CH_Glreg) = 'GLJEY' THEN
+			SET CH_RegionId = 'JS';
+		END IF;
+		
+		IF UPPER(CH_RegionId) = 'CI' THEN
+			SET CH_VatRate			= '0';
+			SET CH_VatAmount		='0';
+			
+		END IF;
+		IF UPPER(CH_RegionId) = 'JS' THEN
+--			SET CH_VatRate			= THE(SELECT ITEM P.CONFIGVALUE FROM  Database.MBCONFIG AS P
+--									 WHERE P.CANVAL ='JerseyGSTRate') ;
+									 
+			
+			SET CH_VatRate			= THE(SELECT ITEM P.CONFIGVALUE FROM  CACHE_CONFIGDATA.MBCONFIG[] AS P
+									 WHERE P.CANVAL ='JerseyGSTRate') ;
+		END IF;
+		
+		-- Populate process seod
+		SET CH_ProcessSEOD = 'U'; 
+		
+		-- Populate process aseod
+		SET CH_ProcessASEOD = 'U'; 
+		
+		-- Populate Net Amount
+		SET CH_NetAmount = COALESCE(REF_SalesOrderLine.NS_oa:TotalAmount,'0');
+		
+		-- Populate Sale Return
+		--Code commented for version 0.3 changes
+		--IF (UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'PRODUCT SALE') THEN
+		--	SET CH_SaleReturn = 'I';
+		--ELSEIF (UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'PRODUCT RETURN') THEN
+		--	SET CH_SaleReturn = 'C';
+		--END IF;
+		--Code commented for version 0.3 changes
+
+		--Code change starts for version 0.3
+		IF  CONTAINS(UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type),'SALE') THEN
+			SET CH_SaleReturn = 'I';
+		ELSEIF CONTAINS(UPPER(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type),'RETURN') THEN
+			SET CH_SaleReturn = 'C';
+		END IF;
+		--Code change ends for version 0.3
+				
+		--  Line Number
+		SET CH_LineNumber = COALESCE(REF_SalesOrderLine.NS_oa:LineNumber,'');
+		
+		--Code change starts for version 0.7 defect # 125
+		FOR REF_ProductTechnicalInformation AS REF_SalesOrderLine.NS_dfns:ProductItem.NS_dfns:ProductTechnicalInformation[] DO
+
+		-- Populate account id
+		--IF (REF_SalesOrderLine.NS_dfns:ProductItem.NS_dfns:ProductTechnicalInformation.NS_oa:NameValue.(XMLNSC.Attribute)name = 'SERIAL NUMBER') THEN
+		IF (REF_ProductTechnicalInformation.NS_oa:NameValue.(XMLNSC.Attribute)name = 'SERIAL NUMBER') THEN
+			SET CH_AccountId = COALESCE(REF_ProductTechnicalInformation.NS_oa:NameValue,'');
+		END IF;
+
+		-- Populate svc card type
+		--IF (REF_SalesOrderLine.NS_dfns:ProductItem.NS_dfns:ProductTechnicalInformation.NS_oa:NameValue.(XMLNSC.Attribute)name = 'CARD TYPE') THEN
+		IF (REF_ProductTechnicalInformation.NS_oa:NameValue.(XMLNSC.Attribute)name = 'CARD TYPE') THEN
+			SET CH_SvcCardType = COALESCE(REF_ProductTechnicalInformation.NS_oa:NameValue,'');
+		END IF;
+
+		-- Populate Merchant Number
+		--IF (REF_SalesOrderLine.NS_dfns:ProductItem.NS_dfns:ProductTechnicalInformation.NS_oa:NameValue.(XMLNSC.Attribute)name = 'MERCHANT NUMBER') THEN
+		IF (REF_ProductTechnicalInformation.NS_oa:NameValue.(XMLNSC.Attribute)name = 'MERCHANT NUMBER') THEN
+			SET CH_MerchantNumber = COALESCE(REF_ProductTechnicalInformation.NS_oa:NameValue,'');
+		END IF;
+		END FOR;
+		--Code change ends for version 0.7 defect #125
+		
+		-- Populate Taxable total
+		--SET CH_TaxableTotal = COALESCE(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount,0);
+		SET CH_TaxableTotal = COALESCE(REF_SalesOrderLine.NS_dfns:TotalTaxableAmount,0);
+		
+		--Populating Discount Table
+		IF EXISTS(REF_SalesOrderLine.NS_dfns:Allowance[]) THEN
+			FOR REF_Allowance AS REF_SalesOrderLine.NS_dfns:Allowance[] DO
+				--Code change starts for version 0.8
+				--IF REF_Allowance.NS_oa:Description = 'Priceoverride' THEN
+				--IF REF_Allowance.NS_oa:Description <> 'Priceoverride' THEN
+				IF COALESCE(REF_Allowance.NS_oa:Indicator, 'false') <> 'true' THEN
+				--Code change ends for version 0.8
+					--CALL InsertAndUpdateDiscountTable(REF_SalesOrderHeader,REF_SalesTransaction,REF_SalesOrderLine, REF_Env);
+					CALL InsertAndUpdateDiscountTable(REF_SalesOrderHeader,REF_SalesTransaction,REF_SalesOrderLine, REF_Env,REF_Allowance); 
+				END IF;
+			END FOR;
+		END IF; 
+		
+		-- Populating process direct
+--		SET REF_Env.ProcessDirect.NONMFSTORE = THE(SELECT ITEM MB.NONMFSTORE FROM Database.MBSTRCD AS MB WHERE MB.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID);
+		
+		SET REF_Env.ProcessDirect.NONMFSTORE = THE(SELECT ITEM MB.NONMFSTORE FROM CACHE_CONFIGDATA.MBSTRCD[] AS MB WHERE MB.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID);
+		
+		
+		--Code change starts for ProcessDirect
+		SET CH_ProcessDirect = COALESCE(REF_Env.ProcessDirect.NONMFSTORE,'');
+		IF CH_ProcessDirect <> 'Y' THEN
+			SET CH_ProcessDirect = 'N';
+		--Code change ends for ProcessDirect
+		--ELSE 
+		--	SET CH_ProcessDirect = REF_Env.ProcessDirect.NONMFSTORE;
+		END IF;
+		
+		--Populating  Training cancel filter
+		IF ((REF_SalesTransaction.NS_dfns:TrainingModeIndicator = 'true') OR (REF_SalesTransaction.NS_dfns:CancelledIndicator = 'true')) THEN
+			SET CH_TrainingCancelFilter = 'Y';
+		ELSE
+			SET CH_TrainingCancelFilter = 'N';
+		END IF;
+		--Populating currency 
+		SET CH_Currency = COALESCE(REF_SalesTransaction.NS_oa:CurrencyCode,'');
+		
+		
+		
+		--Mapping for LayAway Filter
+		IF ( COALESCE(REF_SalesTransaction.NS_dfns:SuspendedTransactionIndicator,'')<>'' AND (REF_SalesTransaction.NS_dfns:SuspendedTransactionIndicator) = 'true') THEN
+			SET CH_LAYAWAY_FILTER = 'Y';
+		ELSE
+			SET CH_LAYAWAY_FILTER = 'N';
+		END IF; 
+		
+		--Building query string for SALES_TRANSACTIONS_ITEM
+		SET Environment.RetVal[] = PASSTHRU('INSERT INTO SALES_TRANSACTIONS_ITEM (
+		STORE_CODE,
+		TRANSACTION_ID,
+		ITEM_CODE,
+		UOM,
+		QUANTITY,
+		EXT_AMOUNT,
+		DEPARTMENT,
+		EXT_AMOUNT_NON_CO,
+		END_DATE_TIME,
+		BUSINESS_DAY_DATE,
+		VOID_FILTER,
+		ITEM_TYPE_FILTER,
+		SAPCO_FILTER,
+		ITEM_TAX_GROUP_ID,
+		SOURCE_SYSTEM,
+		VAT_AMOUNT,
+		VAT_RATE,
+		TRADE_SELL_PRICE,
+		FULL_VAT_AMOUNT,
+		PROCESSED_SEOD,
+		PROCESSED_ASEOD,
+		NET_AMOUNT,
+		SALE_RETURN,
+		LINE_NUMBER,
+		ACCOUNT_ID,
+		SVCCARD_TYPE,
+		MERCHANT_NUMBER,
+		TAXABLE_TOTAL,
+		PROCESS_DIRECT,
+		TRAINING_CANCEL_FILTER,
+		CURRENCY,
+		LAYAWAY_FILTER)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)' TO Database.{DSN} VALUES(
+		CH_SourceId,
+		CH_Id,
+		CH_ItemCode,			
+		CH_Uom,
+		CH_Quantity,
+		CH_ExtAmount,							
+		CH_Department,
+		CH_ExtAmountNonCo,
+		CH_EndDateTime,
+		CH_BusinessDayDate,
+		CH_VoidFilter,
+		CH_ItemTypeFilter,
+		CH_SapcoFilter,
+		CH_ItemTaxGroupId,
+		CH_SourceSystem,
+		CH_VatAmount, 
+		CH_VatRate,
+		CH_TradeSellPrice,
+		CH_FullVatAmount,
+		CH_ProcessSEOD,
+		CH_ProcessASEOD,
+		CH_NetAmount,
+		CH_SaleReturn,
+		CH_LineNumber,
+		CH_AccountId,
+		CH_SvcCardType,
+		CH_MerchantNumber,
+		CH_TaxableTotal,
+		CH_ProcessDirect,
+		CH_TrainingCancelFilter,
+		CH_Currency,
+		CH_LAYAWAY_FILTER));	
+				
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: InsertAndUpdateDiscountTable 										 *
+	* Input Parameters	: 																	 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Insert and Update in DISCOUNT table					 *								 
+	*****************************************************************************************/
+	
+	CREATE PROCEDURE InsertAndUpdateDiscountTable (IN REF_SalesOrderHeader REFERENCE, IN REF_SalesTransaction REFERENCE, IN REF_SalesOrderLine REFERENCE, IN REF_ENV REFERENCE,IN REF_Allowance REFERENCE)
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK' TO Database.{DSN};
+			RESIGNAL;
+		END;
+		
+		--Declaring variables
+		DECLARE  CH_DiscountValue			CHARACTER 0.0;
+		DECLARE  CH_DiscountType			CHARACTER '';
+		DECLARE  CH_Action					CHARACTER '';
+		
+		SET CH_BusinessDayId 	= COALESCE(REF_SalesTransaction.NS_dfns:BusinessDayID,'0');
+		
+		SET CH_ItemCode 		= COALESCE(REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID,'');
+		SET CH_LineNumber 		= COALESCE(REF_SalesOrderLine.NS_oa:LineNumber,'');
+		--SET CH_DiscountValue 	= COALESCE(REF_SalesOrderLine.NS_dfns:Allowance.NS_dfns:BasisAmount,'0.00');
+		--SET CH_DiscountValue 	= COALESCE(REF_SalesOrderLine.NS_dfns:Allowance.NS_oa:BasisAmount,'0.00');
+		SET CH_DiscountValue 	= COALESCE(REF_Allowance.NS_oa:BasisAmount,'0.00');
+				
+		--Discount type
+--		SET REF_ENV.DiscountType = PASSTHRU('SELECT SAPTYPE FROM DISCOUNTTYPE WHERE RJTYPE = ?' VALUES(REF_Allowance.NS_oa:Type));
+		
+		SET REF_ENV.DiscountType.SAPTYPE = THE(SELECT ITEM D.SAPTYPE FROM CACHE_CONFIGDATA.DISCOUNTTYPE[] AS D WHERE D.RJTYPE = REF_Allowance.NS_oa:Type);
+		
+		
+		IF LENGTH(REF_ENV.DiscountType.SAPTYPE) <> 0 THEN
+			SET CH_DiscountType = REF_ENV.DiscountType.SAPTYPE;
+		ELSE 
+			SET CH_DiscountType = '000';
+		END IF;		
+		
+		SET CH_Action 		= COALESCE(REF_Allowance.NS_oa:Calculation.NS_oa:Description,'');
+		SET CH_ProcessSEOD 	= 'U';
+		SET CH_ProcessASEOD = 'U';	
+		
+		SET Environment.RetVal[] = PASSTHRU('INSERT INTO SALES_TRANSACTIONS_DISCOUNT (
+		STORE_CODE,
+		TRANSACTION_ID,
+		BUSINESS_DAY_DATE,
+		ITEM_CODE,
+		LINE_NUMBER,
+		DISCOUNT_VALUE,
+		DISCOUNT_TYPE,
+		ACTION,
+		PROCESSED_SEOD,
+		PROCESSED_ASEOD)
+		VALUES(?,?,?,?,?,?,?,?,?,?)' TO Database.{DSN}
+		
+		VALUES(
+		CH_SourceId,
+		CH_Id,
+		CH_BusinessDayId, 			
+		CH_ItemCode,
+		CH_LineNumber,
+		CH_DiscountValue, 							
+		CH_DiscountType,
+		CH_Action,
+		CH_ProcessSEOD,
+		CH_ProcessASEOD));	
+		
+	END;
+END MODULE;

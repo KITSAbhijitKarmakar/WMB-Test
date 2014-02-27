@@ -1,0 +1,42 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				: ProcessMessageFilter																* 
+* Interface Id 				:  																					*
+* Interface Name 			: SalesOrder_synchroniseSalesOrder_POSBasket										*
+* Message Flow 				: SalesOrder_synchroniseSalesOrder_SAPBW_Sub										*
+* Message Flow Description  : This flow will retrieve the SynchroniseSalesOrder         						*
+*  							  canonical from the queue used for subscription and map it to the 					*
+*							  Zabap_ss_rfc_interface interface in the form of Data Object to SAP Generic 		*
+*							  Outbound Flow, update ODS tables or both according to config value retrieved from *
+* 							  MBCONFIG table for canval  'BWDataDestination'.				                    *
+* Module Name 				: SalesOrder_synchroniseSalesOrder_SAPBW_Sub_Filter									*
+* Description 				: Process the message  if the ApplicationArea/Receiver/ID value of 					*
+*							  SynchroniseSalesOrder canonical is SAPBW.											*
+*							  																					*												
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	==================== 									*
+* 0.1 	  	09-Apr-2013   	Subir Bhaumik				The initial version. 									*
+****************************************************************************************************************/
+CREATE FILTER MODULE SalesOrder_synchroniseSalesOrder_SAPBW_Sub_Filter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		FOR REF_ReceiverID AS Root.XMLNSC.NS_Dfns:SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[] DO
+			--Checks whether the incoming message is actually meant for SAPBW  
+			IF  FIELDVALUE(REF_ReceiverID) = 'SAPBW' THEN
+				RETURN TRUE;	
+			END IF;
+		END FOR;
+
+		RETURN FALSE;
+	END;
+
+END MODULE;

@@ -1,0 +1,37 @@
+
+
+Importing file: D:\KITS-SOA_ServiceDefinitions-master\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\FulfilmentSiteService.wsdl
+
+Copying source WSDL FulfilmentSiteService.wsdl to FulfilmentSiteService.wsdl.
+The WSDL import will proceed with bindings SynchroniseFulfilmentSiteBinding, SynchroniseFulfilmentSiteJMSBinding.
+Creating wsdl schema document for file:///D:/KITS-SOA_ServiceDefinitions-master/com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/FulfilmentSiteService.wsdl.
+Parsing wsdl binding {http://www.kingfisher.com/Services/FulfilmentSiteService/1.0}SynchroniseFulfilmentSiteJMSBinding.
+Parsing wsdl binding input SynchroniseFulfilmentSite.
+Parsing wsdl binding output SynchroniseFulfilmentSite.
+Parsing wsdl binding {http://www.kingfisher.com/Services/FulfilmentSiteService/1.0}SynchroniseFulfilmentSiteBinding.
+Parsing wsdl binding input SynchroniseFulfilmentSite.
+Parsing wsdl binding output SynchroniseFulfilmentSite.
+Processing doc style for operation SynchroniseFulfilmentSite.
+Populating WSDL schema com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/FulfilmentSiteService.xsd.
+Creating file com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/FulfilmentSiteService.xsd in the workspace.
+Creating file /WMBFulfilmentSite/FulfilmentSiteService_InlineSchema1.xsd in the workspace.
+Creating file /WMBFulfilmentSite/SynchroniseFulfilmentSite.xsd in the workspace.
+Creating file /WMBFulfilmentSite/Components.xsd in the workspace.
+Creating file /WMBFulfilmentSite/Meta.xsd in the workspace.
+Creating file /WMBFulfilmentSite/Fields.xsd in the workspace.
+Creating file /WMBFulfilmentSite/UnqualifiedDataTypes.xsd in the workspace.
+Creating file /WMBFulfilmentSite/CodeLists.xsd in the workspace.
+Creating file /WMBFulfilmentSite/CodeList_CurrencyCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_LanguageCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_MIMEMediaTypeCode_IANA_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_UnitCode_UNECE_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/QualifiedDataTypes.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd in the workspace.
+
+Elapsed time processing this message definition file: 10.146 seconds
+Number of warnings for this message definition file: 0
+
+
+Number of files processed: 1
+
+

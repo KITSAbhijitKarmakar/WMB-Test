@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:ComIbmSOAPInput.msgnode="ComIbmSOAPInput.msgnode" xmlns:ComIbmSOAPReply.msgnode="ComIbmSOAPReply.msgnode" xmlns:ComIbmSOAPRequest.msgnode="ComIbmSOAPRequest.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_SOAPFaultHandler.subflow="com/kingfisher/ukbq/errorhandlers/SOAPFaultHandler.subflow"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Payment/GetToken.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Payment_GetToken.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="GetToken" bundleName="com/kingfisher/ukbq/Payment/GetToken" pluginId="Payment_getToken"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_getToken/icons/full/obj16/GetToken.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_getToken/icons/full/obj30/GetToken.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmSOAPInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="-42,366" wsdlFileName="com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentService.wsdl" selectedPortType="PaymentPortType" selectedBinding="PaymentBinding" selectedPort="PaymentBinding" targetNamespace="http://www.kingfisher.com/Services/PaymentService/1.0" useHTTPTransport="true" urlSelector="/Services/Payment/1.0" parserXmlnscBuildTreeUsingXMLSchema="false" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="WS_SOAPInput_Payment_getToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="SOAP Input node to trigger GetToken flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="SOAP Input node to trigger GetToken flow. This node will host a Payment webservice for Token exchange."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="910,464">
+        <translation xmi:type="utility:ConstantString" string="WS_SOAPReply_Payment_getToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WS_SOAPReply_Payment_getToken Node will reply against the input message."/>
+        <longDescription xmi:type="utility:ConstantString" string="SOAP Reply - Successful end of the flow. The response is being sent to the calling system"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="119,430">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node will remove the SOAP envelope from message body."/>
+        <longDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node will remove the SOAP envelope from message body."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="750,459" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#GetTokenMergeResponse_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="GetTokenMergeResponse"/>
+        <shortDescription xmi:type="utility:ConstantString" string="GetTokenMergeResponse Node will merge the reponse from the environment."/>
+        <longDescription xmi:type="utility:ConstantString" string="GetTokenMergeResponse Node will merge the reponse from the environment."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="223,364" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#CreateGetTokenRequest_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="CreateGetTokenRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="CreateGetTokenRequest Node will parse the input and pass it on the ProcessPaymentToken subflow for processing."/>
+        <longDescription xmi:type="utility:ConstantString" string="CreateGetTokenRequest Node will parse the input and pass it on the ProcessPaymentToken subflow for processing."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="860,361" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node will wrap the xml message into SOAP message for SOAP Reply."/>
+        <longDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node will wrap the xml message into SOAP message for SOAP Reply."/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_SOAPFaultHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="139,301">
+        <translation xmi:type="utility:ConstantString" string="SOAPFaultHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Handles the SOAP Fault and puts the output in ERRORS.WMB.SOAPFAULT queue."/>
+        <longDescription xmi:type="utility:ConstantString" string="Handles the SOAP Fault and puts the output in ERRORS.WMB.SOAPFAULT queue."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="340,445" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node will wrap the xml message into SOAP message for commidea request"/>
+        <longDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node will wrap the xml message into SOAP message for commidea request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="353,357" wsdlFileName="commideagateway.wsdl" selectedPortType="CommideaGatewaySoap" selectedBinding="CommideaGatewaySoap" selectedOperation="ProcessMsg" selectedPort="CommideaGatewaySoap" targetNamespace="https://www.commidea.webservices.com" useHTTPTransport="true" webServiceURL="https://txn-dt1.cxmlpg.com/xml4/commideagateway.asmx" sslProtocol="TLS">
+        <translation xmi:type="utility:ConstantString" string="WS_SOAPRequest_ProcessMsg_CommIdeaGateway"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="545,453">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node will remove the SOAP envelope from message body."/>
+        <longDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node will remove the SOAP envelope from message body."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="626,360" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#MapGetTokenResponseToCanonical_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="MapGetTokenResponseToCanonical"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="61,51">
+        <body xmi:type="utility:ConstantString" string="Name          : ProcessPayment_Charge&#xA;Author        :  Asif Hossain&#xA;Date           : 10-Apr-2013&#xA;&#xA;Description : 1. This flow will be triggered by the GetToken SOAP message from ProcessSalesOrder_POSBasket-RetailJ flow.&#xA;                     2. ExtractSOAPEnvelope Node will remove the SOAP envelope from message body.&#xA;                     3. CreateGetTokenRequest Node will parse the input and pass it on the ProcessPaymentToken subflow for processing.&#xA;                     4. WS_SOAPRequest_ProcessMsg_CommIdea_Gateway Node will request to Verifone and store the response into environment to create SOAP Reply canonical.&#xA;                     5. MapGetTokenResponseToCanonical Node will parse the CommIdea response and create structure for SOAP reply and save it to the enviroment.&#xA;                     6. GetTokenMergeResponse Node will merge the reponse from the environment.&#xA;                     7. AddSOAPHeader Node will wrap the xml message into SOAP message for SOAP Reply.&#xA;                     8. WS_SOAPReply_Payment_getToken Node will reply against the input message."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

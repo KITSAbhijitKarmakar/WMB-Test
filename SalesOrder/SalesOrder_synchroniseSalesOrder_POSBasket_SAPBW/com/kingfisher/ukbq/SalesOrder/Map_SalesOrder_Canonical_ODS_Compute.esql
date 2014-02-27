@@ -1,0 +1,1096 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				: Map_SalesOrder_Canonical_ODS														* 
+* Interface Id 				:  																					*
+* Interface Name 			: SalesOrder_synchroniseSalesOrder_POSBasket										*
+* Message Flow 				: SalesOrder_synchroniseSalesOrder_SAPBW_Sub										*
+* Message Flow Description  : This flow will retrieve the SynchroniseSalesOrder         						*
+*  							  canonical from the queue used for subscription and map it to the 					*
+*							  Zabap_ss_rfc_interface interface in the form of Data Object to SAP Generic 		*
+*							  Outbound Flow, update ODS tables or both according to config value retrieved from *
+* 							  MBCONFIG table for canval  'BWDataDestination'.				                    *
+* Module Name 				: Map_SalesOrder_Canonical_ODS_Compute												*
+* Description 				: Inserts into ODS tables /BIC/AZSS_T00200, /BIC/AZSS_T00400, /BIC/AZSS_T00300,		*
+*							  /BIC/AZSS_T00500, /BIC/AZSS_T00100 with the data retrieved from 					*
+*							  SynchroniseSalesOrder canonical.													*
+*																												*
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	==================== 									*
+* 0.1 	  	09-Apr-2013   	Subir Bhaumik				The initial version. 									*
+* 0.2	  	18-Jun-2013   	Subir Bhaumik				Updated the code to populate PriceType irrespective of  *
+*														the existence of PriceType in POSBasket xml. Defect #66.*
+* 0.3	  	19-Jun-2013   	Subir Bhaumik				Updated the code to populate Customer Type, PO Number.	*
+*														Defect #71, #73.										*
+* 0.4		01-Jul-2013   	Subir Bhaumik				Updated the code for version 0.4  						*
+* 0.5		19-Sep-2013   	Subir Bhaumik				Fixe for incident #INC0114435  							*
+****************************************************************************************************************/
+CREATE COMPUTE MODULE Map_SalesOrder_Canonical_ODS_Compute
+	
+	DECLARE DSN 	EXTERNAL NAME 'MBREPOS';
+	
+	-- Varibles declaration for ODS tables update
+	DECLARE CH_PriceType 						CHARACTER;
+	
+	DECLARE CH_ExceptionType 					CHARACTER;
+	DECLARE CH_ExceptionValue 					CHARACTER;
+	
+	DECLARE BL_WriteFlag 						BOOLEAN;
+	DECLARE CH_ExceptionTypeR 					CHARACTER;
+	DECLARE CH_ExceptionValueR 					CHARACTER;
+	
+	DECLARE CH_LinesTransId 					CHARACTER;
+	DECLARE CH_LinesSourceSystem 				CHARACTER;
+	DECLARE CH_LinesStoreCode 					CHARACTER;
+	DECLARE CH_LinesLineNo 						CHARACTER;
+	DECLARE CH_LinesBeginDateTime 				CHARACTER;
+	DECLARE CH_LinesEndDateTime 				CHARACTER;
+	DECLARE CH_LinesCurrencyCode 				CHARACTER;
+	DECLARE CH_LinesVoidFlag 					CHARACTER '';
+	DECLARE CH_LinesVoidedEntryFlag 			CHARACTER;
+	DECLARE CH_LinesTransLineType 				CHARACTER;
+	DECLARE CH_LinesItemTypeFilter 				CHARACTER;
+	DECLARE CH_LinesParameter 					CHARACTER;
+	DECLARE CH_LinesDetailType 					CHARACTER;
+	DECLARE CH_LinesPriceType 					CHARACTER;
+	DECLARE CH_LinesItemCode 					CHARACTER;
+	DECLARE CH_LinesItemType 					CHARACTER;
+	DECLARE CH_LinesSaleType 					CHARACTER;
+	DECLARE CH_LinesUOM 						CHARACTER;
+	DECLARE CH_LinesQuantity 					CHARACTER;
+	DECLARE CH_LinesExtAmount 					CHARACTER;
+	DECLARE CH_LinesRegSalesUnitPrice 			CHARACTER;
+	DECLARE CH_LinesActSalesUnitPrice 			CHARACTER;
+	DECLARE CH_LinesFinalActSalesUnitPrice 		CHARACTER;
+	DECLARE CH_LinesWeightMeasureIndicator 		CHARACTER;
+	DECLARE CH_LinesReason 						CHARACTER;
+	DECLARE CH_LinesReasonCode 					CHARACTER;
+	DECLARE CH_LinesCustPriceGroup 				CHARACTER '';
+	
+	--Variables for Taxes
+	DECLARE CH_TaxesTransId 					CHARACTER;
+	DECLARE CH_TaxesLineNo 						CHARACTER;
+	DECLARE CH_TaxesCurrencyCode 				CHARACTER;
+	DECLARE CH_TaxesTaxGroundId 				CHARACTER;
+	DECLARE CH_TaxesTaxAmount 					CHARACTER;
+	DECLARE CH_TaxesPercent 					CHARACTER;
+	
+	--Variabls for PriceModifiers
+	DECLARE CH_PriceModModifierId 				CHARACTER;
+	DECLARE CH_PriceModTransId 					CHARACTER;
+	DECLARE CH_PriceModLineNo 					CHARACTER;
+	DECLARE CH_PriceModCurrencyCode 			CHARACTER;
+	DECLARE CH_PriceModAmount 					CHARACTER;
+	DECLARE CH_PriceModPromDiscVal 				CHARACTER;
+	DECLARE CH_PriceModMethodCode 				CHARACTER;
+	DECLARE CH_PriceModActionCode 				CHARACTER;
+	DECLARE CH_PriceModPercent 					CHARACTER;
+	DECLARE CH_PriceModDiscountType 			CHARACTER;
+	DECLARE CH_PriceModCardDiscountVal 			CHARACTER;
+	DECLARE CH_PriceModMarkDownDiscountVal 		CHARACTER;
+	DECLARE CH_PriceModVoidFlag 				CHARACTER;
+	DECLARE CH_PriceModBonusBuyType 			CHARACTER;
+	DECLARE CH_PriceModPromotionId 				CHARACTER;
+	
+	--Variables for Tenders
+	DECLARE CH_TendersTenderId 					CHARACTER;
+	DECLARE CH_TendersChangeAmount 				CHARACTER;
+	DECLARE CH_TendersAmount 					CHARACTER;
+	DECLARE CH_TendersPaymentVal 				CHARACTER;
+	DECLARE CH_TendersTransId 					CHARACTER;
+	DECLARE CH_TendersLineNo 					CHARACTER;
+	DECLARE CH_TendersVoidFlag 					CHARACTER;
+	DECLARE CH_TendersVoidedEntryFlag 			CHARACTER;
+	DECLARE CH_TendersItemTypeFilter 			CHARACTER;
+	DECLARE CH_TendersEntryMethod 				CHARACTER;
+	DECLARE CH_TendersParameter 				CHARACTER;
+	DECLARE CH_TendersActionCode 				CHARACTER;
+	DECLARE CH_TendersCurrencyCode 				CHARACTER;
+	DECLARE CH_TendersTransLineType 			CHARACTER;
+	DECLARE CH_TendersPaymentType 				CHARACTER;
+	DECLARE CH_QryStrPaymentType				CHARACTER;
+	DECLARE CH_CustPriceGroupQryStr				CHARACTER;
+	
+	--Variables for Headers
+	DECLARE CH_HeaderCustomerType 				CHARACTER;
+	DECLARE CH_HeaderTransId 					CHARACTER;
+	DECLARE CH_HeaderSourceSystem 				CHARACTER;
+	DECLARE CH_HeaderStoreCode 					CHARACTER;
+	DECLARE CH_HeaderWorkStnId 					CHARACTER;
+	DECLARE CH_HeaderTillId 					CHARACTER;
+	DECLARE CH_HeaderOperatorId 				CHARACTER;
+	DECLARE CH_HeaderTrnModelFlag 				CHARACTER;
+	DECLARE CH_HeaderCancelFlag 				CHARACTER;
+	DECLARE CH_HeaderBeginDateTime 				CHARACTER;
+	DECLARE CH_HeaderEndDateTime 				CHARACTER;
+	DECLARE CH_HeaderBusDayDate 				CHARACTER;
+	DECLARE CH_HeaderCurrencyCode 				CHARACTER;
+	DECLARE CH_HeaderSeqNo 						CHARACTER;
+	DECLARE CH_HeaderSuspendFlag 				CHARACTER;
+	DECLARE CH_HeaderDiscountCardNo 			CHARACTER;
+	DECLARE CH_HeaderTimeStamp 					CHARACTER;
+	DECLARE CH_HeaderPONo 						CHARACTER;
+	DECLARE CH_HeaderTradeCardNo 				CHARACTER;
+	DECLARE CH_HeaderTradepCardNo 				CHARACTER;
+	DECLARE CH_HeaderOldTradeCard 				CHARACTER;
+	DECLARE CH_HeaderTransType 					CHARACTER;
+	DECLARE CH_HeaderRandcIndicator 			CHARACTER;
+	DECLARE CH_HeaderTradepIndicator 			CHARACTER;
+	DECLARE CH_HeaderCustNo 					CHARACTER;
+	DECLARE CH_TradeCardNo						CHARACTER;
+
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		--Calling Procedure  PROC_SynchroniseSalesOrder()
+		CALL PROC_SynchroniseSalesOrder();
+		
+		--Calling Procedure  PROC_UpdateODSHeader()
+		CALL PROC_UpdateODSHeader();
+		
+		RETURN TRUE;
+	END;
+
+	/********************************************************************************************
+	* Procedure Name	: PROC_SynchroniseSalesOrder									 	 	*
+	* Input Parameters	: None																 	*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure inserts into ODS tables /BIC/AZSS_T00200, 				*
+	*					  /BIC/AZSS_T00400, /BIC/AZSS_T00300, /BIC/AZSS_T00500 with the data	*
+	*					  retrieved from SynchroniseSalesOrder canonical.	 				 	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_SynchroniseSalesOrder() BEGIN
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN
+			PASSTHRU('ROLLBACK');
+			RESIGNAL;
+		END;
+		
+		--Declaring input references
+		DECLARE REF_In 							REFERENCE TO InputRoot.XMLNSC;
+		DECLARE REF_SynchroniseSalesOrder 		REFERENCE TO REF_In.NS_Dfns:SynchroniseSalesOrder;
+		DECLARE REF_SalesOrder 					REFERENCE TO REF_SynchroniseSalesOrder.NS_Dfns:DataArea.NS_Dfns:SalesOrder;
+		DECLARE REF_SOSalesTrans 				REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderHeader.NS_Dfns:SalesTransaction;
+		DECLARE REF_SOHeader 					REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderHeader;
+		DECLARE REF_SOLines 					REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		
+		DECLARE REF_SOLinesEx 					REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		
+		DECLARE REF_Allowance 					REFERENCE TO REF_SOLines.NS_Dfns:Allowance;
+		DECLARE REF_Payment 					REFERENCE TO REF_SOHeader.NS_Dfns:Payment;
+		
+		--Declaring variables
+		DECLARE CH_spaceField 					CHARACTER ' ';
+		DECLARE CH_ItemCode 					CHARACTER;
+		DECLARE CH_VoidStatCode 				CHARACTER;
+		DECLARE INT_LineNumber 					INTEGER 0;
+		DECLARE BOO_StoreCoupon 				BOOLEAN FALSE;
+		DECLARE DC_BdStCAmount 					DECIMAL 0;
+		DECLARE BOOL_FoundTradeDisc 			BOOLEAN FALSE;
+		DECLARE BOOL_Trade 						BOOLEAN false;
+		DECLARE CH_TempPMId 					CHARACTER '';
+		DECLARE BOOL_StoreCoupon 				BOOLEAN FALSE;
+		DECLARE CH_QryStrPriceMod 				CHARACTER;
+		DECLARE INT_Index 						INTEGER 0;
+		DECLARE CH_CardNumber 					CHARACTER;
+		DECLARE CH_DiscCardType 				CHARACTER;
+		DECLARE CH_QryStrPriceMod2 				CHARACTER;
+		DECLARE CH_QryStrPriceMod3 				CHARACTER;
+		DECLARE CH_QryStrTaxes 					CHARACTER;
+		DECLARE CH_QryStrLines 					CHARACTER;
+		DECLARE CH_QryStrTender 				CHARACTER;
+		DECLARE CH_QryStrTenderSC				CHARACTER;
+		
+		--Checking if SalesOrderLine exists and looping through SalesOrderLine
+		IF EXISTS(REF_SalesOrder.NS_Dfns:SalesOrderLine[]) THEN
+			X : WHILE LASTMOVE(REF_SOLines) DO
+
+				IF CONTAINS(REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code, 'VOID') AND CONTAINS(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'RETURN') THEN
+					--Code change starts for version 0.4
+					SET INT_LineNumber 			= INT_LineNumber + 1;
+					--Code change ends for version 0.4
+					MOVE REF_SOLines NEXTSIBLING REPEAT TYPE NAME;
+					ITERATE X;
+				END IF;
+				
+				--Calling procedure PROC_CreateExceptionTypeValue()
+				
+				IF REF_SOLines.NS_oa:Description = 'Item' OR REF_SOLines.NS_oa:Description = 'NoSale' THEN
+			 		CALL PROC_CreateExceptionTypeValue(REF_SOLinesEx, REF_SOHeader, REF_SOLines, CH_ExceptionTypeR, CH_ExceptionValueR);
+				ELSE
+					SET CH_ExceptionTypeR = '';
+					SET CH_ExceptionValueR = '';
+				END IF;
+				
+				SET CH_ItemCode 	= TRIM(LEADING '0' FROM REF_SOLines.NS_Dfns:ProductItem.NS_oa:UPCID);
+				IF CH_ItemCode = '215' THEN
+					MOVE REF_SOLines NEXTSIBLING REPEAT TYPE NAME;
+					ITERATE X;
+				END IF;
+
+				IF REF_SOLines.NS_oa:Description = 'Item' OR REF_SOLines.NS_oa:Description = 'Other' THEN --is Sale / Return?
+						
+					--Calling Procedure  PROC_LineItem_RFC()
+					CALL PROC_LineItem_RFC(REF_SOHeader,REF_SOLines);
+					SET CH_LinesTransId 		= REF_SOSalesTrans.NS_oa:ID;
+					SET CH_LinesSourceSystem 	= REF_SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+					SET CH_LinesStoreCode 		= REF_SOHeader.NS_oa:SourceID;
+					SET CH_LinesLineNo 			= CAST(INT_LineNumber AS CHARACTER);
+					SET INT_LineNumber 			= INT_LineNumber + 1;
+					SET CH_LinesBeginDateTime 	= SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 6 FOR 2)
+				  	 										|| SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 12 FOR 8);
+					SET CH_LinesEndDateTime 		= SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 6 FOR 2)
+				  	 										|| SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 12 FOR 8);
+					SET CH_LinesCurrencyCode 	= REF_SOSalesTrans.NS_oa:CurrencyCode;
+					
+					--Calling Procedure  PROC_SalesTax_RFC()
+					CALL PROC_SalesTax_RFC(REF_SOLines);
+
+					SET CH_TaxesTransId 		= REF_SOSalesTrans.NS_oa:ID;
+					SET CH_TaxesLineNo 			= INT_LineNumber;
+					SET CH_TaxesCurrencyCode 	= REF_SOSalesTrans.NS_oa:CurrencyCode;
+					
+					IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+						MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+						Y : WHILE LASTMOVE(REF_Allowance) DO
+							IF COALESCE(FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type), '') = 'PRODUCT SALE' AND REF_Allowance.NS_oa:Description = 'Priceoverride' THEN
+								MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+								ITERATE Y;
+							END IF;
+							IF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'STORECOUPONTRANSACTION' THEN
+								SET BOOL_StoreCoupon 		= TRUE;
+								IF REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract' THEN
+									SET DC_BdStCAmount 		= CAST(DC_BdStCAmount AS DECIMAL) + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+								ELSE
+									SET DC_BdStCAmount 		= CAST(DC_BdStCAmount AS DECIMAL) - CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+								END IF;
+								MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+								ITERATE Y;
+							END IF;
+							IF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT35' THEN
+								SET BOOL_FoundTradeDisc 	= TRUE;
+							END IF;
+							SET CH_PriceModPromDiscVal 		= '';
+							SET CH_PriceModAmount 			= '';
+							SET CH_TempPMId 				= REF_Allowance.NS_oa:ID || CAST(INT_LineNumber AS CHARACTER);
+							IF NOT EXISTS(SELECT F.* FROM Environment.Variables.PMID[] AS F WHERE F = CH_TempPMId) THEN	
+								--Calling Procedure  PROC_Price_Modifier_RFC()
+								CALL PROC_Price_Modifier_RFC(REF_Allowance);
+								SET CH_PriceModTransId 						= REF_SOSalesTrans.NS_oa:ID;
+								SET CH_PriceModLineNo 						= INT_LineNumber;
+								SET CH_PriceModCurrencyCode 				= REF_SOSalesTrans.NS_oa:CurrencyCode;
+
+								SET INT_Index 								= INT_Index + 1;
+								SET Environment.Variables.PMID[INT_Index] 	= CH_TempPMId;
+								
+								-- Building query string for inserting into PriceMod table
+								SET CH_QryStrPriceMod = 'INSERT INTO "/BIC/AZSS_T00300" ("/BIC/ZCI_MODID", "/BIC/ZCI_METHD", "/BIC/ZCI_ACTN", "/BIC/ZCI_PRCNT", "/BIC/ZCI_VOIDF", "/BIC/ZCI_BBTYP", "/BIC/ZCI_PROID", "/BIC/ZCI_PRODV", "/BIC/ZCI_DSCVL", "/BIC/ZCI_MKDVL", "/BIC/ZCI_AMNT", "/BIC/ZCI_DISTY", "/BIC/ZCI_TRNID", "/BIC/ZCI_LINEN", "/BIC/ZCI_CURCY", RECORDMODE) VALUES ('
+								|| '''' || COALESCE(CH_PriceModModifierId, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModMethodCode, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModActionCode, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModPercent, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModVoidFlag, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModBonusBuyType, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModPromotionId, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModPromDiscVal, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModCardDiscountVal, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModMarkDownDiscountVal, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModAmount, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModDiscountType, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModTransId, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModLineNo, '') ||''''
+								|| ', ''' || COALESCE(CH_PriceModCurrencyCode, '') ||''''
+								|| ', '' '')';
+								DECLARE z CHARACTER;
+								PASSTHRU(CH_QryStrPriceMod);
+							ELSE
+								SET CH_PriceModAmount = FUNC_TruncateTo(CAST(Environment.Variables.PriceMod_Amount_ODS AS DECIMAL) + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL), 8);
+								IF REF_Allowance.NS_oa:Description = 'PriceRule' THEN
+									IF REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract' THEN
+										SET CH_PriceModPromDiscVal 			= FUNC_TruncateTo(CAST(Environment.Variables.PriceMod_PromDiscountValue_ODS AS DECIMAL) - CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL), 8);
+									ELSE
+										SET CH_PriceModPromDiscVal 			= FUNC_TruncateTo(CAST(Environment.Variables.PriceMod_PromDiscountValue_ODS AS DECIMAL) + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL), 8);
+									END IF;
+								END IF;
+								SET CH_QryStrPriceMod3 = 'UPDATE "/BIC/AZSS_T00300" SET "/BIC/ZCI_AMNT" = ''' || COALESCE(CH_PriceModAmount, '') ||''''
+								|| ' ,"/BIC/ZCI_PRODV" = ''' || COALESCE(CH_PriceModPromDiscVal, '') ||''''
+								|| ' WHERE "/BIC/ZCI_TRNID" = ''' || CH_PriceModTransId || ''''
+								|| ' AND "/BIC/ZCI_LINEN" = ''' || CAST(INT_LineNumber AS CHARACTER) || ''''
+								|| ' AND "/BIC/ZCI_MODID" = ''' || REF_Allowance.NS_oa:ID || ''''
+								|| '';
+								DECLARE e CHARACTER;	
+								PASSTHRU(CH_QryStrPriceMod3);
+							END IF;
+							
+							
+							MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+						END WHILE Y;
+					END IF;
+					
+					-- Building query string for inserting into Lines table
+					SET CH_QryStrLines = 'INSERT INTO "/BIC/AZSS_T00200" ("/BIC/ZCI_CPRGP", "/BIC/ZCI_VOIDF", "/BIC/ZCI_VOIDE", "/BIC/ZCI_TLTYP", "/BIC/ZCI_ITMTY", "/BIC/ZCI_PARAM" , "/BIC/ZCI_DETTY", "/BIC/ZCI_PRCTP", "/BIC/ZCI_ITCD", "/BIC/ZCI_ITTY", "/BIC/ZCI_SLTY" , "/BIC/ZCI_UOM", "/BIC/ZCI_QUANT", "/BIC/ZCI_EXTAT", "/BIC/ZCI_RUSUP", "/BIC/ZCI_FASUP" , "/BIC/ZCI_WMIND", "/BIC/ZCI_RRESN", "/BIC/ZCI_RRCOD", "/BIC/ZCI_AUSUP" , "/BIC/ZCI_TRNID", "/BIC/ZCI_SCSYS", "/BIC/ZCI_STORE", "/BIC/ZCI_LINEN", "/BIC/ZCI_BEGD" , "/BIC/ZCI_ENDD", "/BIC/ZCI_CURCY", "/BIC/ZCI_EXCTY", "/BIC/ZCI_EXCVA", RECORDMODE) VALUES ('
+					|| '''' || COALESCE(CH_LinesCustPriceGroup, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesVoidFlag, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesVoidedEntryFlag, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesTransLineType, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesItemTypeFilter, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesParameter, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesDetailType, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesPriceType, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesItemCode, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesItemType, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesSaleType, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesUOM, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesQuantity, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesExtAmount, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesRegSalesUnitPrice, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesFinalActSalesUnitPrice, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesWeightMeasureIndicator, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesReason, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesReasonCode, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesActSalesUnitPrice, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesTransId, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesSourceSystem, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesStoreCode, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesLineNo, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesBeginDateTime, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesEndDateTime, '') ||''''
+					|| ', ''' || COALESCE(CH_LinesCurrencyCode, '') ||''''
+					|| ', ''' || COALESCE(CH_ExceptionTypeR, '') ||''''
+					|| ', ''' || COALESCE(CH_ExceptionValueR, '') ||''''
+					|| ', '' '')';
+					
+					DECLARE er CHARACTER;
+					PASSTHRU(CH_QryStrLines);
+					
+					-- Building query string for inserting into Tax table
+					SET CH_QryStrTaxes = 'INSERT INTO "/BIC/AZSS_T00400" ("/BIC/ZCI_TAXGR", "/BIC/ZCI_TAXAM", "/BIC/ZCI_PRCNT", "/BIC/ZCI_TRNID", "/BIC/ZCI_LINEN", "/BIC/ZCI_CURCY", RECORDMODE) VALUES ('
+					|| '''' || COALESCE(CH_TaxesTaxGroundId, '') ||''''
+					|| ', ''' || COALESCE(CH_TaxesTaxAmount, '') ||''''
+					|| ', ''' || COALESCE(CH_TaxesPercent, '') ||''''
+					|| ', ''' || COALESCE(CH_TaxesTransId, '') ||''''
+					|| ', ''' || COALESCE(CH_TaxesLineNo, '') ||''''
+					|| ', ''' || COALESCE(CH_TaxesCurrencyCode, '') ||''''
+					|| ', '' '')';
+					PASSTHRU(CH_QryStrTaxes);
+				END IF;
+
+				MOVE REF_SOLines NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE X;
+
+			SET CH_CardNumber 			= REF_SOHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number;
+			IF COALESCE(CH_CardNumber, '') <> '' THEN
+				SET CH_DiscCardType 	= SUBSTRING(CH_CardNumber FROM 7 FOR 2);
+				IF CH_DiscCardType = '35' AND NOT BOOL_FoundTradeDisc THEN
+					SET CH_PriceModTransId 							= REF_SOSalesTrans.NS_oa:ID;
+					SET CH_PriceModModifierId 						= 'VALIDATEKFDISCOUNT35';
+					--SET CH_PriceModMethodCode 					= 'TransactionEmployeeDiscount';
+					SET CH_PriceModLineNo 							= '1';
+					SET CH_PriceModActionCode 						= 'Subtract';
+					SET CH_PriceModCurrencyCode 					= 'GBP';
+					SET CH_PriceModAmount 							= '0.00';
+					SET Environment.Variables.PriceMod_Amount_ODS 	= '0.00';
+					SET CH_PriceModPercent 							= '0.00';
+					SET CH_PriceModDiscountType 					= 'TD';
+					SET CH_PriceModCardDiscountVal 					= '0.00';
+					
+					
+					-- Building query string for inserting into PriceMod table
+					SET CH_QryStrPriceMod2 = 'INSERT INTO "/BIC/AZSS_T00300" ("/BIC/ZCI_MODID", "/BIC/ZCI_METHD", "/BIC/ZCI_LINEN", "/BIC/ZCI_ACTN", "/BIC/ZCI_CURCY", "/BIC/ZCI_AMNT", "/BIC/ZCI_PRCNT", "/BIC/ZCI_DISTY", "/BIC/ZCI_DSCVL", "/BIC/ZCI_TRNID", RECORDMODE) VALUES ('
+					|| '''' || COALESCE(CH_PriceModModifierId, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModMethodCode, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModLineNo, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModActionCode, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModCurrencyCode, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModAmount, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModPercent, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModDiscountType, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModCardDiscountVal, '') ||''''
+					|| ', ''' || COALESCE(CH_PriceModTransId, '') ||''''
+					|| ', '' '')';
+					DECLARE z CHARACTER;
+					PASSTHRU(CH_QryStrPriceMod2);
+					
+				END IF;
+			END IF;
+		END IF;
+
+		MOVE REF_Payment TO REF_SOHeader.NS_Dfns:Payment;
+		IF EXISTS(REF_SOHeader.NS_Dfns:Payment[]) THEN
+			Z : WHILE LASTMOVE(REF_Payment) DO
+				
+				SET CH_TendersVoidFlag 			= '';
+				SET CH_TendersVoidedEntryFlag 	= '';
+				SET CH_TendersParameter 		= '';
+				--Calling Procedure  PROC_SalesTender_RFC()
+				CALL PROC_SalesTender_RFC(REF_Payment);
+
+				IF Environment.Variables.SalesTender_TenderId_ODS = 'ChangeNotIssued' THEN
+					MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+					ITERATE Z;
+				END IF;
+
+				SET CH_TendersTransId 				= REF_SOSalesTrans.NS_oa:ID;
+				SET CH_TendersLineNo 				= INT_LineNumber;
+				SET INT_LineNumber 					= INT_LineNumber + 1;
+				IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+					SET CH_TendersVoidFlag 			= 'true';
+				END IF;
+				IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+					SET CH_TendersVoidedEntryFlag 	= 'true';
+				END IF;
+				SET CH_TendersItemTypeFilter 		= 'N';
+				SET CH_TendersEntryMethod 			= FIELDVALUE(REF_Payment.NS_Dfns:EntryType);
+				IF REF_Payment.NS_oa:CashIndicator = 'true' THEN
+					SET CH_TendersParameter 		= 'Cash';
+				END IF;
+				IF COALESCE(REF_Payment.NS_Dfns:Cheque.NS_Dfns:ManualKeyingIndicator, '') <> '' THEN
+					SET CH_TendersParameter 		= 'Cheque';
+				END IF;
+				SET CH_TendersActionCode 			= REF_SOSalesTrans.NS_oa:ActionCode;
+				SET CH_TendersCurrencyCode 			= REF_SOSalesTrans.NS_oa:CurrencyCode;
+				SET CH_TendersTransLineType 		= 'TenderMerch';
+--				Code change starts for Version 0.3 and Defect #71
+				
+				IF Environment.Variables.SalesTender_TenderId_ODS = 'Tradecard' THEN
+					
+--				Code change ends for Version 0.3 and Defect #71
+					SET CH_TradeCardNo = REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber;
+					SET BOOL_Trade 					= TRUE;
+				END IF;
+				
+				-- Building query string for inserting into Tender table
+				SET CH_QryStrTender = 'INSERT INTO "/BIC/AZSS_T00500" ("/BIC/ZCI_TENID", "/BIC/ZCI_CAMNT", "/BIC/ZCI_AMNT", "/BIC/ZCI_PAYTY", "/BIC/ZCI_PAYVA", "/BIC/ZCI_TRNID", "/BIC/ZCI_LINEN", "/BIC/ZCI_VOIDF", "/BIC/ZCI_VOIDE", "/BIC/ZCI_ITMTY", "/BIC/ZCI_ENTRY", "/BIC/ZCI_PARAM", "/BIC/ZCI_ACTN", "/BIC/ZCI_CURCY", "/BIC/ZCI_TLTYP", RECORDMODE) VALUES ('
+				|| '''' || COALESCE(CH_TendersTenderId, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersChangeAmount, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersAmount, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersPaymentType, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersPaymentVal, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersTransId, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersLineNo, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersVoidFlag, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersVoidedEntryFlag, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersItemTypeFilter, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersEntryMethod, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersParameter, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersActionCode, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersCurrencyCode, '') ||''''
+				|| ', ''' || COALESCE(CH_TendersTransLineType, '') ||''''
+				|| ', '' '')';
+				DECLARE x CHARACTER;
+				PASSTHRU(CH_QryStrTender);
+				
+				IF BOOL_StoreCoupon THEN
+					SET CH_TendersLineNo 			= INT_LineNumber;
+					SET INT_LineNumber 				= INT_LineNumber + 1;
+					SET CH_TendersVoidFlag 			= '';
+					SET CH_TendersVoidedEntryFlag 	= '';
+					SET CH_TendersItemTypeFilter 	= '';
+					SET CH_TendersAmount 			= DC_BdStCAmount;
+					SET CH_TendersPaymentVal 		= DC_BdStCAmount;
+					SET CH_TendersChangeAmount 		= '';
+					SET CH_TendersTenderId 			= 'StoreCoupon';
+					SET Environment.Variables.SalesTender_TenderId_ODS = 'StoreCoupon';
+					SET CH_TendersPaymentType 		= 'CC';
+					
+					-- Building query string for inserting into Tender table
+					SET CH_QryStrTenderSC = 'INSERT INTO "/BIC/AZSS_T00500" ("/BIC/ZCI_TENID", "/BIC/ZCI_CAMNT", "/BIC/ZCI_AMNT", "/BIC/ZCI_PAYTY", "/BIC/ZCI_PAYVA", "/BIC/ZCI_TRNID", "/BIC/ZCI_LINEN", "/BIC/ZCI_VOIDF", "/BIC/ZCI_VOIDE", "/BIC/ZCI_ITMTY", "/BIC/ZCI_ENTRY", "/BIC/ZCI_PARAM", "/BIC/ZCI_ACTN", "/BIC/ZCI_CURCY", "/BIC/ZCI_TLTYP", RECORDMODE) VALUES ('
+					|| '''' || COALESCE(CH_TendersTenderId, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersChangeAmount, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersAmount, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersPaymentType, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersPaymentVal, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersTransId, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersLineNo, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersVoidFlag, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersVoidedEntryFlag, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersItemTypeFilter, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersEntryMethod, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersParameter, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersActionCode, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersCurrencyCode, '') ||''''
+					|| ', ''' || COALESCE(CH_TendersTransLineType, '') ||''''
+					|| ', '' '')';
+				
+					DECLARE y CHARACTER;
+					PASSTHRU(CH_QryStrTenderSC);
+					SET BOOL_StoreCoupon = FALSE;
+					
+				END IF;
+				
+				
+
+				MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE Z;
+		END IF;
+		-- END Tenders Mapping
+		
+		-- Headers Mapping
+		IF BOOL_Trade THEN
+			SET CH_HeaderCustomerType 	= 'T';
+		END IF;
+		SET CH_HeaderTransId 			= REF_SOSalesTrans.NS_oa:ID;
+		SET CH_HeaderSourceSystem 		= REF_SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET CH_HeaderStoreCode 			= REF_SOHeader.NS_oa:SourceID;
+		SET CH_HeaderWorkStnId 			= REF_SOSalesTrans.NS_Dfns:WorkstationID;
+		SET CH_HeaderTillId 			= REF_SOSalesTrans.NS_Dfns:TillID;
+		IF COALESCE(REF_SOSalesTrans.NS_Dfns:OperatorID, '') <> '' THEN
+			SET CH_HeaderOperatorId 	= REF_SOSalesTrans.NS_Dfns:OperatorID;
+		ELSE
+			SET CH_HeaderOperatorId 	= '1';
+		END IF;
+		
+		SET CH_HeaderTrnModelFlag 		= REF_SOSalesTrans.NS_Dfns:TrainingModeIndicator;
+		SET CH_HeaderCancelFlag 		= REF_SOSalesTrans.NS_Dfns:CancelledIndicator;
+		SET CH_HeaderBeginDateTime 		= SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 6 FOR 2)
+				  	 								|| SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:StartDateTime FROM 12 FOR 8);
+		SET CH_HeaderEndDateTime 		= SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 6 FOR 2)
+				  	 								|| SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 9 FOR 2) || ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:EndDateTime FROM 12 FOR 8);
+		SET CH_HeaderBusDayDate 		= REF_SOSalesTrans.NS_Dfns:BusinessDayID;
+		SET CH_HeaderCurrencyCode 		= REF_SOSalesTrans.NS_oa:CurrencyCode;
+		SET CH_HeaderSeqNo 				= REF_SOSalesTrans.NS_oa:Sequence;
+		SET CH_HeaderSuspendFlag 		= REF_SOSalesTrans.NS_Dfns:SuspendedTransactionIndicator;
+		SET CH_HeaderDiscountCardNo 	= REF_SOHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number;
+		SET CH_HeaderTimeStamp 			= SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 1 FOR 4) || SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 6 FOR 2)
+				  	 								|| SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 9 FOR 2)|| ' ' || SUBSTRING(REF_SOSalesTrans.NS_oa:LastModificationDateTime FROM 12 FOR 8);
+--		Code change starts for Version 0.3 and Defect #73	
+	
+		
+		IF COALESCE(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID, '') <> '' AND LENGTH(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID) > 10 THEN
+			SET CH_HeaderPONo = SUBSTRING(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID FROM 1 FOR 10);
+		ELSEIF COALESCE(REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID, '') <> '' THEN
+			SET CH_HeaderPONo = REF_SOHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID;
+		ELSE
+			SET CH_HeaderPONo = ' ';
+		END IF;
+		
+--		Code change ends for Version 0.3 and Defect #73
+		
+		IF BOOL_Trade THEN
+			SET CH_HeaderTradeCardNo 		= CH_TradeCardNo;
+		END IF;
+		SET CH_HeaderOldTradeCard 		= REF_SOHeader.NS_Dfns:Payment.NS_Dfns:PaymentCard.NS_oa:OldTradeCard;
+		SET CH_HeaderTransType 			= 'RetailTransactionStockView';
+		
+		IF REF_SOSalesTrans.NS_Dfns:ReserveAndCollectIndicator = 'true' THEN
+			SET CH_HeaderRandcIndicator = 'Y';
+		ELSE
+			SET CH_HeaderRandcIndicator = 'N';
+		END IF;
+		
+		
+		IF COALESCE(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '') <> '' AND STARTSWITH(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '2900') THEN
+			SET CH_HeaderTradepIndicator = 'X';
+		ELSE
+			SET CH_HeaderTradepIndicator = ' ';
+		END IF;
+		
+		SET CH_HeaderCustNo 			 = REF_SOHeader.NS_Dfns:CustomerParty.NS_oa:ID;
+		
+		IF COALESCE(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '') = '' OR NOT STARTSWITH(REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID, '2900') THEN
+			SET CH_HeaderTradepCardNo    = ' ';
+		ELSE
+			SET CH_HeaderTradepCardNo    = REF_SOHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID;
+		END IF;
+
+	END; 
+	-- END PROCEDURE PROC_SynchroniseSalesOrder()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_SalesTender_RFC									 	 			*
+	* Input Parameters	: REF_Payment															*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure populates variables with the tender data				*
+	*					  retrieved from SynchroniseSalesOrder canonical.				 		*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_SalesTender_RFC(IN REF_Payment REFERENCE)
+	BEGIN
+		
+		SET CH_TendersTenderId 								= FIELDVALUE(REF_Payment.(XMLNSC.Attribute)id);
+		SET Environment.Variables.SalesTender_TenderId_ODS 	= FIELDVALUE(REF_Payment.(XMLNSC.Attribute)id);
+		SET CH_TendersChangeAmount 							= FUNC_Truncate(FIELDVALUE(REF_Payment.NS_Dfns:ChangeAmount), 8);
+		SET CH_TendersAmount 								= FUNC_Truncate(FIELDVALUE(REF_Payment.NS_oa:Amount), 8);
+		SET Environment.Variables.PriceMod_Amount_ODS 		= FUNC_Truncate(FIELDVALUE(REF_Payment.NS_oa:Amount), 8);
+		
+		SET Environment.PaymentTypes[] 						= SELECT T.PANDORATENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS T WHERE T.TENDERID = REF_Payment.(XMLNSC.Attribute)id;
+		
+		SET CH_TendersPaymentType							= Environment.PaymentTypes[1].PANDORATENDERTYPE;
+		
+		IF COALESCE(FIELDVALUE(REF_Payment.NS_oa:Amount), '') <> '' THEN
+			SET CH_TendersPaymentVal 						= FUNC_Truncate(FIELDVALUE(REF_Payment.NS_oa:Amount), 8);
+		ELSEIF COALESCE(FIELDVALUE(REF_Payment.NS_Dfns:ChangeAmount), '') <> '' THEN
+			SET CH_TendersPaymentVal 						= FUNC_Truncate('-' || FIELDVALUE(REF_Payment.NS_Dfns:ChangeAmount), 8);
+		ELSE
+			SET CH_TendersPaymentVal 						= '';
+		END IF;
+	END; 
+	-- END PROCEDURE PROC_SalesTender_RFC()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_Price_Modifier_RFC									 	 		*
+	* Input Parameters	: REF_Allowance															*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure populates variables with the price modifier data		*
+	*					  retrieved from SynchroniseSalesOrder canonical.				 		*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_Price_Modifier_RFC(IN REF_Allowance REFERENCE)
+	BEGIN
+
+		SET CH_PriceModPromotionId			= '';
+		SET CH_PriceModCardDiscountVal 		= '';
+		SET CH_PriceModMarkDownDiscountVal 	= '';
+		
+		SET CH_PriceModModifierId 		= REF_Allowance.NS_oa:ID;
+		SET CH_PriceModActionCode 		= REF_Allowance.NS_oa:Calculation.NS_oa:Description;
+		SET CH_PriceModPercent 			= REF_Allowance.NS_oa:Calculation.NS_oa:RateNumeric;
+		SET CH_PriceModVoidFlag 		= REF_Allowance.NS_oa:Voided;
+		
+		
+		IF REF_Allowance.NS_oa:Description = 'PriceRule' THEN
+			SET CH_PriceModBonusBuyType = '07';
+			IF LENGTH(COALESCE(REF_Allowance.NS_oa:ID, '')) > 12 THEN
+				SET CH_PriceModPromotionId					= SUBSTRING(COALESCE(REF_Allowance.NS_oa:ID, '') FROM 1 FOR 12);
+			ELSE
+				SET CH_PriceModPromotionId					= REF_Allowance.NS_oa:ID;
+			END IF;
+		ELSE
+			SET CH_PriceModBonusBuyType = '';
+		END IF;
+		
+		
+		IF REF_Allowance.NS_oa:Description = 'PriceRule' THEN
+			SET CH_PriceModPromDiscVal 				= FUNC_Truncate(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			SET Environment.Variables.PriceMod_PromDiscountValue_ODS = FUNC_Truncate(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			IF (REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract') AND NOT STARTSWITH(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), '-') THEN
+				SET CH_PriceModPromDiscVal 			= FUNC_Truncate('-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+				SET Environment.Variables.PriceMod_PromDiscountValue_ODS = FUNC_Truncate('-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			END IF;
+		END IF;
+		
+		IF REF_Allowance.NS_oa:Description = 'TransactionEmployeeDiscount' THEN
+			SET CH_PriceModCardDiscountVal 		= FUNC_Truncate(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			IF REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract' AND NOT STARTSWITH(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), '-') THEN
+				SET CH_PriceModCardDiscountVal 		= FUNC_Truncate('-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			END IF;
+		END IF;
+		
+		IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+			SET CH_PriceModMarkDownDiscountVal 	= FUNC_Truncate(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			IF REF_Allowance.NS_oa:Calculation.NS_oa:Description = 'Subtract' AND NOT STARTSWITH(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), '-') THEN
+				SET CH_PriceModMarkDownDiscountVal 	= FUNC_Truncate('-' || FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+			END IF;
+		END IF;
+		
+		SET CH_PriceModAmount = FUNC_Truncate(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount), 8);
+		SET Environment.Variables.PriceMod_Amount_ODS = CH_PriceModAmount;
+		
+		IF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 		= 'DIAMOND' THEN
+			SET CH_PriceModDiscountType 	= 'CD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT35' THEN
+			SET CH_PriceModDiscountType 	= 'TD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT01' THEN
+			SET CH_PriceModDiscountType 	= 'SD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT03' THEN
+			SET CH_PriceModDiscountType 	= 'SD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT04' THEN
+			SET CH_PriceModDiscountType 	= 'SD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'VALIDATEKFDISCOUNT' THEN
+			SET CH_PriceModDiscountType 	= 'GD';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'STORECOUPONTRANSACTION' THEN
+			SET CH_PriceModDiscountType 	= 'CC';
+		ELSEIF UPPER(COALESCE(REF_Allowance.NS_oa:ID, '')) 	= 'PM3' THEN
+			SET CH_PriceModDiscountType 	= '';
+		ELSE
+			SET CH_PriceModDiscountType 	= 'GD';
+		END IF;
+	END; 
+	-- END PROCEDURE PROC_Price_Modifier_RFC()
+
+	/********************************************************************************************
+	* Procedure Name	: PROC_SalesTax_RFC									 	 				*
+	* Input Parameters	: REF_SOLines															*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure populates variables with the sales tax data				*
+	*					  retrieved from SynchroniseSalesOrder canonical.				 		*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_SalesTax_RFC(IN REF_SOLines REFERENCE)
+	BEGIN
+		--DECLARE CH_Pattern CHARACTER '#,##0.00';
+		SET CH_TaxesTaxGroundId 	= REF_SOLines.NS_Dfns:Tax.NS_oa:Code;
+		SET CH_TaxesTaxAmount 		= FUNC_TruncateTo(ROUND(CAST(FIELDVALUE(REF_SOLines.NS_Dfns:Tax.NS_oa:Amount) AS DECIMAL), 2 MODE ROUND_HALF_UP), 8);
+		SET CH_TaxesPercent 		= REF_SOLines.NS_Dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric;
+
+	END; 
+	-- END PROCEDURE PROC_SalesTax_RFC()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_LineItem_RFC									 	 				*
+	* Input Parameters	: REF_SOHeader, REF_SOLines												*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure populates variables with the line item data				*
+	*					  retrieved from SynchroniseSalesOrder canonical.				 		*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_LineItem_RFC(IN REF_SOHeader REFERENCE, IN REF_SOLines REFERENCE)
+	BEGIN
+
+		DECLARE CH_spaceField CHARACTER ' ';
+		DECLARE DC_PromAmount DECIMAL 0.00;
+		DECLARE DC_Quantity DECIMAL;
+		
+		SET CH_LinesVoidFlag 				= '';
+		SET CH_LinesVoidedEntryFlag			= '';
+		SET CH_LinesParameter 				= '';
+		SET CH_LinesWeightMeasureIndicator 	= '';
+		SET CH_LinesReason 					= '';
+		SET CH_LinesReasonCode 				= '';
+		SET CH_LinesActSalesUnitPrice 		= '';
+				
+		SET CH_LinesTransId 			= REF_SOHeader.NS_Dfns:SalesTransaction.NS_oa:ID;
+		SET CH_LinesLineNo 				= REF_SOHeader.NS_Dfns:Payment.NS_oa:LineNumber;
+		IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET CH_LinesVoidFlag 						= 'true';
+		END IF;
+		IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+			SET CH_LinesVoidedEntryFlag					= 'true';
+		END IF;
+		
+		SET CH_LinesTransLineType 	= REF_SOLines.NS_oa:Description;
+		SET CH_LinesItemTypeFilter 	= 'N';
+		
+		IF COALESCE(FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type), '') = 'ACCOUNT PAYMENT RETURN' THEN
+			SET CH_LinesParameter 		= '000003039731';
+		END IF;
+
+		IF COALESCE(FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type), '') = 'PRODUCT RETURN' THEN
+			SET CH_LinesDetailType 		= 'R';
+		ELSE
+			SET CH_LinesDetailType 		= 'S';
+		END IF;
+		
+--		Code change starts for Version 0.2 and Defect #66	
+		
+
+		IF COALESCE(FIELDVALUE(REF_SOLines.NS_Dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name), '') <> '' AND FIELDVALUE(REF_SOLines.NS_Dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name) <> ' ' THEN
+			SET CH_PriceType 			= FIELDVALUE(REF_SOLines.NS_Dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name);
+			SET CH_LinesPriceType 		= CH_PriceType;
+		ELSE
+			SET CH_PriceType 			= '1';
+			SET CH_LinesPriceType 		= CH_PriceType;
+		END IF;
+
+--		Code change ends for Version 0.2 and Defect #66		
+		
+		SET CH_LinesItemCode 					= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UPCID;
+		SET CH_LinesItemType 					= REF_SOLines.NS_Dfns:ProductItem.NS_oa:Type;
+		SET CH_LinesSaleType 					= REF_SOLines.NS_Dfns:ProductItem.NS_oa:SaleType;
+		SET CH_LinesUOM 						= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UOMCode;
+		SET CH_LinesQuantity 					= FUNC_Truncate(REF_SOLines.NS_oa:Quantity, 8);
+		SET CH_LinesExtAmount 					= FUNC_Truncate(REF_SOLines.NS_oa:ExtendedAmount, 8);
+		SET CH_LinesRegSalesUnitPrice 			= FUNC_Truncate(FIELDVALUE(REF_SOLines.NS_oa:UnitPrice.NS_oa:Amount), 8);
+		SET CH_LinesActSalesUnitPrice 			= FUNC_Truncate(FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount), 8);
+		SET CH_LinesFinalActSalesUnitPrice 		= FUNC_Truncate(FIELDVALUE(REF_SOLines.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount), 8);
+		
+		IF COALESCE(REF_SOLines.NS_Dfns:ProductItem.NS_oa:UOMCode, '') <> 'each' AND REF_SOLines.NS_Dfns:ProductItem.NS_oa:UOMCode <> '' THEN
+			SET CH_LinesWeightMeasureIndicator 	= 'Y';
+		END IF;
+		
+		IF FIELDVALUE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type) = 'PRODUCT RETURN' THEN
+			SET CH_LinesReason 					= REF_SOLines.NS_Dfns:ReturnStatus.NS_oa:Reason;
+			SET CH_LinesReasonCode 				= FUNC_Truncate(REF_SOLines.NS_Dfns:ReturnStatus.NS_oa:ReasonCode, 4);
+			IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+				FOR REF_Allowance AS REF_SOLines.NS_Dfns:Allowance[] DO
+					IF TRIM(BOTH CH_spaceField FROM REF_Allowance.NS_oa:Description) = 'PriceRule' THEN
+						SET DC_PromAmount 		= DC_PromAmount + CAST(FIELDVALUE(REF_Allowance.NS_oa:BasisAmount) AS DECIMAL);
+					END IF;
+				END FOR;
+			END IF;
+			
+			SET DC_Quantity 					= CAST(REF_SOLines.NS_oa:Quantity AS DECIMAL);
+			IF DC_Quantity <> 0 AND DC_PromAmount <> 0 THEN
+				--Fix for Production incident #INC0114435. The price is being rounded upto to decimal places.
+				--SET CH_LinesActSalesUnitPrice 	= CAST(FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount) AS DECIMAL) - CAST((DC_PromAmount/DC_Quantity) AS DECIMAL);
+				SET CH_LinesActSalesUnitPrice 	= ROUND(CAST(FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount) AS DECIMAL) - ROUND(CAST((DC_PromAmount/DC_Quantity) AS DECIMAL), 2 MODE ROUND_HALF_UP), 2 MODE ROUND_HALF_UP);
+			END IF;
+			
+		END IF;
+		IF CH_PriceType = '3' THEN
+			
+			SET Environment.PriceGroup[]	= SELECT CS.SAPCUSTSEGMENTCODE FROM CACHE_CONFIGDATA.CUSTOMERSEGMENT[] AS CS WHERE CS.SAPCUSTSEGMENTCODE = REF_SOHeader.NS_Dfns:CustomerParty.NS_oa:Type;
+			
+			SET CH_LinesCustPriceGroup 		= Environment.PriceGroup[1].SAPCUSTSEGMENTCODE;
+		ELSEIF CH_PriceType = '2' THEN
+			SET CH_LinesCustPriceGroup = 'TP';
+		ELSE
+			SET CH_LinesCustPriceGroup = ' ';
+		END IF;
+	END; 
+	-- END PROCEDURE PROC_LineItem_RFC()
+	
+	/********************************************************************************************
+	* Procedure Name	: PROC_UpdateODSHeader									 	 			*
+	* Input Parameters	: None																 	*
+	* Output Parameters	: None 																 	*
+	* Description		: The procedure inserts into ODS table /BIC/AZSS_T00100 with header data*
+	*					  retrieved from SynchroniseSalesOrder canonical.	 				 	*
+	*					  								                                     	*
+	* Version 	Date 			Author 			Description                                  	*
+	* ======= 	============ 	=========== 	================================ 			 	*
+	*  0.1   	09-APR-2013 	Subir Bhaumik 	The initial version. 						 	*
+	********************************************************************************************/
+	CREATE PROCEDURE PROC_UpdateODSHeader( )
+	BEGIN
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN
+			PASSTHRU('ROLLBACK');
+			RESIGNAL;
+		END;
+				
+		DECLARE CH_QryStrHeader CHARACTER;
+		
+		--Building query string for insert into header table
+		SET CH_QryStrHeader = 'INSERT INTO "/BIC/AZSS_T00100" ("/BIC/ZCI_CUSTY", "/BIC/ZCI_TRNID", "/BIC/ZCI_SCSYS", "/BIC/ZCI_STORE", "/BIC/ZCI_WID", "/BIC/ZCI_TID", "/BIC/ZCI_OPID", "/BIC/ZCI_TRNMF", "/BIC/ZCI_CNCLF", "/BIC/ZCI_BEGD", "/BIC/ZCI_ENDD", "/BIC/ZCI_BDD", "/BIC/ZCI_CURCY", "/BIC/ZCI_SEQN", "/BIC/ZCI_SUSPF", "/BIC/ZCI_DISCN", "/BIC/ZCI_TSTMP", "/BIC/ZCI_PONUM", "/BIC/ZCI_TRADE", "/BIC/ZCI_TRDCF", "/BIC/ZCI_TTYPE", "/BIC/ZCI_RCFLG", "/BIC/ZCI_TPFLG", "/BIC/ZCI_CUSTM", "/BIC/ZCI_TPCCRD") VALUES ('
+		|| '''' || COALESCE(CH_HeaderCustomerType,'') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTransId, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderSourceSystem, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderStoreCode, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderWorkStnId, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTillId, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderOperatorId, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTrnModelFlag, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderCancelFlag, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderBeginDateTime, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderEndDateTime, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderBusDayDate, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderCurrencyCode, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderSeqNo, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderSuspendFlag, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderDiscountCardNo, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTimeStamp, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderPONo, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTradeCardNo, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderOldTradeCard, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTransType, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderRandcIndicator, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTradepIndicator, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderCustNo, '') ||''''
+		|| ', ''' || COALESCE(CH_HeaderTradepCardNo, '') ||''')';
+		
+		DECLARE e CHARACTER;
+		PASSTHRU(CH_QryStrHeader);
+	END;
+		
+	/************************************************************************************
+	* Procedure Name     :PROC_CreateExceptionTypeValue                          		*
+	* Input Parameters   :REF_SOLinesEx, REF_SOHeader, REF_SOLines, REF_SAPLines		*
+	* Output Parameters  :                                                     			*
+	* Description        :Populates the Exception Type and Exception Value		        *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	12-JUL-2013 	Subir Bhaumik 	The initial version.                    *
+	************************************************************************************/
+		
+	CREATE PROCEDURE PROC_CreateExceptionTypeValue(IN REF_SOLinesEx REFERENCE, IN REF_SOHeader REFERENCE, IN REF_SOLines REFERENCE, IN CH_ExceptionTypeR REFERENCE, IN CH_ExceptionValueR REFERENCE) BEGIN
+		
+		DECLARE CH_ReturnItem				CHARACTER;
+		DECLARE CH_ReturnQty				CHARACTER;
+		DECLARE CH_ItemCode					CHARACTER;
+		DECLARE CH_Quantity					CHARACTER;
+		
+		DECLARE REF_Allowance 				REFERENCE TO REF_SOLines.NS_Dfns:Allowance;
+		
+		SET CH_ExceptionValue = COALESCE(FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount), '');
+		SET BL_WriteFlag = FALSE;
+						
+						
+		IF UPPER(COALESCE(REF_SOHeader.NS_Dfns:SalesTransaction.NS_Dfns:TrainingModeIndicator, '')) = 'TRUE' THEN
+			SET CH_ExceptionType  						= 'TR';
+			SET BL_WriteFlag 							= TRUE;
+						
+		ELSEIF UPPER(COALESCE(REF_SOHeader.NS_Dfns:SalesTransaction.NS_Dfns:CancelledIndicator, '')) = 'TRUE' THEN
+			SET CH_ExceptionType  						= 'MV';
+			SET BL_WriteFlag 							= TRUE;
+						
+		ELSEIF UPPER(COALESCE(REF_SOLines.NS_oa:Description, '')) = 'NOSALE' THEN	
+			SET CH_ExceptionType  						= 'NS';
+			SET BL_WriteFlag 							= TRUE;
+					
+		ELSEIF CONTAINS(COALESCE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type, ''), 'RETURN') THEN
+			SET BL_WriteFlag 							= TRUE;
+			SET CH_ExceptionType  						= 'R';	
+			SET CH_ExceptionValue   					= FIELDVALUE(REF_SOLines.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount);
+			SET CH_ReturnItem							= REF_SOLines.NS_Dfns:ProductItem.NS_oa:UPCID;
+			SET CH_ReturnQty							= REF_SOLines.NS_oa:Quantity;
+							
+			IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'VM';															
+						END IF;
+						LEAVE LinePriceMods;
+						MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE LinePriceMods;						
+				END IF;
+							
+			ELSE
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'MR';
+							LEAVE LinePriceMods;														
+						END IF;
+						MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE LinePriceMods;						
+				END IF;
+			END IF;
+						
+			--Loop back through the array to check whether this is an exchange
+							
+			IF EXISTS(REF_SOLinesEx.NS_Dfns:SalesOrderLine[]) THEN
+				REF_SOLinesEx:
+				WHILE LASTMOVE(REF_SOLinesEx) DO
+					IF CONTAINS(COALESCE(REF_SOLinesEx.NS_oa:DocumentReference.(XMLNSC.Attribute)type, ''), 'SALE') THEN
+						IF STARTSWITH(CH_ReturnQty,'-') THEN
+							SET CH_ReturnQty 					= SUBSTRING(CH_ReturnQty FROM 2);					
+						END IF;
+						SET CH_ItemCode		 					= REF_SOLinesEx.NS_Dfns:ProductItem.NS_oa:UPCID; --need to check
+						SET CH_Quantity		 					= REF_SOLinesEx.NS_oa:Quantity; --need to check
+						
+						IF STARTSWITH(CH_Quantity,'-') THEN
+							SET CH_Quantity 					= SUBSTRING(CH_Quantity FROM 2);
+						END IF;
+						
+						IF CH_ItemCode = CH_ReturnItem AND CH_Quantity = CH_ReturnQty THEN
+							SET CH_ExceptionType				= 'VS';
+							LEAVE REF_SOLinesEx;
+						END IF;
+					END IF;
+					MOVE REF_SOLinesEx NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE REF_SOLinesEx;	
+			END IF;
+			ELSEIF CONTAINS(COALESCE(REF_SOLines.NS_oa:DocumentReference.(XMLNSC.Attribute)type, ''), 'SALE')	THEN --Line_Sale
+			IF REF_SOLines.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+				SET BL_WriteFlag						= TRUE;
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					REF_LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'MC';
+							SET BL_WriteFlag 			= TRUE;
+							LEAVE REF_LinePriceMods;
+						END IF;
+					MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE REF_LinePriceMods;					
+				END IF;
+			ELSE
+				IF EXISTS(REF_SOLines.NS_Dfns:Allowance[]) THEN
+					MOVE REF_Allowance TO REF_SOLines.NS_Dfns:Allowance;
+					REF_LinePriceMods:
+					WHILE LASTMOVE(REF_Allowance) DO
+						IF REF_Allowance.NS_oa:Description = 'ItemDiscount' THEN
+							SET CH_ExceptionType		= 'MK';
+							SET BL_WriteFlag 			= TRUE;
+							LEAVE REF_LinePriceMods;
+						END IF;
+					MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE REF_LinePriceMods;					
+				END IF;
+			END IF;
+		END IF;				
+		IF BL_WriteFlag THEN
+			IF CH_ExceptionType <> '' AND REF_SOLines.NS_oa:Description = 'Item'  THEN
+				SET CH_ExceptionTypeR	 	= CH_ExceptionType;
+				SET CH_ExceptionValueR		= FUNC_Truncate(CH_ExceptionValue, 8);
+			END IF;
+		ELSE
+			SET CH_ExceptionTypeR = '';
+			SET CH_ExceptionValueR = '';
+	 	END IF;
+		
+	END; -- END Procedure PROC_CreateExceptionTypeValue()
+	
+	/************************************************************************************
+	* Function Name     :FUNC_TruncateTo                          						*
+	* Input Parameters   :DC_Value, IN_Digit                          					*
+	* Output Parameters  :DC_Return                                                     *
+	* Description        :Truncates input(Decimal) value upto supplied digits		    *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	18-JUL-2013 	Subir Bhaumik 	The initial version.                    *
+	************************************************************************************/
+	CREATE FUNCTION FUNC_TruncateTo(DC_Value DECIMAL, IN_Digit INTEGER) RETURNS DECIMAL
+	BEGIN
+		DECLARE DC_Return DECIMAL;
+		DECLARE CH_Return CHARACTER;
+		SET CH_Return = CAST(DC_Value AS CHARACTER);
+		IF COALESCE(CH_Return, '') = '' THEN
+			RETURN DC_Value;
+		END IF;
+		
+		IF LENGTH(CH_Return) > IN_Digit THEN
+			SET CH_Return = SUBSTRING(CH_Return FROM 1 FOR IN_Digit);
+		END IF;
+		SET DC_Return = CAST(CH_Return AS DECIMAL);
+		RETURN DC_Return;	
+	END;
+	-- END Function FUNC_TruncateTo()
+	
+	/************************************************************************************
+	* Function Name     :FUNC_Truncate                          						*
+	* Input Parameters   :CH_Value, IN_Digit                          					*
+	* Output Parameters  :CH_Return                                                     *
+	* Description        :Truncates input(Character) value upto supplied digits		    *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	18-JUL-2013 	Subir Bhaumik 	The initial version.                    *
+	************************************************************************************/
+ 	CREATE FUNCTION FUNC_Truncate(CH_Value CHARACTER NULLABLE, IN_Digit INTEGER) RETURNS CHARACTER
+	BEGIN
+		
+		DECLARE CH_Return CHARACTER;
+		IF COALESCE(CH_Value, '') = '' THEN
+			RETURN CH_Value;
+		END IF;
+		IF LENGTH(CH_Value) > IN_Digit THEN
+			SET CH_Return = SUBSTRING(CH_Value FROM 1 FOR IN_Digit);
+		ELSE
+			SET CH_Return = CH_Value;
+		END IF;
+		RETURN CH_Return;	
+	END;
+	-- END Function FUNC_Truncate()
+
+END MODULE;

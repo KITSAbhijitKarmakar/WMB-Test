@@ -1,0 +1,166 @@
+BROKER SCHEMA com.kingfisher.ukbq.FulfilmentSite
+PATH com.kingfisher.ukbq.WMBFunctions;
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *                             
+****************************************************************************************************/
+ 
+/****************************************************************************************************    
+* Node Name                         :     Map_FulfilmentSite_SAPIDOC_Canonical                      *
+* Interface Id                      :                                                               *
+* Interface Name              		:     FulfilmentSite_notifyFulfilmentSite                       * 
+* Message Flow                      :     FulfilmentSite_notifyFulfilmentSite_SAP_Pub               *
+* Message Flow Description    		:     Publisher flow will transform the SAP IDOC ZBETMAS_CP to  *
+*                                         the FulfilmentSite canonical and publish it to a topic	*
+*										  FulfilmentSiteTopic										* 
+* Module Name                       :     FulfilmentSite_notifyFulfilmentSite_SAP_Pub_Compute       *
+* Description                       :     This module translates the data recieved from SAP as      *
+*                                         IDOC to the FulfilmentSite canonical                      *
+*                                                                                                   *
+* Version   Date              Author            Description                                         *
+* =======   ===========       ==============    ======================================              *
+*  0.1      05-Apr-2013       Ipsita Sahoo      The initial version.                                *
+****************************************************************************************************/
+
+-- Namespace declaration 
+DECLARE NS_dns                NAMESPACE 'http://www.kingfisher.com/oagis/9';
+DECLARE NS_oa                 NAMESPACE 'http://www.openapplications.org/oagis/9';
+DECLARE NS_sapzbetmascp       NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp';
+		
+		
+CREATE COMPUTE MODULE FulfilmentSite_notifyFulfilmentSite_SAP_Pub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- Call the procedure CreateNotifyFulfilmentSiteCannonical()
+		CALL CreateNotifyFulfilmentSiteCannonical();
+		RETURN TRUE;
+	END;
+
+	/****************************************************************************************************
+	* Procedure Name	: CreateNotifyFulfilmentSiteCannonical() 										*
+	* Input Parameters	: None		     														 		*
+	* Output Parameters	: None 																			*
+	* Description		: Transforms the SAP Idoc message into the FulfilmentSite canonicals			* 
+	*					  and publish it to the topic string      	                                  	*
+	* Version 	Date 			Author 					Description                                  	*
+	* ======= 	=========== 	=============== 		================================ 		  		*
+	*  0.1   	05-APR-2013 	Ipsita Sahoo            The initial version. 					   		*
+	****************************************************************************************************/
+	
+	CREATE PROCEDURE CreateNotifyFulfilmentSiteCannonical() BEGIN
+		  
+		  --Declaring Variables
+          DECLARE CH_SpaceField         CHARACTER ' ';
+		  DECLARE CH_TabName 			CHARACTER; 
+		  DECLARE CH_Input 				CHARACTER; 
+		  DECLARE CH_OutCol 			CHARACTER; 
+		  DECLARE CH_OutValue 			CHARACTER;
+		  DECLARE DT_Date				DATE;
+		  DECLARE TM_Time				TIME;  
+		  
+		  --Reference declaration
+          DECLARE REF_IdocBO			REFERENCE TO InputRoot.DataObject.NS_sapzbetmascp:SapZbetmasCp.SapZbetmasCpIDocBO;
+          DECLARE REF_ControlRecord		REFERENCE TO REF_IdocBO.SapIDocControlRecord;
+          DECLARE REF_DataRecord		REFERENCE TO REF_IdocBO.SapZbetmasCpDataRecord;
+          DECLARE REF_Wadr2		 	  	REFERENCE TO REF_DataRecord.SapZbetmasCpZ2t1wadr2000;
+          DECLARE REF_Wadr3		 	  	REFERENCE TO REF_DataRecord.SapZbetmasCpZ2t1wadr3000;
+          DECLARE REF_Wadrc		 	  	REFERENCE TO REF_DataRecord.SapZbetmasCpZ2t1wadrc000;
+          DECLARE REF_Out             	REFERENCE TO OutputRoot.XMLNSC;
+          DECLARE REF_AppAr 			REFERENCE TO REF_Out.NS_oa:ApplicationArea;
+          DECLARE REF_DataAr 			REFERENCE TO REF_Out.NS_dns:DataArea;
+          DECLARE REF_ActionExp 		REFERENCE TO REF_DataAr.NS_dns:Synchronise.NS_oa:ActionCriteria.NS_oa:ActionExpression;
+		  DECLARE REF_FulfilmentSite 	REFERENCE TO REF_DataAr.NS_dns:FulfilmentSite;
+          DECLARE REF_Contact 			REFERENCE TO REF_FulfilmentSite.NS_dns:Contact;
+		  DECLARE REF_LocationAdd 		REFERENCE TO REF_Contact.NS_dns:Location.NS_oa:Address;
+		  
+		  SET DT_Date					= CAST(REF_ControlRecord.CREDAT AS DATE FORMAT 'yyyyMMdd');
+		  SET TM_Time					= CAST(REF_ControlRecord.CRETIM AS TIME FORMAT 'HHmmss');
+
+		  SET CH_TabName				= 'MBTOPICS';
+		  SET CH_OutCol					= 'TOPICSTRING';
+		  SET CH_OutValue 				= '';
+		  SET CH_Input					= 'FulfilmentSiteTopic';
+				
+		  -- Create the synchronize header 
+          SET OutputRoot.Properties     			= InputRoot.Properties;
+          SET OutputRoot.MQMD           			= InputRoot.MQMD;          
+          SET OutputRoot.MQRFH2.psc.Command   		= 'Publish';
+          CALL RetrieveValuesLookup(CH_TabName,CH_OutCol,CH_Input,CH_OutValue);
+          SET OutputRoot.MQRFH2.psc.Topic           = CH_OutValue;
+          
+          --Set version and encoding
+          SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version      = '1.0';
+          SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding     = 'UTF-8';           
+		  
+		  --Crteating field of references
+          CREATE FIELD OutputRoot.XMLNSC.NS_dns:SynchroniseFulfilmentSite AS REF_Out;
+
+		  -- Set the namespace and headers
+          SET REF_Out.(XMLNSC.Attribute)releaseID               = '1.0';
+          SET REF_Out.(XMLNSC.Attribute)languageCode            = 'EN';
+          SET REF_Out.(XMLNSC.NamespaceDecl)xmlns:oa            = NS_oa;
+          SET REF_Out.(XMLNSC.NamespaceDecl)xmlns               = NS_dns;
+		  
+		  -- Create Application Area
+          CREATE FIELD REF_Out.NS_oa:ApplicationArea AS REF_AppAr;  
+          
+          -- Set the Application Area value
+          SET REF_AppAr.NS_oa:Sender.NS_oa:LogicalID 			= 'SAP';          
+          SET REF_AppAr.NS_oa:Sender.NS_oa:ComponentID 			= 'SITE_MASTERDATA_CHANGES';
+          SET REF_AppAr.NS_oa:Sender.NS_oa:ReferenceID 			= REF_ControlRecord.DOCTYP;
+		  SET REF_AppAr.NS_oa:CreationDateTime 					= CAST(DT_Date AS CHARACTER FORMAT 'yyyy-MM-dd')||'T'||CAST(TM_Time AS CHARACTER FORMAT 'HH:mm:ss');
+		  SET REF_AppAr.NS_oa:BODID 							= REF_ControlRecord.DOCNUM;  
+          
+          -- Create Data Area
+          CREATE FIELD REF_Out.NS_dns:DataArea AS REF_DataAr;
+          CREATE FIELD REF_DataAr.NS_dns:Synchronise.NS_oa:ActionCriteria.NS_oa:ActionExpression AS REF_ActionExp;
+          
+          -- Set the Data Area Synchronise value
+          SET REF_ActionExp 									= 'SynchroniseProduct/DataArea/Product';
+          IF REF_Wadrc.MSGFN IS NOT NULL AND REF_Wadrc.MSGFN = '003' THEN
+          	SET REF_ActionExp.(XMLNSC.Attribute)actionCode 		= 'Delete';
+          ELSE
+          	SET REF_ActionExp.(XMLNSC.Attribute)actionCode 		= 'Modified';
+          END IF; 
+          
+		  SET REF_ActionExp.(XMLNSC.Attribute)expressionLanguage= 'xpath';
+		  
+		  -- Create FulfilmentSite
+		  CREATE FIELD REF_DataAr.NS_dns:FulfilmentSite AS REF_FulfilmentSite;
+		  
+		   -- Set the Data Area FulfilmentSite value
+		  SET REF_FulfilmentSite.NS_oa:PartyIDs.NS_oa:ID									= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.WERKS);
+		  SET REF_FulfilmentSite.NS_oa:Name													= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.NAME1);
+		  
+          -- Create Contact
+	      CREATE FIELD REF_FulfilmentSite.NS_dns:Contact AS REF_Contact;
+          
+          -- Set the Contact value
+          SET REF_Contact.NS_oa:TelephoneCommunication.NS_oa:FormattedNumber				= TRIM(BOTH CH_SpaceField FROM REF_Wadr2.TELNR_CALL);
+          SET REF_Contact.NS_oa:FaxTelephoneCommunication.NS_oa:FormattedNumber 			= TRIM(BOTH CH_SpaceField FROM REF_Wadr3.FAXNR_CALL);
+	      
+	      -- Create Location Address
+		  CREATE FIELD REF_Contact.NS_dns:Location.NS_oa:Address AS REF_LocationAdd;
+		  
+		  -- Set the Location Address value
+		  SET REF_LocationAdd.NS_oa:BuildingNumber											= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.HOUSE_NUM1);
+          SET REF_LocationAdd.NS_oa:StreetName												= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.STREET);
+          SET REF_LocationAdd.NS_oa:CitySubDivisionName[1]									= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.STR_SUPPL3);
+          SET REF_LocationAdd.NS_oa:CitySubDivisionName[1].(XMLNSC.Attribute)sequenceName 	= 'Street2';
+          SET REF_LocationAdd.NS_oa:CitySubDivisionName[2]									= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.HOME_CITY);
+          SET REF_LocationAdd.NS_oa:CitySubDivisionName[2].(XMLNSC.Attribute)sequenceName 	= 'Street3';
+          SET REF_LocationAdd.NS_oa:CityName 												= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.CITY1);
+          SET REF_LocationAdd.NS_oa:CountrySubDivisionCode 									= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.BEZEI);
+          SET REF_LocationAdd.NS_oa:CountryCode 											= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.COUNTRY);
+		  SET REF_LocationAdd.NS_oa:PostalCode 												= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.POST_CODE1);
+          
+	      SET REF_FulfilmentSite.NS_oa:Description[1]										= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.VTWEG_DESC);
+	      SET REF_FulfilmentSite.NS_oa:Description[1].(XMLNSC.Attribute)type 				= 'SiteType';
+	      SET REF_FulfilmentSite.NS_oa:Description[2]										= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.VTWEG);
+	      SET REF_FulfilmentSite.NS_oa:Description[2].(XMLNSC.Attribute)type 				= 'DistributionChannel';
+	      SET REF_FulfilmentSite.NS_oa:Description[3]										= TRIM(BOTH CH_SpaceField FROM REF_Wadrc.SORT1);
+	      SET REF_FulfilmentSite.NS_oa:Description[3].(XMLNSC.Attribute)type 				= 'BQSiteRef';
+	END;
+END MODULE;

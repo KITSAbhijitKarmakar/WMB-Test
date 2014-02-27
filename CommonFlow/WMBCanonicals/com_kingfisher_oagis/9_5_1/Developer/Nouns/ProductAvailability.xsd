@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:        06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd"/>
+	<xsd:element name="ProductAvailability" type="ProductAvailabilityType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Product Availability represents information on the availability of a specified item at a specified inventory location for a specified date.  Product availability is typically needed in the processing of customer sales orders.  It is used in this context as the object of an inquiry function.
+
+Where the ItemQuantity indicates the number of Iterms requested and the AvailableQuantity indicates the number of items available.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="SubstituteItem" type="oa:ItemInstanceType"/>
+	<xsd:complexType name="ProductAvailabilityType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:ProductRequirementBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:AvailableQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:AvailableDateTime">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">This is the delivery date requested by the customer</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:AllowSubstitutionIndicator">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Indicates whether or not the Order Item can be substituted with a similar item.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Indicates whether or not the Order Item can be substituted with a similar item.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="SubstituteItem"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+</xsd:schema>

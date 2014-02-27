@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author:  Anand Patil
+  Revision:    1.0
+  Date:        20 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><definitions targetNamespace="http://www.kingfisher.com/Services/FulfilmentSourceService/1.0" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/FulfilmentSourceService/1.0" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <documentation>
+    <appinfo source="WMQI_APPINFO">
+      <MRWSDLAppInfo imported="true">
+        <generatedXSD location="FulfilmentSourceService_InlineSchema1.xsd"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseFulfilmentSourceBinding" originalBindingStyle="document"/>
+        <binding hasEncoding="false" imported="true" name="FulfilmentSourceBinding" originalBindingStyle="document"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseFulfilmentSourceJMSBinding" originalBindingStyle="document"/>
+      </MRWSDLAppInfo>
+    </appinfo>
+  </documentation>
+	<types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:include schemaLocation="FulfilmentSourceService_InlineSchema1.xsd"/>
+    </xsd:schema>
+	</types>
+	<message name="GetFulfilmentSource">
+		<part element="koa:GetFulfilmentSource" name="parameter"/>
+	</message>
+	<message name="ValidateFulfilmentSource">
+		<part element="koa:ValidateFulfilmentSource" name="parameter"/>
+	</message>
+	<message name="ShowFulfilmentSource">
+		<part element="koa:ShowFulfilmentSource" name="parameter"/>
+	</message>
+	<message name="ConfirmFulfilmentSource">
+		<part element="koa:ConfirmFulfilmentSource" name="parameter"/>
+	</message>
+	<message name="Fault">
+		<part element="koa:Fault" name="parameter"/>
+	</message>
+	<message name="SynchroniseFulfilmentSource">
+		<part element="koa:SynchroniseFulfilmentSource" name="Message"/>
+	</message>
+	<message name="ProcessFulfilmentSource">
+		<part element="koa:ProcessFulfilmentSource" name="Message"/>
+	</message>
+	<message name="AcknowledgeFulfilmentSource">
+		<part element="koa:AcknowledgeFulfilmentSource" name="Message"/>
+	</message>
+	<message name="CalculateDeliveryCharge">
+		<part element="koa:CalculateDeliveryCharge" name="Message"/>
+	</message>
+	<message name="CalculateDeliveryChargeResponse">
+		<part element="koa:CalculateDeliveryChargeResponse" name="Message"/>
+	</message>
+	<portType name="FulfilmentSourcePortType">
+		<operation name="GetFulfilmentSource">
+			<input message="koaws:GetFulfilmentSource"/>
+			<output message="koaws:ShowFulfilmentSource"/>
+			<fault message="koaws:Fault" name="GetFulfilmentSourceFault"/>
+		</operation>
+		<operation name="ValidateFulfilmentSource">
+			<input message="koaws:ValidateFulfilmentSource"/>
+			<output message="koaws:ConfirmFulfilmentSource"/>
+			<fault message="koaws:Fault" name="ValidateFulfilmentSourceFault"/>
+		</operation>
+		<operation name="ProcessFulfilmentSource">
+			<input message="koaws:ProcessFulfilmentSource"/>
+			<output message="koaws:AcknowledgeFulfilmentSource"/>
+			<fault message="koaws:Fault" name="ProcessFulfilmentSourceFault"/>
+		</operation>
+		<operation name="CalculateDeliveryCharge">
+			<input message="koaws:CalculateDeliveryCharge"/>
+			<output message="koaws:CalculateDeliveryChargeResponse"/>
+			<fault message="koaws:Fault" name="CalculateDeliveryChargeFault"/>
+		</operation>
+	</portType>
+	<portType name="SynchroniseFulfilmentSourcePortType">
+		<operation name="SynchroniseFulfilmentSource">
+			<input message="koaws:SynchroniseFulfilmentSource"/>
+		</operation>
+	</portType>
+	<binding name="FulfilmentSourceBinding" type="koaws:FulfilmentSourcePortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="GetFulfilmentSource">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/FulfilmentSourceService/FulfilmentSourcePortType/GetFulfilmentSource/1.0"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="GetFulfilmentSourceFault">
+				<soap:fault name="GetFulfilmentSourceFault" use="literal"/>
+			</fault>
+		</operation>
+		<operation name="ValidateFulfilmentSource">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/FulfilmentSourceService/FulfilmentSourcePortType/ValidateFulfilmentSource/1.0"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="ValidateFulfilmentSourceFault">
+				<soap:fault name="ValidateFulfilmentSourceFault" use="literal"/>
+			</fault>
+		</operation>
+		<operation name="ProcessFulfilmentSource">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/FulfilmentSourceService/FulfilmentSourcePortType/ProcessFulfilmentSource/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="ProcessFulfilmentSourceFault">
+				<soap:fault name="ProcessFulfilmentSourceFault" use="literal"/>
+			</fault>
+		</operation>
+		<operation name="CalculateDeliveryCharge">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/FulfilmentSourceService/FulfilmentSourcePortType/CalculateDeliveryCharge/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="CalculateDeliveryChargeFault">
+				<soap:fault name="CalculateDeliveryChargeFault" use="literal"/>
+			</fault>
+		</operation>
+	</binding>
+	<binding name="SynchroniseFulfilmentSourceBinding" type="koaws:SynchroniseFulfilmentSourcePortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="SynchroniseFulfilmentSource">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/FulfilmentSourceService/SynchroniseFulfilmentSourcePortType/SynchroniseFulfilmentSource/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<binding name="SynchroniseFulfilmentSourceJMSBinding" type="koaws:SynchroniseFulfilmentSourcePortType" xmlns:soapjms="http://www.w3.org/2010/soapjms/">
+		<soap:binding style="document" transport="http://www.w3.org/2010/soapjms/"/>
+		<soapjms:jndiConnectionFactoryName>kingfisher.jms.ConnectionFactory</soapjms:jndiConnectionFactoryName>
+		<soapjms:deliveryMode>PERSISTENT</soapjms:deliveryMode>
+		<operation name="SynchroniseFulfilmentSource">
+			<soap:operation style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<service name="FulfilmentSourceService">
+		<port binding="koaws:FulfilmentSourceBinding" name="FulfilmentSourceBinding">
+			<soap:address location="http://www.kingfisher.com/Services/FulfilmentSource/1.0"/>
+		</port>
+	</service>
+	<service name="SynchroniseFulfilmentSource">
+		<port binding="koaws:SynchroniseFulfilmentSourceBinding" name="SynchroniseFulfilmentSourceBinding">
+			<soap:address location="http://www.kingfisher.com/Services/SynchroniseFulfilmentSource/1.0"/>
+		</port>
+		<port binding="koaws:SynchroniseFulfilmentSourceJMSBinding" name="SynchroniseFulfilmentSourceJMSBinding">
+			<soap:address location="jms:jndi:ConfigQueName?targetService=FulfilmentSource&amp;priority=8&amp;userprop=ConfigUserProp"/>
+		</port>
+	</service>
+</definitions>

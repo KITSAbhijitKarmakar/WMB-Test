@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://www.kingfisher.com/Services/CustomerService/1.0" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:jms="http://schemas.xmlsoap.org/soap/jms" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/CustomerService/1.0" xmlns:ns="http://www.openapplications.org/oagis/9" xmlns:ns1="http://www.openapplications.org/oagis/9/IANAMIMEMediaTypes:2003" xmlns:ns2="http://www.openapplications.org/oagis/9/currencycode/54217:2001" xmlns:ns3="http://www.openapplications.org/oagis/9/languagecode/5639:1988" xmlns:ns4="http://www.openapplications.org/oagis/9/unitcode/66411:2001" xmlns:ns5="http://www.openapplications.org/oagis/9/unqualifieddatatypes/1.1" xmlns:ns6="http://www.openapplications.org/oagis/9/codelists" xmlns:ns7="http://www.openapplications.org/oagis/9/qualifieddatatypes/1.1" xmlns:ns8="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:import namespace="http://www.kingfisher.com/oagis/9" schemaLocation="CustomerService_InlineSchema1.xsd"/>
+
+<!-- BEGIN Global group petaining to all wsdl:message definitions -->
+<!-- END Global group -->
+
+
+<!-- BEGIN Message Definitions for the wsdl:operations  -->
+<!-- END Message Definitions -->
+
+
+</xsd:schema>

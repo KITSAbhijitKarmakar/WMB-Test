@@ -1,0 +1,60 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+--Namespace Definitions
+DECLARE ns 			NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/sapzretccardpaymentswrapper';
+DECLARE ns3			NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/sapzretccardpaymentswrapper';
+DECLARE NS_dfns 	NAMESPACE 'http://www.kingfisher.com/oagis/9';
+DECLARE NS_oa  		NAMESPACE 'http://www.openapplications.org/oagis/9';
+
+/************************************************************************************
+* Procedure Name     :FUNC_ConvertPennytoPound                          			*
+* Input Parameters   :CH_Value,IN_Sign,IN_Decimal, CH_Mode                          *
+* Output Parameters  :DC_Return                                                     *
+* Description        :Converts Penny to Pound							            *
+* Version 	Date 			Author 			Description                             *
+* ======= 	=========== 	=========== 	================================        *
+*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+*  0.2   	11-JUL-2013 	Subir Bhaumik 	Updated the code to return 0.00 if input*
+											value is null or 0                    	*
+************************************************************************************/
+CREATE FUNCTION FUNC_ConvertPennytoPound(CH_Value CHARACTER NULLABLE, IN_Sign INTEGER, IN_Decimal INTEGER, CH_Mode CHARACTER NULLABLE) RETURNS DECIMAL
+BEGIN
+	SET CH_Mode = COALESCE(CH_Mode, 'ROUND_HALF_EVEN');
+	DECLARE DC_Return DECIMAL;
+	IF COALESCE(DC_Return,'') = '' THEN
+		SET DC_Return		= '0.00';
+	END IF;
+	SET DC_Return			= CAST(CH_Value AS DECIMAL) * IN_Sign * 0.01;
+	CASE CH_Mode
+		WHEN 'ROUND_HALF_UP' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_HALF_UP);
+		WHEN 'ROUND_CEILING' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_CEILING);
+		WHEN 'ROUND_DOWN' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_DOWN);
+		WHEN 'ROUND_FLOOR' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_FLOOR);
+		WHEN 'ROUND_HALF_DOWN' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_HALF_DOWN);
+		WHEN 'ROUND_HALF_EVEN' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_HALF_EVEN);
+		WHEN 'ROUND_UP' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_UP);
+		ELSE
+			SET DC_Return 	= ROUND(DC_Return,2);
+	END CASE;
+	IF COALESCE(DC_Return,'') = '' THEN
+		--Code change starts for version 0.2
+		--SET DC_Return = 0;
+		SET DC_Return = 0.00;
+		--Code change ends for version 0.2
+	END IF;
+	RETURN DC_Return;	
+END;

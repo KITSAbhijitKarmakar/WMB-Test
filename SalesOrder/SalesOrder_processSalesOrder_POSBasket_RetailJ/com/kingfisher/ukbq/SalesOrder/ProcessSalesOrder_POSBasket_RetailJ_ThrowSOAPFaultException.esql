@@ -1,0 +1,34 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: ThrowSOAPFaultException												*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_ThrowSOAPFaultException 			*
+* Description 				: Throw user exception if SOAP fault generates							*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		27-JUN-2013 	Asif Hossain 		The initial version. 								*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_ThrowSOAPFaultException
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		THROW USER EXCEPTION VALUES('SOAP fault messages genrated while calling getToken with fault code : '||
+		InputRoot.SOAP.Body.Fault.faultcode ||'and fault string : '||InputRoot.SOAP.Body.Fault.faultcode);
+		
+		RETURN TRUE;
+	END;
+
+END MODULE;

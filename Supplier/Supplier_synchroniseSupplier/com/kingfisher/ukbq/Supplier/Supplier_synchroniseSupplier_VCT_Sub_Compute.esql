@@ -1,0 +1,148 @@
+BROKER SCHEMA com.kingfisher.ukbq.Supplier
+PATH com.kingfisher.ukbq.WMBFunctions;
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      :	Map_Supplier_Canonical_VCT								  	  			  	                  	  *									
+* Interface Id 	 :																				  			  	      *
+* Interface Name :	Supplier_SynchroniseSupplier                                                           			  *															
+* Message Flow 	 : 	Supplier_synchroniseSupplier_VCT_Sub															  *
+* Description 	 : 	The Supplier Canonical is mapped to the required VCT table (tbl_IB_Vendors)structure			  * 
+*					through the Compute node.    																	  *
+*														  	  														  *
+* Module Name  	 :	Supplier_synchroniseSupplier_VCT_Sub_Compute     			  		  							  *            				  	  
+* Description  	 :	The Supplier Canonical is mapped to the tbl_IB_Vendors structure through the Compute node.        *   														  			                                         
+*																									  				  *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+* 0.1  	    25-Mar-2013   	Panchanan Mandal	The initial version.                			  				  	  * 
+**********************************************************************************************************************/
+
+CREATE COMPUTE MODULE Supplier_synchroniseSupplier_VCT_Sub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		 -- Call the Procedure MappingToVCT();
+		 CALL MappingToVCT();		
+		 RETURN TRUE;
+	END;
+	
+	/***********************************************************************************************************************
+	* Procedure Name	: MappingToVCT() 										 								   		   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: The Supplier Canonical is mapped to the required VCT table structure					 		   *
+	*										   	                                                                           *
+	* Version 	Date 			Author 					Description                                                        *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	25-MAR-2013 	Panchanan Mandal 		The initial version. 						                       *
+	***********************************************************************************************************************/
+
+	CREATE PROCEDURE MappingToVCT() BEGIN
+		
+		--Declaring Variables
+		DECLARE CH_AccountGroupValue 			CHARACTER;
+		DECLARE	CH_VendorNumber					CHARACTER;
+		DECLARE	CH_VendorName					CHARACTER;
+		DECLARE	CH_VendorVATReg					CHARACTER;
+		DECLARE	CH_VendorAddress1				CHARACTER;
+		DECLARE	CH_VendorAddress2				CHARACTER;
+		DECLARE	CH_VendorAddress3				CHARACTER;
+		DECLARE	CH_VendorPostCode				CHARACTER;
+		DECLARE CH_SqlString					CHARACTER;
+		DECLARE CH_Blank						CHARACTER;	
+
+				
+		--Declaring Input References
+		DECLARE REF_DataArea 					REFERENCE TO InputRoot.XMLNSC.NS_Dfns:SynchroniseSupplier.NS_Dfns:DataArea;
+		DECLARE REF_Supplier 					REFERENCE TO REF_DataArea.NS_Dfns:Supplier;
+		DECLARE REF_AccountIDs					REFERENCE TO REF_Supplier.NS_Oa:AccountIDs;
+		DECLARE REF_ActionExpression			REFERENCE TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+		DECLARE REF_Contact						REFERENCE TO REF_Supplier.NS_Dfns:Contact;
+		DECLARE REF_TelephoneComm 				REFERENCE TO REF_Contact.NS_Oa:TelephoneCommunication;
+		DECLARE REF_FaxTelephoneComm 			REFERENCE TO REF_Contact.NS_Oa:FaxTelephoneCommunication;
+		DECLARE REF_AddressLine					REFERENCE TO REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CitySubDivisionName;
+		
+		SET CH_Blank = '';
+		--Loop through all Id and findout the value of AccountGroupValue 	
+		 FOR REF_Id   AS REF_AccountIDs.NS_Oa:ID[] DO
+		  	IF REF_Id.(XMLNSC.Attribute)schemeName 	= 'AccountGroup'  THEN
+				SET CH_AccountGroupValue 					= REF_Id;							
+			END IF;
+		END FOR;						      
+		
+		SET CH_VendorNumber 						= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID));
+		IF LENGTH(TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:Name)) > 30 THEN
+			SET CH_VendorName						= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:Name) FROM 1 FOR 30));
+		ELSE
+			SET CH_VendorName						= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:Name));
+		END IF;
+		SET CH_VendorVATReg 						= TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Dfns:Tax.NS_Dfns:RegistrationCode);
+		
+		--Loop through all contact and where the condition satisfy once, leave the loop
+		Contact: WHILE LASTMOVE(REF_Contact) DO		
+			IF CH_AccountGroupValue 	= 'ZVND' THEN
+				IF REF_Contact.NS_Oa:Type = 'VN' THEN
+					IF LENGTH(TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName))) > 35 THEN
+						SET CH_VendorAddress1 				= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName) FROM 1 FOR 35));
+					ELSE
+						SET CH_VendorAddress1 				= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName));
+					END IF;
+					
+					--Loop through all addressLine and find the Address2
+					Address2: WHILE LASTMOVE(REF_AddressLine) DO
+					IF REF_AddressLine.(XMLNSC.Attribute)sequenceName = 'Street2' THEN
+							IF LENGTH(TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_AddressLine))) > 35 THEN
+								SET CH_VendorAddress2		= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_AddressLine) FROM 1 FOR 35));
+							ELSE
+								SET CH_VendorAddress2		= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_AddressLine));
+							END IF;						
+							LEAVE Address2;
+						END IF;				
+					MOVE REF_AddressLine NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE;	
+					MOVE REF_AddressLine TO REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CitySubDivisionName;
+					
+					--Loop through all addressLine and find the Address3
+					Address3: WHILE LASTMOVE(REF_AddressLine) DO
+					IF REF_AddressLine.(XMLNSC.Attribute)sequenceName = 'Street3' THEN
+							IF LENGTH(TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_AddressLine))) > 35 THEN
+								SET CH_VendorAddress3		= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_AddressLine) FROM 1 FOR 35));
+							ELSE
+								SET CH_VendorAddress3		= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_AddressLine));
+							END IF;						
+							LEAVE Address3;
+						END IF;
+						MOVE REF_AddressLine NEXTSIBLING REPEAT TYPE NAME;				
+					END WHILE;					
+					SET CH_VendorPostCode					= TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:PostalCode);
+				LEAVE Contact;
+				END IF;			
+			END IF;
+			MOVE REF_Contact NEXTSIBLING REPEAT TYPE NAME;
+			MOVE REF_AddressLine TO REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CitySubDivisionName;	
+		END WHILE;
+		
+		--Creating the sql query string
+		SET CH_SqlString ='INSERT INTO tbl_IB_Vendors (VendorNumber,VendorName,VendorVATReg,VendorAddress1,VendorAddress2,VendorAddress3,VendorPostCode)
+					VALUES('''||COALESCE(CH_VendorNumber,'') ||''''
+					||',''' || COALESCE(CH_VendorName,'') ||''''
+					||',''' || COALESCE(CH_VendorVATReg,'') ||''''
+					||',''' || COALESCE(CH_VendorAddress1,'') ||''''
+					||',''' || COALESCE(CH_VendorAddress2,'') ||''''
+					||',''' || COALESCE(CH_VendorAddress3,'') ||''''
+					||',''' || COALESCE(CH_VendorPostCode,'') ||''''
+					||')'
+					||'';
+					
+		--Inserting values to the tbl_IB_Vendors table
+		IF CH_AccountGroupValue 	= 'ZVND' THEN
+			PASSTHRU(CH_SqlString);		
+		END IF;		
+	END;	
+END MODULE;
+

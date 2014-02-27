@@ -1,0 +1,97 @@
+***********************************************************************
+**   Script	:  MQSC_FULFILMENTSITE_SYNCHRONISEFULFILMENTSITE.MQSC
+**   Created By	:  Ipsita Sahoo
+**   Environment:  X -tier	
+***********************************************************************
+       
+DEFINE QLOCAL ('FULFILMENTSITE.FKI.TRANSIT.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input queue(Local) for SynchroniseFulfilmentsite(FKI)') +
+       REPLACE
+
+
+DEFINE QALIAS ('FULFILMENTSITE.FKI.TRANSIT.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       DESCR('WMB alias of QL for SynchroniseFulfilmentSite(FKI)') +
+       TARGQ('FULFILMENTSITE.FKI.TRANSIT.LOCAL') +
+       REPLACE
+
+
+DEFINE QLOCAL ('FULFILMENTSITE.RP.TRANSIT.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input queue(Local) for SynchroniseFulfilmentSite(RP)') +
+       REPLACE
+
+       
+DEFINE QALIAS ('FULFILMENTSITE.RP.TRANSIT.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       DESCR('WMB alias of QL for SynchroniseFulfilmentSite(RP)') +
+       TARGQ('FULFILMENTSITE.RP.TRANSIT.LOCAL') +
+       REPLACE
+
+	
+DEFINE QALIAS ('FULFILMENTSITE.UPDATE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Outbound queue for SynchroniseSupplier(FKI)') +
+       TARGQ('COREDC.MASTER.SITE.UPDATE.REMOTE') +
+       REPLACE
+
+**
+** Define Xmit queue for FulfilmentSite Service
+**
+
+DEFINE QLOCAL('TQ.BQ.GATEWAY.TST') +
+		DESCR('Transmission queue to GHA MB QM') +
+		USAGE(XMITQ) +
+		PUT(ENABLED) +
+		GET(DISABLED) +
+		DEFPSIST(YES) +
+		MAXDEPTH(5000) +
+		TRIGGER TRIGTYPE(FIRST) +
+		TRIGDATA(UNXS378TOBQ.GATEWAY) +
+		INITQ(SYSTEM.DEFAULT.INITQ) +
+		REPLACE
+
+		
+DEFINE CHANNEL('UNXS378TOBQ.GATEWAY') + 
+		CHLTYPE(SDR) +
+		TRPTYPE(TCP) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		CONNAME('gbbqpwh001ap128') +
+		DESCR('Sender channel to MQ Gateway QM')  +
+		REPLACE
+	   
+**
+** Define Remote queues for FulfilmentSite Service
+**
+	   
+DEFINE QREMOTE('COREDC.MASTER.SITE.UPDATE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		RNAME('COREDC.MASTERDATA.SITE.UPDATE.QM3') +
+		RQMNAME('BQ.GATEWAY.TST') +
+		DEFPSIST(YES) +
+		REPLACE  
+**
+** Define subscriptions
+**
+
+DEFINE SUB('MASTERDATA.FULFILMENTSITE.RP') +
+       DEST('FULFILMENTSITE.RP.TRANSIT.LOCAL') +
+       TOPICOBJ('MASTERDATA.FULFILMENTSITE.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+
+
+DEFINE SUB('MASTERDATA.FULFILMENTSITE.FKI') +
+       DEST('FULFILMENTSITE.FKI.TRANSIT.LOCAL') +
+       TOPICOBJ('MASTERDATA.FULFILMENTSITE.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+
+**************************EndScript*************************** 

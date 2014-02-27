@@ -1,0 +1,484 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name                : TransformToIDOCs														*
+* Interface Id             :  																		*
+* Interface Name           : Ledger_LoadLedger 														*
+* Message Flow 			   : LoadLedger																*
+* Message Flow Description : The primary function of this message flow is to receive canonical from *
+* 							 Orchestrator service and make a RFC Call updating the SAP & ODS table. *
+* Module Name 			   : TransformToIDOCS_Compute												*		
+* Description              : The primary function of this Node is to creates IDOC structure for SAP.*
+*																									*
+* Version 	Date 		 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		10-APR-2013 	Soutam Dutta 		The initial version. 								*
+* 0.2 		03-JUN-2013 	Soutam Dutta		Code Fix for SIT defect 40, ORDERS04 IDOC creation  *
+* 0.3 		18-JUN-2013 	Asif Hossain		Server specific hard coding for RCVPOR and RCVPRN   *
+*                                               removed from code                                   *
+* 0.4 		30-AUG-2013 	Asif Hossain		Code Fix for UAT, date format not correct			*
+* 0.5 		16-OCT-2013 	soutam Dutta & 		Code fix for production defect#INC0129896			*
+*							Sourav Banu																*
+* 0.6 		24-OCT-2013 	Soutam Dutta 		Code change for muliple Customerparty 				*
+* 0.7 		28-OCT-2013		Sourav Banu			Code change for incident# INC0137530,INC0137514		*
+* 0.8 		25-NOV-2013 	Abhishek Das &															*
+*							Alok Das	 		Code change incident# INC0132239					*
+****************************************************************************************************/
+CREATE COMPUTE MODULE TransformToIDOCs_Compute
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Declare Variable--
+		DECLARE CH_TenderID				CHARACTER;
+		DECLARE CH_TenderType			CHARACTER;
+				
+		-- Declare References
+		DECLARE REF_Env					REFERENCE TO Environment.InputCanonical;
+		DECLARE REF_AppArea				REFERENCE TO REF_Env.NS_dfns:LoadLedger.NS_oa:ApplicationArea;
+		DECLARE REF_LedgerHeader 		REFERENCE TO REF_Env.NS_dfns:LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader;
+		DECLARE REF_SalesOrderReference	REFERENCE TO REF_LedgerHeader.NS_dfns:SalesOrderReference;
+		DECLARE REF_Payment 			REFERENCE TO REF_SalesOrderReference.NS_dfns:Payment;
+		DECLARE REF_PurchaseOrderRef	REFERENCE TO REF_Payment.NS_oa:PurchaseOrderReference;
+		DECLARE REF_Sender				REFERENCE TO REF_AppArea.NS_oa:Sender;
+		
+		IF REF_Sender.NS_oa:LogicalID <> 'SAPCO' THEN
+			SET Environment.Variables.RFCReturn 	= InputRoot.DataObject.NS_CustOrder:SapZRetRfcCustOrdValidate.SapPeReturn.TYPE;
+		END IF;
+		
+		--Propagating to terminal out to insert input values into ODS
+		PROPAGATE TO TERMINAL 'out';	
+		
+		--Calling method to create SAPWPUFIB01 IDOC for all SalesOrderReference segment		
+		CALL PROC_SAPWPUFIBIDOC(REF_Env,REF_LedgerHeader,REF_SalesOrderReference);		
+		
+		--Loop for all SalesOrderReference segment
+		WHILE LASTMOVE(REF_SalesOrderReference) DO
+					 	
+		 	--Loop for all Payment under SalesOrderReference segment and generate SAPORDERS04 IDOC
+		 	--only if there is a PurchaseOrderReference segment under Payment and the TENDERTYPE is T
+		 	WHILE LASTMOVE(REF_Payment)	DO 
+		 		
+		 		--Checking whether ID exists or not
+		 		SET CH_TenderID		= REF_Payment.(XMLNSC.Attribute)id;
+		 		SET CH_TenderType	= THE(SELECT ITEM TD.TENDERTYPE FROM Database.TENDERDATA AS TD WHERE TD.TENDERID = CH_TenderID);
+
+			 	IF COALESCE(REF_PurchaseOrderRef.NS_oa:DocumentID.NS_oa:ID,'') <> '' THEN
+			 			
+			 		--Call Method to create MQRFH2 Header of ORDERS04 IDOC
+			 		CALL PROC_CreateMQRFH2('executeSapOrders04');					
+					
+					--Call method to create ORDERS04 IDOC
+					CALL PROC_SAPORDERSIDOC(REF_Payment,REF_AppArea,REF_LedgerHeader,REF_SalesOrderReference);
+					
+					PROPAGATE TO TERMINAL 'out1';		 			
+			 	END IF;	
+			 	 		
+				MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;				
+								
+		 	END WHILE;	
+		 		 	
+			MOVE REF_SalesOrderReference NEXTSIBLING REPEAT TYPE NAME;
+			
+			MOVE REF_Payment TO REF_SalesOrderReference.NS_dfns:Payment;	
+					
+		 END WHILE;
+		
+		RETURN FALSE;
+	END;
+	
+	/***************************************************************************************************\
+	* Procedure Name	: PROC_SAPORDERSIDOC 										 					*
+	* Input Parameters	: REF_Payment,REF_Env,REF_AppArea,REF_LedgerHeader,REF_SalesOrderReference		*
+	* Output Parameters	: None																			*
+	* Description		: Procedure to Create Idoc structure for SAPORDERS04  IDOC  		 			*
+	*					  																				*
+	* Version 	Date 			Author 				Description                         				*
+	* ======= 	=========== 	=============== 	============================ 						*
+	*  0.1   	10-APR-2013 	Soutam Dutta 		The initial version. 								*
+	*****************************************************************************************************/	
+	
+	CREATE PROCEDURE PROC_SAPORDERSIDOC (IN REF_Payment REFERENCE,IN REF_AppArea REFERENCE,IN REF_LedgerHeader REFERENCE,IN REF_SalesOrderReference REFERENCE )
+	BEGIN
+		
+		--Declare Reference
+		DECLARE REF_OrderControlRecord 	REFERENCE TO OutputRoot.DataObject.NS_Orders04:SapOrders04.SapOrders04IDocBO.SapIDocControlRecord;
+		DECLARE REF_OrderDataRecord 	REFERENCE TO OutputRoot.DataObject.NS_Orders04:SapOrders04.SapOrders04IDocBO.SapOrders04DataRecord;
+				
+		--Create Output Field
+		CREATE FIELD OutputRoot.DataObject.NS_Orders04:SapOrders04.SapOrders04IDocBO.SapIDocControlRecord AS REF_OrderControlRecord;
+		CREATE FIELD OutputRoot.DataObject.NS_Orders04:SapOrders04.SapOrders04IDocBO.SapOrders04DataRecord AS REF_OrderDataRecord;
+				
+		-- Setting Control Record		
+		SET REF_OrderControlRecord.TABNAM 		= 'EDI_DC40';
+		SET REF_OrderControlRecord.MANDT		= THE (SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL='SAPCLIENT') ;
+		SET REF_OrderControlRecord.SNDPOR		= 'BROKER';
+		SET REF_OrderControlRecord.SNDPRT		= 'LS';
+		SET REF_OrderControlRecord.SNDPRN		= 'BROKER';
+		--Code change starts for version 0.3
+		--SET REF_OrderControlRecord.RCVPOR		= 'SAPSR7';
+		--SET REF_OrderControlRecord.RCVPRN		= 'SR7CLNT900';
+		SET REF_OrderControlRecord.RCVPOR		= 'SAPDV7';
+		SET REF_OrderControlRecord.RCVPRN		= 'DV7CL902';
+		--Code change ends for version 0.3
+		SET REF_OrderControlRecord.RCVPRT		= 'LS';		
+		SET REF_OrderControlRecord.MESTYP		= 'ORDCHG';
+		SET REF_OrderControlRecord.IDOCTYP		= 'ORDERS04';
+		SET REF_OrderControlRecord.REFMES		= REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID || CAST (CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ss');
+		SET REF_OrderControlRecord.REFINT		= REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID;
+		SET REF_OrderControlRecord.MESCOD		= 'SDO';		
+		
+		--Setting Data Record
+		SET REF_OrderDataRecord.SapOrders04E2edk01005.ACTION	= '002';
+		SET REF_OrderDataRecord.SapOrders04E2edk02[1].QUALF		= '002';
+		SET REF_OrderDataRecord.SapOrders04E2edk02[1].BELNR		= REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID;
+		SET REF_OrderDataRecord.SapOrders04E2edk02[2].QUALF		= '001';
+		SET REF_OrderDataRecord.SapOrders04E2edk02[2].BELNR		= REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID;	
+	END;
+	
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_SAPWPUFIBIDOC									 			 *
+	* Input Parameters	: REF_Env,REF_AppArea,REF_LedgerHeader,REF_SalesOrderReference		 *
+	* Output Parameters	: None																 *
+	* Description		: Procedure to Create Idoc structure for SAPWPUFIB01 Idoc   	 	 *
+	*					 																	 *
+	* Version 	Date 			Author 				Description                          	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	*  0.1   	10-APR-2013 	Soutam Dutta 		The initial version. 				 	 *
+	*****************************************************************************************/	
+	
+	CREATE PROCEDURE PROC_SAPWPUFIBIDOC (IN REF_Env REFERENCE,IN REF_LedgerHeader REFERENCE,IN REF_SalesOrderReference REFERENCE )
+	BEGIN
+		
+		--Declare Variables
+		DECLARE IN_Payment				INTEGER;		
+		DECLARE IN_Index				INTEGER;
+		DECLARE IN_IDIndex				INTEGER;					
+		
+		--Declare References
+		DECLARE REF_DocumentReference	REFERENCE TO REF_SalesOrderReference.NS_oa:DocumentReference;	
+		DECLARE REF_ControlRecord 		REFERENCE TO OutputRoot.DataObject.NS_Wpufib01:SapWpufib01.SapWpufib01IDocBO.SapIDocControlRecord;
+		DECLARE REF_DataRecord			REFERENCE TO OutputRoot.DataObject.NS_Wpufib01:SapWpufib01.SapWpufib01IDocBO.SapWpufib01DataRecord;
+		DECLARE REF_Payment				REFERENCE TO REF_SalesOrderReference.NS_dfns:Payment;		
+		
+		--Code change starts for version 0.6
+			SET	IN_IDIndex = 1;
+		--Code change ends for version 0.6
+		
+		
+		--For each instance of SalesOrderReference idoc will be posted		
+		WHILE LASTMOVE(REF_SalesOrderReference) DO
+			
+			-- Initialize the variable for each loop
+			SET IN_Payment 					= 1;
+			SET IN_Index					= 1;
+			
+			
+			--Call Method to create MQRFH2 Header of WPUFIB01 Idoc
+			CALL PROC_CreateMQRFH2('executeSapWpufib01');
+			
+			CREATE FIELD OutputRoot.DataObject.NS_Wpufib01:SapWpufib01.SapWpufib01IDocBO.SapIDocControlRecord 		AS REF_ControlRecord;			
+
+			--Call Procedure to create Control Record Structure	
+			CALL PROC_CreateControlRecord(REF_Env,REF_ControlRecord);
+			
+			CREATE FIELD OutputRoot.DataObject.NS_Wpufib01:SapWpufib01.SapWpufib01IDocBO.SapWpufib01DataRecord 	AS REF_DataRecord;
+				
+			WHILE LASTMOVE(REF_Payment) DO
+				
+				--Call Procedure to Create Data Record Structure
+				CALL PROC_CreateDataRecord(IN_Index,REF_SalesOrderReference,REF_Payment,REF_Env,IN_Payment,REF_DataRecord,REF_LedgerHeader,IN_IDIndex);								
+				SET IN_Payment				= IN_Payment + 1;
+				SET IN_Index				= IN_Index + 2;				
+				MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+				
+			END WHILE;
+			
+			--Code Change starts for version 0.6
+			SET IN_IDIndex = IN_IDIndex + 1;
+			--Code Change ends for version 0.6
+			
+			MOVE REF_SalesOrderReference NEXTSIBLING REPEAT TYPE NAME;
+			MOVE REF_Payment TO REF_SalesOrderReference.NS_dfns:Payment;
+			
+			PROPAGATE TO TERMINAL 'out1';
+			
+		END WHILE;
+		MOVE REF_SalesOrderReference TO REF_LedgerHeader.NS_dfns:SalesOrderReference;
+		MOVE REF_Payment 			 TO REF_SalesOrderReference.NS_dfns:Payment;		
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateControlRecord 										 	 *
+	* Input Parameters	: REF_Env,REF_ControlRecord										 	 *
+	* Output Parameters	: REF_ControlRecord											 		 *
+	* Description		: Procedure to Create Control record for Idoc SAPWPUFIB01 call		 *
+	*																						 *
+	* Version 	Date 			Author 				Description                         	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	*  0.1   	10-APR-2013 	Soutam Dutta 		The initial version. 				 	 *
+	*****************************************************************************************/	
+	
+	CREATE PROCEDURE PROC_CreateControlRecord ( IN REF_Env REFERENCE,INOUT REF_ControlRecord REFERENCE)
+	BEGIN
+		--Declare Reference
+		DECLARE REF_AppArea				REFERENCE TO REF_Env.NS_dfns:LoadLedger.NS_oa:ApplicationArea;
+		DECLARE REF_LedgerHeader 		REFERENCE TO REF_Env.NS_dfns:LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader;
+		DECLARE REF_SalesOrderReference	REFERENCE TO REF_LedgerHeader.NS_dfns:SalesOrderReference;
+		
+		--Setting ControlRecord variable
+		SET REF_ControlRecord.TABNAM 	= 'EDI_DC40';		
+		SET REF_ControlRecord.MANDT 	= THE (SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG  AS M WHERE M.CANVAL='SAPCLIENT') ;
+		SET REF_ControlRecord.SNDPOR	= 'POS';
+		SET REF_ControlRecord.SNDPRN	= TRIM(LEADING '0' FROM REF_LedgerHeader.NS_oa:GLEntityID);
+		SET REF_ControlRecord.SNDPRT	= 'KU';
+		--Code change starts for version 0.3
+		--SET REF_ControlRecord.RCVPOR	= 'SAPSR7';
+		--SET REF_ControlRecord.RCVPRN	= 'SR7CLNT900';	
+		SET REF_ControlRecord.RCVPOR	= 'SAPDV7';			
+		SET REF_ControlRecord.RCVPRN	= 'DV7CL902';
+		--Code change ends for version 0.3
+		SET REF_ControlRecord.RCVPRT	= 'LS';
+		SET REF_ControlRecord.MESTYP	= 'WPUFIB';
+		SET REF_ControlRecord.IDOCTYP	= 'WPUFIB01';
+		SET REF_ControlRecord.REFMES	= REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID || CAST (CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ss');	 
+	END;
+		
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateDataRecord 										 	 *
+	* Input Parameters	: REF_Env,N,REF_DataRecord,REF_LedgerHeader,REF_DocumentReference	 *
+	* Output Parameters	: REF_Env,N,REF_DataRecord,REF_LedgerHeader,REF_DocumentReference	 *
+	* Description		: Procedure to Create Data record for Idoc SAPWPUFIB01 call 		 *
+	*																						 *
+	* Version 	Date 			Author 				Description                          	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	*  0.1   	10-APR-2013 	Soutam Dutta 		The initial version. 				 	 *
+	*****************************************************************************************/	
+		
+  CREATE PROCEDURE PROC_CreateDataRecord ( IN IN_Index INTEGER,IN REF_SalesOrderReference REFERENCE,IN REF_Payment REFERENCE,IN REF_Env REFERENCE,INOUT IN_PaymentCount INTEGER,INOUT REF_DataRecord REFERENCE,IN REF_LedgerHeader REFERENCE,INOUT IN_IDIndex INTEGER)
+	BEGIN		
+		--Declare reference
+		DECLARE REF_DataRecordE2WP			REFERENCE TO REF_DataRecord.SapWpufib01E2wpf01;
+		DECLARE REF_SalesOrderHeader		REFERENCE TO REF_Env.NS_dfns:SalesOrder.NS_dfns:Header;
+		DECLARE REF_SalesTransaction		REFERENCE TO REF_SalesOrderReference.NS_dfns:SalesTransaction;
+		DECLARE REF_DocumentReference		REFERENCE TO REF_SalesOrderReference.NS_oa:DocumentReference;
+		
+		IF EXISTS(REF_DataRecord.SapWpufib01E2wpf01[]) = FALSE THEN
+			CREATE FIELD REF_DataRecord.SapWpufib01E2wpf01 AS REF_DataRecordE2WP;
+			SET REF_DataRecordE2WP.VORGDATUM 	= CAST(CURRENT_DATE AS CHARACTER FORMAT 'yyyyMMdd');
+			
+			--Code change starts for version 0.6 
+			SET REF_DataRecordE2WP.BONNUMMER 	= REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_IDIndex];
+			--SET REF_DataRecordE2WP.BONNUMMER 	= REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID;
+			--Code change ends for version 0.6
+			
+			SET REF_DataRecordE2WP.VORGANGART 	= 'CUST';
+		END IF;
+		
+		--Declare variable
+		DECLARE CH_TerminalID 				CHARACTER;
+		DECLARE CH_SeqNumber				CHARACTER;
+		DECLARE CH_OperatorID 				CHARACTER;
+		DECLARE CH_ValidationReturnCode 	CHARACTER;
+		DECLARE CH_Amount					CHARACTER;
+		DECLARE TS_TimeStamp				TIMESTAMP;
+				
+		--Value OF CH_ValidationReturnCode SET from RFC		
+		SET CH_ValidationReturnCode	= Environment.Variables.RFCReturn;
+		
+		--Code change starts for version 0.7
+						
+--		IF REF_DocumentReference.NS_oa:Type		= 'NORMAL' THEN
+--			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].POSNR			= 100000 + IN_PaymentCount;
+--		ELSEIF REF_DocumentReference.NS_oa:Type	= 'RETURN' THEN
+--			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].POSNR			= 200000 + IN_PaymentCount;
+--		END IF;
+--		
+--		IF REF_DocumentReference.NS_oa:Type		= 'NORMAL' THEN
+--			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].POSNR		= 110000 + IN_PaymentCount;
+--		ELSEIF REF_DocumentReference.NS_oa:Type	= 'RETURN' THEN
+--			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].POSNR		= 210000 + IN_PaymentCount;
+--		END IF;	
+		
+					
+		IF CAST(REF_Payment.NS_oa:Amount AS DECIMAL)> 0 THEN
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].POSNR			= 100000 + IN_PaymentCount;
+		ELSE
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].POSNR			= 200000 + IN_PaymentCount;
+		END IF;
+		
+		IF CAST(REF_Payment.NS_oa:Amount AS DECIMAL)> 0 THEN
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].POSNR		= 110000 + IN_PaymentCount;
+		ELSE
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].POSNR		= 210000 + IN_PaymentCount;
+		END IF;	
+		--Code change ends for version 0.7
+		
+		SET Environment.Variable.CH_LONG_STORE_CODE 							= THE(SELECT ITEM ST.FULLSTORECODE   FROM Database.MBSTRCD  AS ST  WHERE ST.GENERICSTORECODE = REF_LedgerHeader.NS_oa:GLEntityID) ;
+		SET TS_TimeStamp														= CAST(REF_LedgerHeader.NS_oa:DocumentDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].ZUONR				= Environment.Variable.CH_LONG_STORE_CODE ||CAST(TS_TimeStamp AS CHARACTER FORMAT 'ddMMyyyy');
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].ZUONR			= Environment.Variable.CH_LONG_STORE_CODE ||CAST(TS_TimeStamp AS CHARACTER FORMAT 'ddMMyyyy');
+		SET Environment.Variable.CH_SHORTSTORECODE								= THE (SELECT ITEM ST.NUMSTORECODE FROM Database.MBSTRCD AS ST WHERE ST.GENERICSTORECODE=REF_LedgerHeader.NS_oa:GLEntityID);
+		
+		IF CH_ValidationReturnCode = 'S' OR CH_ValidationReturnCode = '' THEN
+			
+			--Code change starts for version 0.6 
+			--SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].KNTOBJECT	= PadLeadingCharacters(10,REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID,'0');
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].KNTOBJECT	= PadLeadingCharacters(10,REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_IDIndex],'0');
+			--Code change ends for version 0.6
+		ELSE
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].KNTOBJECT	= '0099998' || Environment.Variable.CH_SHORTSTORECODE;	
+		END IF;
+		
+		IF  STARTSWITH (REF_Payment.NS_oa:Amount,'-') THEN
+			SET CH_Amount														= SUBSTRING(REF_Payment.NS_oa:Amount FROM 2);
+		ELSE
+			SET CH_Amount														= REF_Payment.NS_oa:Amount;
+		END IF;
+		
+		IF LENGTH(CH_Amount) < 11 THEN
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].WRBTR 			= PadLeadingCharacters(11,CH_Amount,'0');
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].WRBTR 		= PadLeadingCharacters(11,CH_Amount,'0');
+		ELSE
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].WRBTR			= CH_Amount;
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].WRBTR		= CH_Amount;
+		END IF;
+
+		SET REF_DataRecord.SapWpufib01E2wpf01.SapWpufib01E2wpf02[IN_Index].WAERS				= REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID;		
+		SET REF_DataRecord.SapWpufib01E2wpf01.SapWpufib01E2wpf02[IN_Index + 1].WAERS			= REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID;
+		
+		--Adding 6 E1WXX01 segments for each E2WPF02
+		--E1WXX01[1]
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[1].FLDGRP 		= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[1].FLDGRP	= 'ACCIT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[1].FLDNAME 		= 'SGTXT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[1].FLDNAME 	= 'SGTXT';
+		
+		IF CONTAINS(REF_SalesTransaction.NS_dfns:WorkstationID,'.') THEN
+			SET CH_TerminalID  																	= SUBSTRING(REF_SalesTransaction.NS_dfns:WorkstationID FROM (POSITION('.' IN REF_SalesTransaction.NS_dfns:WorkstationID)+1) FOR (POSITION('.' IN REF_SalesTransaction.NS_dfns:WorkstationID REPEAT 2 )- (POSITION('.' IN REF_SalesTransaction.NS_dfns:WorkstationID)+1)));
+		ELSE
+			SET CH_TerminalID																	= REF_SalesTransaction.NS_dfns:WorkstationID ;
+		END IF;	
+			
+		SET CH_SeqNumber																		= PadLeadingCharacters(5,REF_SalesTransaction.NS_oa:Sequence,'0');
+		SET CH_OperatorID																		= PadLeadingCharacters(3,REF_SalesTransaction.NS_dfns:OperatorID,'0' );
+		
+		--Code change starts for version 0.6
+		--SET	REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[1].FLDVAL		='CO TRANS'||COALESCE(CH_SeqNumber,'')||COALESCE(CH_OperatorID,'')||COALESCE(CH_SeqNumber,'')||COALESCE(PadLeadingCharacters(3,CH_TerminalID,'0'),'')||COALESCE(REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID,'');
+		--SET	REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[1].FLDVAL	='CO TRANS'||COALESCE(CH_SeqNumber,'')||COALESCE(CH_OperatorID,'')||COALESCE(CH_SeqNumber,'')||COALESCE(PadLeadingCharacters(3,CH_TerminalID,'0'),'')||COALESCE(REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID,'');
+		SET	REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[1].FLDVAL		='CO TRANS'||COALESCE(CH_SeqNumber,'')||COALESCE(CH_OperatorID,'')||COALESCE(CH_SeqNumber,'')||COALESCE(PadLeadingCharacters(3,CH_TerminalID,'0'),'')||COALESCE(REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_IDIndex],'');
+		SET	REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[1].FLDVAL	='CO TRANS'||COALESCE(CH_SeqNumber,'')||COALESCE(CH_OperatorID,'')||COALESCE(CH_SeqNumber,'')||COALESCE(PadLeadingCharacters(3,CH_TerminalID,'0'),'')||COALESCE(REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_IDIndex],'');
+		--Code change ends for version 0.6
+		
+		--E1WXX01[2]
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[2].FLDGRP 		= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[2].FLDGRP 	= 'ACCIT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[2].FLDNAME		= 'PRCTR';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[2].FLDNAME	= 'PRCTR';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[2].FLDVAL		= Environment.Variable.CH_LONG_STORE_CODE;
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[2].FLDVAL	= Environment.Variable.CH_LONG_STORE_CODE;
+		
+		--E1WXX01[3]
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[3].FLDGRP 		= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[3].FLDGRP 	= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[3].FLDNAME		= 'XREF1';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[3].FLDNAME	= 'XREF1';
+		SET Environment.Variable.CH_TENDER_TYPE 												= THE (SELECT ITEM TD.TENDERTYPE  FROM Database.TENDERDATA  AS TD WHERE TD.TENDERID = REF_Payment.(XMLNSC.Attribute)id);
+		
+		--Code change to replace TenderType L to C
+           IF(Environment.Variable.CH_TENDER_TYPE = 'L') THEN
+                      
+               SET Environment.Variable.CH_TENDER_TYPE = 'C';
+                       
+           END IF;
+            
+        --Code change to replace TenderType L to C
+        
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[3].FLDVAL		= Environment.Variable.CH_TENDER_TYPE;
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[3].FLDVAL	= Environment.Variable.CH_TENDER_TYPE;
+		
+		--E1WXX01[4]
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[4].FLDGRP 		= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[4].FLDGRP 	= 'ACCIT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[4].FLDNAME		= 'XREF3';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[4].FLDNAME	= 'XREF3';
+		
+		IF Environment.Variable.CH_TENDER_TYPE = 'T' THEN
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[4].FLDVAL	 = REF_Payment.NS_dfns:PaymentCard.NS_dfns:CleartextNumber;
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[4].FLDVAL = REF_Payment.NS_dfns:PaymentCard.NS_dfns:CleartextNumber;
+		ELSE
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[4].FLDVAL	 = REPLICATE('0',16);
+			SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[4].FLDVAL = REPLICATE('0',16);
+		END IF;
+		
+		--E1WXX01[5]
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[5].FLDGRP 		= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[5].FLDGRP 	= 'ACCIT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[5].FLDNAME		= 'VALUT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[5].FLDNAME	= 'VALUT';
+		SET TS_TimeStamp																		= CAST(REF_LedgerHeader.NS_oa:DocumentDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		
+		--Code change starts for version 0.4 to populate date correctly
+		--SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[5].FLDVAL		= CAST(TS_TimeStamp AS CHARACTER FORMAT 'ddMMyyyy');
+		--SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[5].FLDVAL	= CAST(TS_TimeStamp AS CHARACTER FORMAT 'ddMMyyyy');
+		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[5].FLDVAL		= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyyMMdd');
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[5].FLDVAL	= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyyMMdd');
+		
+		--Code change ends for version 0.4 to populate date correctly
+		--E1WXX01[6]
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[6].FLDGRP 		= 'ACCIT';		
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[6].FLDGRP 	= 'ACCIT';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[6].FLDNAME		= 'XBLNR';
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[6].FLDNAME	= 'XBLNR';
+		
+		--Code fix starts for production defect#INC0129896 version 0.5
+		--SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[6].FLDVAL		= PadLeadingCharacters(10,REF_LedgerHeader.NS_dfns:SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID,'0');
+		--SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[6].FLDVAL	= PadLeadingCharacters(10,REF_LedgerHeader.NS_dfns:SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID,'0');
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index].SapWpufib01E2wxx01[6].FLDVAL		= PadLeadingCharacters(10,REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID,'0');
+		SET REF_DataRecordE2WP.SapWpufib01E2wpf02[IN_Index + 1].SapWpufib01E2wxx01[6].FLDVAL	= PadLeadingCharacters(10,REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID,'0');
+		--Code fix ends for production defect#INC0129896 version 0.5
+						
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateMQRFH2 										         *
+	* Input Parameters	: sapOperation										 				 *
+	* Output Parameters	: None																 *
+	* Description		: Procedure to Create MQRFH2 header  for Idoc call 	 				 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description                          	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	*  0.1   	10-APR-2013 	Soutam Dutta 		The initial version. 				 	 *
+	*****************************************************************************************/	
+		
+	CREATE PROCEDURE  PROC_CreateMQRFH2( IN sapOperation CHARACTER)
+	BEGIN		
+		/*Set MQRFH2 header and populate the value for SAPOperation,ParentTransactionId and 
+		GlobalTransactionId in usr folder.*/
+		
+		SET OutputRoot.MQMD.Encoding 								= 273;			
+		SET OutputRoot.MQMD.CodedCharSetId 							= 819;			
+		SET OutputRoot.MQMD.Format 									= MQFMT_RF_HEADER_2;			
+		SET OutputRoot.MQMD.MsgType 								= MQMT_DATAGRAM;			
+		SET OutputRoot.MQMD.Persistence 							= MQPER_PERSISTENT;			
+		SET OutputRoot.MQMD.Expiry 									= MQEI_UNLIMITED;		
+		CREATE NEXTSIBLING OF OutputRoot.MQMD DOMAIN 'MQRFH2';			
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Version 				= 2;			
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Format 					= 'MQSTR';			
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Encoding 				= 273;			
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)CodedCharSetId 			= 819;			
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)NameValueCCSID 			= 819;			
+		SET OutputRoot.MQRFH2.usr.SAPOperation 						= sapOperation;
+	END;	
+END MODULE;
+
+

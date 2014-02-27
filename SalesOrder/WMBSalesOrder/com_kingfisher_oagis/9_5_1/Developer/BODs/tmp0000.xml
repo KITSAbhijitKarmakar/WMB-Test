@@ -1,0 +1,1164 @@
+<SynchroniseSalesOrder xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" releaseID="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.kingfisher.com/oagis/9 file:///C:/Documents%20and%20Settings/bhaums01/Desktop/WMBSalesOrder/com_kingfisher_oagis/9_5_1/Developer/BODs/SynchroniseSalesOrder.xsd">
+	<oa:ApplicationArea>
+		<oa:Sender>
+			<oa:LogicalID>EPOS</oa:LogicalID>
+		</oa:Sender>
+		<oa:Receiver>
+			<oa:ID>CDB</oa:ID>
+			<oa:ID>SAPBW</oa:ID>
+		</oa:Receiver>
+		<oa:CreationDateTime>2013-07-25T12:24:30+01:00</oa:CreationDateTime>
+	</oa:ApplicationArea>
+	<DataArea>
+		<Synchronise/>
+		<SalesOrder>
+			<SalesOrderHeader>
+			<oa:SourceID>0899</oa:SourceID>
+				<CustomerParty>
+					<Contact>
+						<Location>
+							<oa:Address/>
+						</Location>
+					</Contact>
+				</CustomerParty>
+				<PayFromParty>
+					<Contact>
+						<Location>
+							<oa:Address>
+								<oa:CountrySubDivisionCode>IE</oa:CountrySubDivisionCode>
+							</oa:Address>
+						</Location>
+					</Contact>
+				</PayFromParty>
+				<SupplierParty>
+					<Contact>
+						<Location>
+							<oa:Address>
+								<oa:CountryCode>IE</oa:CountryCode>
+							</oa:Address>
+						</Location>
+					</Contact>
+				</SupplierParty>
+				<oa:TotalAmount currencyID="EUR">335.25</oa:TotalAmount>
+				<SalesTransaction>
+					<oa:ID>0899-20130614-001-421-2621</oa:ID>
+					<oa:Type>RetailTransactionStockView</oa:Type>
+					<oa:Status/>
+					<oa:Status/>
+					<oa:StartDateTime>2013-06-14T15:29:27+01:00</oa:StartDateTime>
+					<oa:EndDateTime>2013-06-14T15:32:11+01:00</oa:EndDateTime>
+					<WorkstationID>POS.1.1</WorkstationID>
+					<OperatorID>501</OperatorID>
+					<CompletingOperatorID>501899</CompletingOperatorID>
+					<FullOperatorID>501899</FullOperatorID>
+					<TillID>1</TillID>
+					<CompletingTillID>1</CompletingTillID>
+					<BusinessDayID>20130725</BusinessDayID>
+					<oa:LastModificationDateTime>2013-06-14T15:39:23+01:00</oa:LastModificationDateTime>
+					<TradeSaleIndicator>false</TradeSaleIndicator>
+					<ReserveAndCollectIndicator>false</ReserveAndCollectIndicator>
+					<oa:CurrencyCode>EUR</oa:CurrencyCode>
+					<oa:Sequence>421</oa:Sequence>
+					<SuspendedTransactionIndicator>false</SuspendedTransactionIndicator>
+				</SalesTransaction>
+				<Tax>
+					<oa:Amount currencyID="EUR">61.30</oa:Amount>
+				</Tax>
+				<Allowance>
+					<Card/>
+				</Allowance>
+				<Payment type="CARD TENDER" id="Mastercard">
+					<PaymentCard>
+						<oa:Type>MAST</oa:Type>
+						<oa:Number>541333******0045</oa:Number>
+						<HashedNumber>3F815D34060361179BA5FF76AF53D6CB75518088</HashedNumber>
+						<EncryptedNumber>ejggeUx89+2fPNnk1bd0DnpHT7RyZfLDwHQ5nURl0C8=</EncryptedNumber>
+						<IVData>oyzA/8mgLG0xkfpliKLC+w==</IVData>
+						<oa:Expiration>
+							<oa:Month>12</oa:Month>
+							<oa:Year>2014</oa:Year>
+						</oa:Expiration>
+						<PaymentAuthorization>
+							<oa:ResponseCode>005638</oa:ResponseCode>
+							<AuthorizationDateTime>2013-06-14T15:30:54+01:00</AuthorizationDateTime>
+							<oa:Amount currencyID="EUR">335.25</oa:Amount>
+							<CV2CheckResponseCode>410302</CV2CheckResponseCode>
+							<OverallResponseCode>00</OverallResponseCode>
+							<HostAuthorizationIndicator>true</HostAuthorizationIndicator>
+							<OnlineAuthorizationIndicator>true</OnlineAuthorizationIndicator>
+							<IssuerApplicationData>0210600000000000000000000000000000FF</IssuerApplicationData>
+							<TransactionStatus>
+								<oa:Description>E800</oa:Description>
+							</TransactionStatus>
+							<Terminal>
+								<VerificationResultCode>4000008000</VerificationResultCode>
+								<CapabilitiesCode>E0B8C8</CapabilitiesCode>
+								<oa:Type>22</oa:Type>
+								<EFTID>22058645</EFTID>
+							</Terminal>
+						</PaymentAuthorization>
+						<Referral>
+							<HostReferredIndicator>false</HostReferredIndicator>
+							<ManualAuthCodeEntryIndicator>false</ManualAuthCodeEntryIndicator>
+						</Referral>
+						<MerchantNumber>123456</MerchantNumber>
+						<PANSequenceNumber>03</PANSequenceNumber>
+						<ICCIndicator>true</ICCIndicator>
+						<CleartextNumber>ENCRYPTED</CleartextNumber>
+						<CashBackAmount currencyID="EUR">0.00</CashBackAmount>
+						<EntryDevice>
+							<Application>
+								<oa:ID>A0000000041010</oa:ID>
+								<Cryptogram>1122334455667788</Cryptogram>
+								<CryptogramTransactionType>00</CryptogramTransactionType>
+								<CryptogramInformation>40</CryptogramInformation>
+								<VersionID>0002</VersionID>
+								<InterchangeProfileID>5800</InterchangeProfileID>
+								<UsageControlID>FF00</UsageControlID>
+								<TransactionCounter>0001</TransactionCounter>
+							</Application>
+							<UnpredictableNumber>3A1327D6</UnpredictableNumber>
+						</EntryDevice>
+					</PaymentCard>
+					<oa:PurchaseOrderReference>
+						<oa:DocumentID>
+							<oa:ID/>
+						</oa:DocumentID>
+					</oa:PurchaseOrderReference>
+					<oa:LineNumber>20</oa:LineNumber>
+					<oa:Amount currencyID="EUR">335.25</oa:Amount>
+					<oa:StartDateTime>2013-06-14T15:30:54+01:00</oa:StartDateTime>
+					<oa:EndDateTime>2013-06-14T15:30:54+01:00</oa:EndDateTime>
+					<EntryType name="">SmartCard</EntryType>
+					<CustomerPresentIndicator>false</CustomerPresentIndicator>
+				</Payment>
+				
+				<oa:PurchaseOrderReference>
+					<oa:DocumentID>
+						<oa:ID/>
+					</oa:DocumentID>
+				</oa:PurchaseOrderReference>
+			</SalesOrderHeader>
+			<SalesOrderLine>
+				<oa:LineNumber>1</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:27</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5055160001195</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>EXP BOOT 8</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>40139606</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				<oa:Quantity>1.0</oa:Quantity>
+				
+				
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">81.75</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">81.75</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">81.75</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">81.75</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">81.75</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">81.75</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">81.75</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-15.2865853600</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">15.2865853600</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>2</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:30</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5035910000104</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>CALOR BUTANE</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction>
+						<oa:Code>21</oa:Code>
+					</SellingRestriction>
+					<MerchandisingHierarchy>
+						<oa:ID>60251702</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">12.46</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">12.46</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">12.46</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">12.46</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">12.46</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">12.46</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">12.46</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>true</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-1.4820266200</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>5.00</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">1.4820266200</oa:Amount>
+					<oa:Code>IEVATB</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>3</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:36</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>0000005029051</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>ARMCHAIR</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>60176201</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">22.03</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">25.16</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">22.03</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">22.03</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-4.7047154400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">4.1194308900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM4</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">3.13</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>1</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>4</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:39</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>0000005029044</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>4-SEAT TABLE</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>60176302</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">15.00</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">15.00</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">13.13</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">15.00</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">13.13</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">13.13</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">15.00</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-2.8048780400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">2.4552032500</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM4</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">1.87</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>1</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>5</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:41</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>0000005029068</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>BENCH</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>60176302</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">25.16</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">25.16</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">25.16</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-4.7047154400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">4.7047154400</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>6</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:44</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>0000000001007</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>TIMBER OFCUT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>30154203</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>true</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">0.00</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">0.00</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">0.00</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>7</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:47</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>0000003709955</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>WARRANTY</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>60252502</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">111.00</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">111.00</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">111.00</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">111.00</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">111.00</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">111.00</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-20.7560975600</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">20.7560975600</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>8</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:49</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>0000003025826</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>CHARCOAL 3KG</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>60251702</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">7.98</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">7.98</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">7.98</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">7.98</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">7.98</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">7.98</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.9491631100</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>5.00</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.9491631100</oa:Amount>
+					<oa:Code>IEVATB</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>10</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:51</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131460838</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>1</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>11</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:53</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131460876</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>2</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>12</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:55</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131460951</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>3</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>13</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:57</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131461019</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>4</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>14</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:29:59</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131461071</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>5</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>15</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:30:00</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131461132</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>6</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>16</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:30:06</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5035048235300</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>DEWALT DW718</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>40133002</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">999.00</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">999.00</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-186.8048780400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+				<VoidStatus>
+					<oa:Code>VOID ENTRY</oa:Code>
+					<oa:EffectiveDateTime>2013-06-14T15:30:13</oa:EffectiveDateTime>
+				</VoidStatus>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>18</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:30:18</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5010131460838</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>MASONRY PNT</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>10012106</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">2.62</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">3.50</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">2.62</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">3.50</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-0.6544715400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.4899186900</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<Allowance>
+					<oa:ID>PM5</oa:ID>
+					<oa:Type>022</oa:Type>
+					<oa:BasisAmount currencyID="EUR">0.88</oa:BasisAmount>
+					<oa:Description>PriceRule</oa:Description>
+					<oa:Calculation>
+						<oa:Description>Subtract</oa:Description>
+					</oa:Calculation>
+					<oa:ReferenceID>7</oa:ReferenceID>
+				</Allowance>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>19</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:30:20</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5031978477995</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>W&apos;STAND</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>50090613</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">43.40</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">43.40</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">43.40</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">43.40</oa:ExtendedAmount>
+				
+<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">43.40</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">43.40</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-8.1154471500</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">8.1154471500</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+			</SalesOrderLine>
+			<SalesOrderLine>
+				<oa:LineNumber>16</oa:LineNumber>
+				<oa:Description>Item</oa:Description>
+				<oa:DocumentReference type="PRODUCT SALE">
+					<oa:DocumentDateTime>2013-06-14T15:30:06</oa:DocumentDateTime>
+				</oa:DocumentReference>
+				<ProductItem>
+					<oa:UPCID>5035048235300</oa:UPCID>
+					<oa:UOMCode>each</oa:UOMCode>
+					<oa:Name>DEWALT DW718</oa:Name>
+					<oa:Type>Stock</oa:Type>
+					<SellingRestriction/>
+					<MerchandisingHierarchy>
+						<oa:ID>40133002</oa:ID>
+						<oa:Type>Department</oa:Type>
+					</MerchandisingHierarchy>
+				</ProductItem>
+				
+				<oa:Quantity>-1.0</oa:Quantity>
+				<oa:UnitPrice>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</oa:UnitPrice>
+				<PriceOverriddenIndicator>false</PriceOverriddenIndicator>
+				<OverriddenUnitPrice>
+					<oa:Code/>
+				</OverriddenUnitPrice>
+				<QualifiedUnitPrice>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</QualifiedUnitPrice>
+				<DiscountedUnitPrice>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</DiscountedUnitPrice>
+				<oa:ExtendedAmount currencyID="EUR">-999.00</oa:ExtendedAmount>
+				<TotalTaxableAmount currencyID="GBP">25.16</TotalTaxableAmount>
+				<oa:TotalAmount currencyID="EUR">999.00</oa:TotalAmount>
+				<oa:QualifiedAmount>
+					<oa:Amount currencyID="EUR">999.00</oa:Amount>
+				</oa:QualifiedAmount>
+				<LineFilterIndicator>false</LineFilterIndicator>
+				<SellingRestrictionPromptIndicator>false</SellingRestrictionPromptIndicator>
+				<SellingRestrictionRefusalIndicator>false</SellingRestrictionRefusalIndicator>
+				<Tax>
+					<oa:BasisAmount currencyID="EUR">-186.8048780400</oa:BasisAmount>
+					<oa:Calculation>
+						<oa:RateNumeric>22</oa:RateNumeric>
+					</oa:Calculation>
+					<oa:Amount currencyID="EUR">0.00</oa:Amount>
+					<oa:Code>IEVATSTD</oa:Code>
+				</Tax>
+				<ManualKeyingIndicator>false</ManualKeyingIndicator>
+				<VoidStatus>
+					<oa:Code>VOID LINE</oa:Code>
+					<oa:EffectiveDateTime>2013-06-14T15:30:13</oa:EffectiveDateTime>
+				</VoidStatus>
+			</SalesOrderLine>
+		</SalesOrder>
+	</DataArea>
+</SynchroniseSalesOrder>

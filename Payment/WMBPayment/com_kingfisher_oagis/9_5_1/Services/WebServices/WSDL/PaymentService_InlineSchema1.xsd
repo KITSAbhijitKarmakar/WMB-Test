@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 rel. 2 (http://www.altova.com) by Nikhil Soste (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author:  Anand Patil
+  Revision:    1.0
+  Date:        20 Jan 2012
+
+  Updated by: Nikhil Soste
+  Revision: 1.1		
+  Date: April 23, 2013	
+  Change Description: Added getPayment operation to the service		
+
+  Copyright 2012, All Rights Reserved 
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/PaymentService/1.0" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+            																	<xsd:include schemaLocation="../../../Developer/BODs/ProcessPayment.xsd"/>
+            <xsd:include schemaLocation="../../../Developer/BODs/AcknowledgePayment.xsd"/>
+            <xsd:include schemaLocation="../../../Developer/BODs/GetPayment.xsd"/>
+            <xsd:include schemaLocation="../../../Developer/BODs/ShowPayment.xsd"/>
+            <xsd:include schemaLocation="../../../../../../WMBOAGISCanonicals/com_kingfisher_oagis/9_5_1/Developer/BODs/FaultData.xsd"/>
+        </xsd:schema>

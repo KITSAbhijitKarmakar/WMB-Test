@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.5.4 
+Created-By: jvmwi3260-20080816_22093 (IBM Corporation)
+Specification-Title: adapter
+Implementation-Title: IBM WebSphere Adapter for SAP Software
+Specification-Vendor: IBM Corp.
+Specification-Version: 1.5
+Implementation-Version: 7.5.0.2_IF01
+Implementation-Vendor: IBM Corp.
+

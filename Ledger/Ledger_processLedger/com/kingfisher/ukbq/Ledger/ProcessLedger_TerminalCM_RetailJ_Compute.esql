@@ -1,0 +1,275 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				:  Create_ProcessLedger_Canonical													* 
+* Interface Id 				:  																					*
+* Interface Name 			:  Ledger_processLedger																*
+* Message Flow 				:  ProcessLedger_TerminalCM_RetailJ													*
+* Message Flow Description  :  The primary function of this service capability is to update the  				*
+*							   SALES_TRANSACTIONS_COUNT and SALES_TRANSACTIONS_TENDER tables of ODS and 		*
+*							   RETJCASHLD table of CDB with TerminalCM details.								    *
+*                              The service capability takes input message from MQInput queue and traverses    	*
+*                              the flow as below:		                                                        *
+*							   1.The flow converts the input message to generate the ProcessLedger xml.      	*
+*							   2.Update the ODS and CDB with TerminalCM details.                               	*
+* Module Name 				:  ProcessLedger_TerminalCM_RetailJ_Compute 										*
+* Description 				:  The module will loop through the TerminalAction xml and transform it into        *
+* 							   ProcessLedger xml																*
+*																												*
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	=============================							*
+* 0.1 	  	09-Apr-2013   	Sourav Banu					The initial version. 									*
+*****************************************************************************************************************/
+
+CREATE COMPUTE MODULE ProcessLedger_TerminalCM_RetailJ_Compute
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Call the procedure PROC_TerminalCMMapping()
+		CALL PROC_TerminalCMMapping();
+		PROPAGATE TO TERMINAL 'out1' DELETE NONE;
+		RETURN TRUE;
+		
+	END;
+	
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_TerminalCMMapping() 									 		 *
+	* Input Parameters	: None 																 *
+	* Output Parameters	: None 																 *
+	* Description		: The procedure will loop through the TerminalCMAction xml and     	 *
+	*					  transform it into	ProcessLedger xml(canonical)					 *
+	*																						 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	09-APR-2013 	Sourav Banu 	The initial version. 						 *
+	*****************************************************************************************/	
+		
+	CREATE PROCEDURE PROC_TerminalCMMapping() BEGIN
+		
+		--Input reference declaration
+		DECLARE REF_CMAction			REFERENCE TO InputRoot.XMLNSC.TerminalCMAction;
+		DECLARE REF_TotalValSum			REFERENCE TO REF_CMAction.TotalValuesSummaryCollection;
+		DECLARE REF_TotalValSumCol		REFERENCE TO REF_TotalValSum.TotalValuesSummary;
+		DECLARE REF_Discp				REFERENCE TO REF_TotalValSumCol.DiscrepancyValue;
+
+		-- Output reference declaration
+		DECLARE REF_ProcessLedger       REFERENCE TO OutputRoot.XMLNSC.NS_dfns:ProcessLedger;
+		DECLARE REF_Ledger              REFERENCE TO REF_ProcessLedger.NS_dfns:DataArea.NS_dfns:Ledger;
+		DECLARE REF_ApplicationArea     REFERENCE TO REF_ProcessLedger.NS_oa:ApplicationArea;
+		DECLARE REF_LedgerHeader        REFERENCE TO REF_Ledger.NS_dfns:LedgerHeader;
+		DECLARE REF_LedgerLine			REFERENCE TO REF_Ledger.NS_dfns:LedgerLine;
+		DECLARE REF_Session             REFERENCE TO REF_LedgerHeader.NS_dfns:Session;
+		DECLARE REF_Desc 				REFERENCE TO REF_LedgerLine.NS_oa:Description;
+		
+		--Crteating fields of references
+		CREATE LASTCHILD OF OutputRoot 	   		        AS REF_ProcessLedger DOMAIN('XMLNSC')  NAME 'XMLNSC';
+        CREATE LASTCHILD OF REF_ProcessLedger           AS REF_ProcessLedger NAMESPACE NS_dfns NAME 'ProcessLedger';
+        
+        --Set the namespace and headers
+        SET REF_ProcessLedger.(XMLNSC.NamespaceDecl)xmlns 		= NS_dfns;
+        SET REF_ProcessLedger.(XMLNSC.NamespaceDecl)xmlns:oa   	= NS_oa;
+        SET REF_ProcessLedger.(XMLNSC.Attribute)releaseID		= '1.0';
+	    SET REF_ProcessLedger.(XMLNSC.Attribute)languageCode	= 'en';
+		
+		-- Create Application Area
+        CREATE LASTCHILD OF REF_ProcessLedger 			AS REF_ApplicationArea 	NAMESPACE NS_oa	  NAME 'ApplicationArea';
+        
+        -- Set the Application Area value
+        SET REF_ApplicationArea.NS_oa:Sender.NS_oa:LogicalID	= 'EPOSCASHO';
+		SET	REF_ApplicationArea.NS_dfns:CreationDateTime		= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		
+        CREATE LASTCHILD OF REF_ProcessLedger 			AS REF_Ledger NAMESPACE NS_dfns NAME 'DataArea';
+        CREATE FIELD REF_Ledger.NS_oa:Load;
+        CREATE FIELD REF_Ledger.NS_dfns:Ledger 			AS REF_Ledger;
+        CREATE FIELD REF_Ledger.NS_dfns:LedgerHeader 	AS REF_LedgerHeader;
+        
+        --Declaring Variables
+        DECLARE CH_CreatorId 			  				CHARACTER;
+		DECLARE CH_FormatCreatorId			  			CHARACTER;
+		DECLARE CH_ArrayVariable		      			CHARACTER;
+		DECLARE CH_NumStoreCode			      			CHARACTER;
+		DECLARE TS_Date					      			TIMESTAMP;
+		DECLARE CH_Date 				      			CHARACTER;
+		DECLARE CH_Time					      			CHARACTER;
+		DECLARE CH_SummaryTenderID 		      			CHARACTER;
+        DECLARE CH_RetailJTenderID            			CHARACTER;
+        DECLARE CH_NextBusinessDate  	      			CHARACTER;
+        DECLARE	TS_TimeStamp			      			TIMESTAMP;
+        DECLARE CH_InstanceID				  			CHARACTER;
+        DECLARE IN_PositionOfDot 		      			INTEGER;
+   
+   
+        SET CH_CreatorId											= REF_CMAction.CreatorID;
+        
+		--Splitting the creatorId based on '.' and pick up the 3rd element after spliting--
+		WHILE (LENGTH(CH_CreatorId) > 0) DO
+			
+			SET IN_PositionOfDot			    					= POSITION('.' IN CH_CreatorId);
+			
+			IF IN_PositionOfDot	<> 0 THEN
+				SET CH_ArrayVariable 								= SUBSTRING(CH_CreatorId FROM 1 FOR IN_PositionOfDot - 1);
+				SET CH_CreatorId									= SUBSTRING(CH_CreatorId FROM IN_PositionOfDot + 1);
+			ELSE
+				SET CH_ArrayVariable								= CH_CreatorId;
+				SET CH_CreatorId									= NULL;
+			END IF;
+
+		    CREATE LASTCHILD OF Environment.Variables NAME 'CreatorID' VALUE CH_ArrayVariable;
+		    
+		END WHILE;
+		
+		--Retrieves the GENERICSTORECODE information from MBSTRCD table
+		SET CH_NumStoreCode											= THE(SELECT ITEM  MB.GENERICSTORECODE FROM Database.MBSTRCD AS MB 
+		                                   							  WHERE MB.FULLSTORECODE 	= Environment.Variables.CreatorID[3]);
+                  
+		--Splitting CreationDate with respect to 'T'---						
+		SET TS_Date													= CAST(REF_CMAction.CreationDate AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		SET CH_Date													= CAST(TS_Date AS CHARACTER FORMAT 'yyyyMMdd');
+		SET CH_Time													= CAST(TS_Date AS CHARACTER FORMAT 'HHmmss');
+		SET CH_FormatCreatorId										= CH_NumStoreCode || '-' || CH_Date || '-' || CH_Time || '-' || REF_CMAction.TerminalNumber || '-' || REF_CMAction.SequenceNumber;
+		SET REF_LedgerHeader.NS_oa:ID 								= CH_FormatCreatorId;		
+		SET REF_LedgerHeader.NS_oa:EntryCreator.NS_oa:ID            = REF_CMAction.CreatorID;
+		SET REF_LedgerHeader.NS_oa:Description.(XMLNSC.Attribute)type= 'TRANSACTION TYPE' ;
+		SET REF_LedgerHeader.NS_oa:Description						= 'TenderControlTransaction' ;
+		SET REF_LedgerHeader.NS_oa:SourceID							= CH_NumStoreCode;
+		
+		--IF  COALESCE(REF_CMAction.SafeID,'') <> ''THEN
+			SET REF_LedgerHeader.NS_dfns:WorkstationID				= 'POS.' || COALESCE(REF_CMAction.SafeID,'') || '.1';
+		--END IF;
+		
+		SET REF_LedgerHeader.NS_dfns:TillID							= REF_CMAction.SafeID;
+		SET REF_LedgerHeader.NS_dfns:OperatorID						= REF_CMAction.UserID;
+		
+		IF  COALESCE(REF_CMAction.TrainingMode,'') <> '' THEN
+			
+		  IF  REF_CMAction.TrainingMode  = '1' THEN
+		  	SET REF_LedgerHeader.NS_dfns:TrainingModeIndicator		= 'true';
+		  END IF;
+		  
+		END IF;
+		
+		IF COALESCE(REF_CMAction.CreationDate,'')<>'' THEN
+		   SET REF_LedgerHeader.NS_oa:StartDateTime					= REF_CMAction.CreationDate;	
+		END IF;
+		
+		SET REF_LedgerHeader.NS_oa:EndDateTime						= REF_CMAction.CreationDate;  
+		
+		IF COALESCE(CH_NumStoreCode,'') <> '' THEN
+			
+		   --Calling the oracle package getNextBusinessDayDate 
+		   SET CH_NextBusinessDate									= getNextBusinessDayDate('EPOSBDD' || CH_NumStoreCode);
+		   
+		   SET REF_LedgerHeader.NS_dfns:BusinessDayID				= CH_NextBusinessDate;
+		END IF;
+		
+		SET REF_LedgerHeader.NS_oa:CountryCode						= REF_CMAction.TradingRegionID;
+		SET REF_LedgerHeader.NS_oa:CurrencyCode						= REF_CMAction.BaseCurrencyID;
+		SET REF_LedgerHeader.NS_oa:ActionCodes.NS_oa:Code			= REF_CMAction.ActionType;
+		SET REF_LedgerHeader.NS_oa:Sequence						   	= REF_CMAction.SequenceNumber;
+		
+		IF COALESCE(REF_CMAction.SessionDate,'') <> '' THEN
+			
+			CREATE LASTCHILD OF REF_LedgerHeader AS REF_Session	NAMESPACE NS_dfns NAME 'Session';
+			SET REF_Session.NS_oa:Type								= 'CURRENT';
+			SET REF_Session.NS_oa:StartDateTime						= REF_CMAction.SessionDate;
+			
+		END IF;
+		
+		--Setting the NextSessionStartDate   
+		IF COALESCE(REF_CMAction.NextSessionStartDate,'') <> '' THEN
+			
+			CREATE LASTCHILD OF REF_LedgerHeader AS REF_Session	 NAMESPACE NS_dfns NAME 'Session';
+			
+			SET REF_Session.NS_oa:Type								= 'NEXT';
+			SET REF_Session.NS_oa:StartDateTime						= REF_CMAction.NextSessionStartDate;
+			
+		END IF;
+			
+		SET REF_LedgerHeader.NS_oa:Sequence							= REF_CMAction.SequenceNumber;
+		
+		IF REF_CMAction.ActionType = '7' THEN
+			
+			--Loop through the TotalValesSummary	
+			WHILE LASTMOVE(REF_TotalValSumCol) DO
+				
+				MOVE REF_Discp TO REF_TotalValSumCol.DiscrepancyValue;
+				
+				SET CH_SummaryTenderID								= REF_Discp.TenderID;
+				SET Environment.Variables							= NULL;
+				--Split the tenderID on the basis of '|' and concat the 1st and 2nd element after split			
+				WHILE (LENGTH(CH_SummaryTenderID) > 0) DO
+					
+						SET IN_PositionOfDot			          	= POSITION('|' IN CH_SummaryTenderID);
+						
+						IF IN_PositionOfDot	<> 0 THEN
+							
+							SET CH_ArrayVariable 			      	= SUBSTRING(CH_SummaryTenderID FROM 1 FOR IN_PositionOfDot - 1);
+							SET CH_SummaryTenderID					= SUBSTRING(CH_SummaryTenderID FROM IN_PositionOfDot + 1);
+							
+						ELSE
+							
+							SET CH_ArrayVariable					= CH_SummaryTenderID;
+							SET CH_SummaryTenderID			     	= NULL;
+							
+						END IF;
+						
+						CREATE LASTCHILD OF Environment.Variables NAME 'CH_SummaryTenderID' VALUE CH_ArrayVariable;
+						
+				END WHILE;
+			
+				SET CH_RetailJTenderID	   							= Environment.Variables.CH_SummaryTenderID[1]||Environment.Variables.CH_SummaryTenderID[2];
+				
+				--Checking whether CH_RetailJTenderID is equal to '30' or '60' or '130'or '180' or '240' or not
+				IF CH_RetailJTenderID NOT IN('30','60','130','180','240') THEN
+					
+					CREATE LASTCHILD OF REF_Ledger AS REF_LedgerLine NAMESPACE NS_dfns NAME 'LedgerLine';
+					CREATE LASTCHILD OF REF_LedgerLine AS REF_Desc	NAMESPACE NS_oa NAME 'Description' VALUE 'TerminalCM';
+					
+					SET REF_Desc.(XMLNSC.Attribute)type				= 'TRANSACTION LINE TYPE';
+					
+					CREATE LASTCHILD OF REF_LedgerLine AS REF_Desc	NAMESPACE NS_oa NAME 'Description' VALUE 'TillDiscrepancy';
+					
+					SET REF_Desc.(XMLNSC.Attribute)type				= 'TENDER CONTROL TYPE';
+					SET REF_LedgerLine.NS_oa:ReasonCode				= REF_CMAction.ReasonCode;
+					
+					--Calling PadLeadingCharacters() in WMBFunction to pad Leading zeros 
+					SET REF_LedgerLine.NS_oa:ActionCodes.NS_oa:Code = PadLeadingCharacters(2,REF_CMAction.ActionType,'0') ;
+					
+					IF COALESCE(REF_TotalValSumCol.TenderID,'') <> '' THEN
+					
+						--Retrieves the TENDERID information from TENDERDATA table 
+						SET REF_LedgerLine.NS_dfns:Payment.(XMLNSC.Attribute)id = THE(SELECT ITEM A.TENDERID FROM Database.TENDERDATA AS A 
+					                                    						  WHERE A.RETAILJCARDTYPE = CH_RetailJTenderID);
+					END IF;
+					
+					-- Setting Amount Attribute of payment
+					IF COALESCE(REF_Discp.Value,'') <> '' THEN
+						
+						--SET REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount 								= REF_Discp.Value;	
+						SET REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount 								= ROUND(CAST(REF_Discp.Value AS DECIMAL)/-100 ,2 MODE ROUND_HALF_UP);
+						SET REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID 	= REF_CMAction.BaseCurrencyID;
+						
+					END IF;
+					
+				END IF;
+				
+			MOVE REF_TotalValSumCol NEXTSIBLING REPEAT TYPE NAME;
+			
+			END WHILE;
+					
+		END IF;
+		
+	END;
+			
+END MODULE;
+

@@ -1,0 +1,135 @@
+**************************************************************
+**   Script		: MQSC_COMMON_WMB.MQSC			
+**   Created By		: Ipsita Sahoo
+**   Environment	: X -tier	
+****************************************************************
+
+**
+** Model queues
+**
+
+DEFINE QLOCAL(SERVICES.TEMPLATE.LOCAL.WMB) +
+		PUT(ENABLED) +
+		GET(ENABLED) +
+		MAXDEPTH(10000) +
+		MSGDLVSQ(FIFO) +
+		DEFPSIST(YES) +
+		REPLACE
+
+
+DEFINE QALIAS(SERVICES.TEMPLATE.INPUT.ALIAS.WMB) +
+		PUT(DISABLED) +
+		GET(ENABLED) +
+		DEFPSIST(YES) +
+		REPLACE
+
+
+DEFINE QALIAS(SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB) +
+		PUT(ENABLED) +
+		GET(DISABLED) +
+		DEFPSIST(YES) +
+		REPLACE 
+
+**
+** Queues for SAP Generic outbound
+**
+	
+DEFINE QLOCAL(SAPGENERIC.WMB.OUTBOUND.LOCAL) +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input local queue for SAP Generic Outbound flow') +	
+       REPLACE
+
+
+DEFINE QALIAS(SAPGENERIC.WMB.OUTBOUND.WMB) +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       GET(ENABLED) +
+       DESCR('Alias queue for SAP Generic output queue') +
+       TARGQ (SAPGENERIC.WMB.OUTBOUND.LOCAL) + 	
+       REPLACE
+	
+**
+** Queues for Error Handling - Archive
+**
+
+DEFINE QLOCAL ('ERRORS.WMB.ARCHIVE') +
+       DESCR('Local queue for WMB Archive errors') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       REPLACE
+
+
+DEFINE QALIAS ('ERRORS.WMB.ARCHIVE.WMB') +
+       DESCR('Alias queue for Archive Errors') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       TARGQ('ERRORS.WMB.ARCHIVE') +
+       REPLACE
+
+**
+** Queues for Error Handling - Transient WMB
+**
+
+DEFINE QLOCAL ('ERRORS.WMB.ERRORLOG.INPROGRESS') +
+       DESCR('Local queue for transient inprogress error log') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       REPLACE
+
+
+DEFINE QALIAS ('ERRORS.WMB.ERRORLOG.INPROGRESS.WMB') +
+       DESCR('Alias queue for Transient Inprogress Error Log') +
+       PUT(ENABLED) +
+       TARGQ('ERRORS.WMB.ERRORLOG.INPROGRESS') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       REPLACE
+
+**
+** Queues for Error Handling - Transient SOAP
+**
+
+DEFINE QLOCAL ('ERRORS.WMB.SOAPFAULT.INPROGRESS') +
+       DESCR('Local queue for Transient Inprogress SOAP Fault Log') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       REPLACE
+
+
+DEFINE QALIAS ('ERRORS.WMB.SOAPFAULT.INPROGRESS.WMB') +
+       DESCR('Alias queue For Transient Inprogress SOAP Fault Log') +
+       PUT(ENABLED) +
+       TARGQ('ERRORS.WMB.SOAPFAULT.INPROGRESS') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       REPLACE
+
+**
+** Queues for Error Handling - SOAP
+**
+
+DEFINE QLOCAL ('ERRORS.WMB.SOAPFAULT') +
+       DESCR('Local queue for SOAP Fault errors') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       REPLACE
+
+
+DEFINE QALIAS ('ERRORS.WMB.SOAPFAULT.WMB') +
+       DESCR('Alias queue for SOAP Fault Errors') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       TARGQ('ERRORS.WMB.SOAPFAULT') +
+       REPLACE
+
+**
+** Queues for Error Handling - Replay
+**
+
+DEFINE QLOCAL ('REPLAY.FLOW.LOCAL') +
+       DESCR('Local queue for Replay error message') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       REPLACE
+
+
+DEFINE QALIAS ('REPLAY.FLOW.WMB') +
+       DESCR('Alias queue for replay error message') +
+       PUT(ENABLED) +
+       TARGQ('REPLAY.FLOW.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       REPLACE
+
+***********************EndScript****************************

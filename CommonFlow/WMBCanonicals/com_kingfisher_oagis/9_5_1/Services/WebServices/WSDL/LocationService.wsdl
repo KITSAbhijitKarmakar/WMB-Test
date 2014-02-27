@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author:  Anand Patil
+  Revision:    1.0
+  Date:         11 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><definitions targetNamespace="http://www.kingfisher.com/Services/LocationService/1.0" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/LocationService/1.0" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <documentation>
+    <appinfo source="WMQI_APPINFO">
+      <MRWSDLAppInfo imported="true">
+        <generatedXSD location="LocationService_InlineSchema1.xsd"/>
+        <binding hasEncoding="false" imported="true" name="LocationBinding" originalBindingStyle="document"/>
+      </MRWSDLAppInfo>
+    </appinfo>
+  </documentation>
+	<types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:include schemaLocation="LocationService_InlineSchema1.xsd"/>
+    </xsd:schema>
+	</types>
+	<message name="GetLocation">
+		<part element="koa:GetLocation" name="parameter"/>
+	</message>
+	<message name="ValidateLocation">
+		<part element="koa:ValidateLocation" name="parameter"/>
+	</message>
+	<message name="ShowLocation">
+		<part element="koa:ShowLocation" name="parameter"/>
+	</message>
+	<message name="ConfirmLocation">
+		<part element="koa:ConfirmLocation" name="parameter"/>
+	</message>
+	<message name="Fault">
+		<part element="koa:Fault" name="parameter"/>
+	</message>
+	<portType name="LocationPortType">
+		<operation name="GetLocation">
+			<input message="koaws:GetLocation"/>
+			<output message="koaws:ShowLocation"/>
+			<fault message="koaws:Fault" name="GetLocationFault"/>
+		</operation>
+		<operation name="ValidateLocation">
+			<input message="koaws:ValidateLocation"/>
+			<output message="koaws:ConfirmLocation"/>
+			<fault message="koaws:Fault" name="ValidateLocationFault"/>
+		</operation>
+	</portType>
+	<binding name="LocationBinding" type="koaws:LocationPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="GetLocation">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/LocationService/LocationPortType/GetLocation/1.0"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="GetLocationFault">
+				<soap:fault name="GetLocationFault" use="literal"/>
+			</fault>
+		</operation>
+		<operation name="ValidateLocation">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/LocationService/LocationPortType/ValidateLocation/1.0"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="ValidateLocationFault">
+				<soap:fault name="ValidateLocationFault" use="literal"/>
+			</fault>
+		</operation>
+	</binding>
+	<service name="LocationService">
+		<port binding="koaws:LocationBinding" name="LocationBinding">
+			<soap:address location="http://www.kingfisher.com/Services/Location/1.0"/>
+		</port>
+	</service>
+</definitions>

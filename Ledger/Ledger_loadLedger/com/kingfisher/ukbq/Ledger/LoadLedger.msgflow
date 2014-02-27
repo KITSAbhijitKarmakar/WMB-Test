@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFilter.msgnode="ComIbmFilter.msgnode" xmlns:ComIbmFlowOrder.msgnode="ComIbmFlowOrder.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmSAPRequest.msgnode="ComIbmSAPRequest.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Ledger/LoadLedger.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Ledger_LoadLedger.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.CH_MBREPOS" name="CH_MBREPOS" lowerBound="1" defaultValueLiteral="MBREPOS">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="LoadLedger" bundleName="com/kingfisher/ukbq/Ledger/LoadLedger" pluginId="Ledger_loadLedger"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Ledger_loadLedger/icons/full/obj16/LoadLedger.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Ledger_loadLedger/icons/full/obj30/LoadLedger.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="40,401" queueName="LEDGER.SAP.TRANSIT.WMB" messageDomainProperty="XMLNSC" validateTiming="immediate" transactionMode="automatic" orderMode="byQueueOrder">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_LoadLedger"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_MQInput_LoadLedger receives SAPCO Orders through the MQ_Input Node."/>
+        <longDescription xmi:type="utility:ConstantString" string="WMB_MQInput_LoadLedger receives SAPCO Orders through the MQ_Input Node."/>
+        <nsMappingTable nsPrefix="tns" namespace="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <nsMappingTable nsPrefix="Loa" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="App" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_LoadLedger.transaction.Start" eventIdentity="WMB_MQInput_LoadLedger.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/Loa:DataArea/Loa:Ledger/Loa:LedgerHeader/Loa:SalesOrderReference/Loa:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_LoadLedger.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_LoadLedger.transaction.End" eventIdentity="WMB_MQInput_LoadLedger.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/Loa:DataArea/Loa:Ledger/Loa:LedgerHeader/Loa:SalesOrderReference/Loa:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_LoadLedger.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_LoadLedger.terminal.catch" eventIdentity="WMB_MQInput_LoadLedger.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/Loa:DataArea/Loa:Ledger/Loa:LedgerHeader/Loa:SalesOrderReference/Loa:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_LoadLedger.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="419,331" dataSource="MBODS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Ledger#CreateRFCRequestStructure_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="CreateRFCRequestStructure"/>
+        <shortDescription xmi:type="utility:ConstantString" string="CreateRFCRequestStructure Node creates message structure for RFC Call."/>
+        <longDescription xmi:type="utility:ConstantString" string="CreateRFCRequestStructure Node creates message structure for RFC Call."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="704,298" dataSource="MBODS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Ledger#MapToODS_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="MapToODS"/>
+        <shortDescription xmi:type="utility:ConstantString" string="MAPToODS Node updates the SALES_TRANSACTIONS_ORDERS ODS table."/>
+        <longDescription xmi:type="utility:ConstantString" string="MAPToODS Node updates the SALES_TRANSACTIONS_ORDERS ODS table."/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="573,332" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Ledger#TransformToIDOCs_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="TransformToIDOCs"/>
+        <shortDescription xmi:type="utility:ConstantString" string="TransformToIDoCs Node creates message for IDOC posting."/>
+        <longDescription xmi:type="utility:ConstantString" string="TransformToIDoCs Node creates message for IDOC posting."/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="651,439" queueName="SAPGENERIC.WMB.OUTBOUND.WMB" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="SAP_MQOutput_LoadLedger"/>
+        <shortDescription xmi:type="utility:ConstantString" string=" SAP_MQOutput_LoadLedger Node receives message for ORDERS04 and WPUFIB01 IDOC posting."/>
+        <longDescription xmi:type="utility:ConstantString" string=" SAP_MQOutput_LoadLedger Node receives message for ORDERS04 and WPUFIB01 IDOC posting."/>
+      </nodes>
+      <nodes xmi:type="ComIbmFlowOrder.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="321,405">
+        <translation xmi:type="utility:ConstantString" string="FlowOrder"/>
+        <shortDescription xmi:type="utility:ConstantString" string="FlowOrder Node routes the message in required direction."/>
+        <longDescription xmi:type="utility:ConstantString" string="FlowOrder Node routes the message in required direction."/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="665,510" queueName="LEDGER.PAYMENTCARD.WMB.OUTBOUND.WMB" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="RegisterToken_MQOutput_LoadLedger"/>
+        <shortDescription xmi:type="utility:ConstantString" string="RegsiterToken_MQOutput_LoadLedger Node receives the input message for RegisterToken flow."/>
+        <longDescription xmi:type="utility:ConstantString" string="RegsiterToken_MQOutput_LoadLedger Node receives the input message for RegisterToken flow."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="181,401">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node extracts the SOAPHeader from input message."/>
+        <longDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node extracts the SOAPHeader from input message."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSAPRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="529,411" adapterComponent="Adapters/SAP/SAPR3ZRETRFCCUSTORDVALIDATE.outadapter" defaultMethod="executeSapZRetRfcCustOrdValidate">
+        <translation xmi:type="utility:ConstantString" string="SAPRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="SAPRequest Node makes the RFC Call and returns the value."/>
+        <longDescription xmi:type="utility:ConstantString" string="SAPRequest Node makes the RFC Call and returns the value."/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_7" location="550,253">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ErrorHandler Node handles the error in the flow."/>
+        <longDescription xmi:type="utility:ConstantString" string="ErrorHandler Node handles the error in the flow."/>
+      </nodes>
+      <nodes xmi:type="ComIbmFilter.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="374,494" filterExpression="esql://routine/com.kingfisher.ukbq.Ledger#LoadLedger_RegisterTokenMessageFilter.Main">
+        <translation xmi:type="utility:ConstantString" string="RegisterTokenMessageFilter"/>
+        <shortDescription xmi:type="utility:ConstantString" string="RegisterTokenMessageFilter Node filters the LoadLedger message while passing to RegisterToken."/>
+        <longDescription xmi:type="utility:ConstantString" string="RegisterTokenMessageFilter Node filters the LoadLedger message while passing to RegisterToken."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="534,506" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node adds the SOAPHeader in output message."/>
+        <longDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node adds the SOAPHeader in output message."/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.true" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_15" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_16" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_17" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.first" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_18" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.second" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.CH_MBREPOS">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.CH_MBREPOS" bundleName="com/kingfisher/ukbq/Ledger/LoadLedger" pluginId="Ledger_loadLedger"/>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard>
+      <stickyNote location="157,8">
+        <body xmi:type="utility:ConstantString" string="Name            :  LoadLedger&#xA;Author          :  Soutam Dutta&#xA;Date             :  09-Apr-2013&#xA;&#xA;Description   : 1. WMB_MQInput_LoadLedger receives SAPCO Orders through the MQ_Input Node.&#xA;                       2. ExtractSOAPEnvelope Node extracts the SOAPHeader from input message&#xA;                       3. FlowOrder Node routes the message in required direction.&#xA;                       4. CreateRFCRequestStructure Node creates message structure for RFC Call.&#xA;                       5. SAPRequest Node makes the RFC Call and returns the value.&#xA;                       6. TransformToIDoCs Node creates message for IDOC posting.&#xA;                       7. MAPToODS Node updates the SALES_TRANSACTIONS_ORDERS ODS table.&#xA;                       8. SAP_MQOutput_LoadLedger Node receives message for ORDERS04 and WPUFIB01 IDOC posting.&#xA;                       9. RegisterTokenMessageFilter Node filters the LoadLedger message while passing to RegisterToken.&#xA;                      10. AddSOAPHeader Node adds SOAPHeader to the output message.&#xA;                      11. RegsiterToken_MQOutput_LoadLedger Node receives the input message for RegisterToken flow.&#xA;                      12. ErrorHandler Node handles the error in the flow."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

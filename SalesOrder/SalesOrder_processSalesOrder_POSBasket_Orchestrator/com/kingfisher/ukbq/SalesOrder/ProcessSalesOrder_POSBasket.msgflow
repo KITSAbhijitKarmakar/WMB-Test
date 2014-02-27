@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmPublication.msgnode="ComIbmPublication.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:com_kingfisher_ukbq_SalesOrder_UpdateCache.subflow="com/kingfisher/ukbq/SalesOrder/UpdateCache.subflow" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/SalesOrder/ProcessSalesOrder_POSBasket.msgflow"
+    nsPrefix="com_kingfisher_ukbq_SalesOrder_ProcessSalesOrder_POSBasket.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.IBODS" name="IBODS" lowerBound="1" defaultValueLiteral="MBODS">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="ProcessSalesOrder_POSBasket" bundleName="com/kingfisher/ukbq/SalesOrder/ProcessSalesOrder_POSBasket" pluginId="SalesOrder_processSalesOrder_POSBasket_Orchestrator"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/SalesOrder_processSalesOrder_POSBasket_Orchestrator/icons/full/obj16/ProcessSalesOrder_POSBasket.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/SalesOrder_processSalesOrder_POSBasket_Orchestrator/icons/full/obj30/ProcessSalesOrder_POSBasket.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="83,370" queueName="SALESORDER.WMB.TRANSIT.WMB" messageDomainProperty="XMLNSC" transactionMode="automatic" logicalOrder="false">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_Orchestrate"/>
+        <shortDescription xmi:type="utility:ConstantString" string="MQ input node for Orchestration flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="MQ input node which will receive ProcessSalesOrder message from POSBasket RetailJ flow."/>
+        <parserXmlnscOpaqueElements elements="//IVData"/>
+        <parserXmlnscOpaqueElements elements="//ProductItem"/>
+        <parserXmlnscOpaqueElements elements="//oa:Name"/>
+        <nsMappingTable nsPrefix="oa" namespace="http://www.openapplications.org/oagis/9"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="429,375" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#ProcessSalesOrder_POSBasket_Check_Details_for_Routing.Main" computeMode="destinationAndMessage" treatWarningsAsErrors="true">
+        <translation xmi:type="utility:ConstantString" string="Check Details for Routing"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Compute node to create the routing logic for different synchronise flows"/>
+        <longDescription xmi:type="utility:ConstantString" string="Compute node to create the routing logic for different synchronise flows(CDB,SAPBW,LoadLedger,Payment and ODS)"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="731,462" destinationMode="list">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_Orchestrate"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Output node for Payment message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Output node for Payment message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPublication.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="723,380">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQPub_Orchestrate"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Publication node for SynchroniseSalesOrder message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Publication node for SynchroniseSalesOrder message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="228,370">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Remove SOAP body from the input message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Remove SOAP body from the input message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="579,376" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader_PUB"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Header for SynchroniseSalesOrder message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Header for SynchroniseSalesOrder message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="588,458" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Header for Payment message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Header for Payment message"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_6" location="308,292">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Errorhandler subflow to capture error in the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="Errorhandler subflow to capture error in the flow"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="708,286" queueName="SALESORDER.LEDGER.WMB.OUTBOUND.WMB">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_Orchestrate_LL"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Output node for LoadLedger message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Output node for LoadLedger message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="586,282" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader_LL"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Header for LoadLedger message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Header for LoadLedger message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="87,238" queueName="POSBASKETORCHESTRATOR.CACHE.LOCAL" messageDomainProperty="XMLNSC" transactionMode="automatic">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_Orchestrator_CacheRefresh"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_SalesOrder_UpdateCache.subflow:FCMComposite_1" xmi:id="FCMComposite_1_15" location="402,238">
+        <translation xmi:type="utility:ConstantString" string="UpdateCache"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out2" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_15" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.IBODS">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.IBODS" bundleName="com/kingfisher/ukbq/SalesOrder/ProcessSalesOrder_POSBasket" pluginId="SalesOrder_processSalesOrder_POSBasket_Orchestrator"/>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard>
+      <stickyNote location="82,34">
+        <body xmi:type="utility:ConstantString" string="Name          : ProcessSalesOrder_POSBasket&#xA;Author        : Sayantan Som&#xA;Date           : 01 APR 2013&#xA;&#xA;Description  : 1. WMB_MQInput_Orchestrate Node receives ProcessSalesOrder message from POSBasket RetailJ flow.&#xA;                      2. ExtractSOAPEnvelope Node extracts SOAP Header from the input message.&#xA;                      3. Check Details For Routing Node creates the routing logic for different synchronise flows.&#xA;                      4. AddSOAPHeader_LL, AddSOAPHeader_PUB, AddSOAPHeader adds SOAP Header respectively for LoadLedger, SynchroniseSalesOrder and Payment messages. &#xA;                      5. WMB_MQOutput_Orchestrate_LL WMB_MQOutput_Orchestrate Nodes respectively receives receives messages for LoadLedger and Payment to be read by respective queues.&#xA;                      6. WMB_MQPub_Orchetrate Node publishes SynchroniseSalesOrder message for subscription.&#xA;                      7.SynchroniseSalesOrder_ODS subflow called for data insertion into ODS tables."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

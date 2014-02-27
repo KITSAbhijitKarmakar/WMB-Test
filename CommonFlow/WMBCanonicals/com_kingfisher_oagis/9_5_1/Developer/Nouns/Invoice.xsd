@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         13 Dec 2011
+  Copyright 2011, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd"/>
+	<xsd:element name="Invoice" type="InvoiceType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The Invoice is used to invoice a customer for goods/services the have been provided.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InvoiceHeader" type="InvoiceHeaderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Information that applies to the entire invoice document. The Header supports summary amounts for line items, charges, taxes and allowances.
+
+It also supports itemizing Header level charges, taxes and allowances for use in credit or debit invoices. In this case Line items are not needed. 
+
+The summary amounts in the Header include the Line level amounts and Header level amounts.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InvoiceLine" type="InvoiceLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">In general an Invoice Line can be aligned with Order Lines. The ItemQuantity and Price are used to compute the Total. The Total is a sum of the Total and any Charges, Taxes or Allowances.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InvoiceSubLine" type="InvoiceSubLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Is a SubLine of the InvoiceLine in order to provide a finer grained breakdown of the items being invoiced.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="InvoiceType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="InvoiceHeader"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="InvoiceLine"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="InvoiceHeaderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The InvoiceHeader type supports summary amounts for line items, charges and allowances.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:Type">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Code type specifing the type of Invoice.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:ExtendedAmount"/>
+					<xsd:element minOccurs="0" ref="oa:TotalAmount"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:QualifiedAmount"/>
+					<xsd:element minOccurs="0" ref="SupplierParty"/>
+					<xsd:element minOccurs="0" ref="CustomerParty"/>
+					<xsd:element minOccurs="0" ref="RemitToParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipToParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="CarrierParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BillToParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipFromParty"/>
+					<xsd:element minOccurs="0" ref="PayFromParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Organisation"/>
+					<xsd:element minOccurs="0" ref="oa:ReasonCode">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">A code for the invoice.Example: Special allowance for preferred customers.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:PurchaseOrderReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ContractReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:PaymentTerm"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Payment"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Tax"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DistributedCharge"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DistributedTax"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Distribution"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Charge"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Allowance"/>
+					<xsd:element minOccurs="0" ref="oa:TransportationMethodCode"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:TransportationTerm"/>
+					<xsd:group ref="oa:ShippingWeightAndVolumeGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Event"/>
+					<xsd:element minOccurs="0" ref="oa:SourceID"/>
+					<xsd:element minOccurs="0" ref="oa:SalesOrganizationIDs"/>
+					<xsd:element minOccurs="0" ref="oa:ActualShipDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:ActualDeliveryDateTime"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="InvoiceLineBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledLineType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="Item"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Quantity">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Indicates the number of order items for the given line..</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:UnitPrice">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Unit price of the item for the number of items in the unitCode specified in the PerQuantity elements.
+
+In most cases the unitCode of the PerQuantity is the same as the unitCode of the Quantity element above.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Unit price of the item for the number of items in the unitCode specified in the PerQuantity elements.
+
+In most cases the unitCode of the PerQuantity is the same as the unitCode of the Quantity element above.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:PurchaseOrderReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Organisation"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ContractReference"/>
+					<xsd:element minOccurs="0" ref="oa:ExtendedAmount"/>
+					<xsd:element minOccurs="0" ref="oa:TotalAmount"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:QualifiedAmount"/>
+					<xsd:element minOccurs="0" ref="oa:OpenItemIndicator">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Indicates that the line is an open item and is not to be included in the document total. </xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Tax"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DistributedCharge"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DistributedTax"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Distribution"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="InvoiceCharge"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="InvoiceAllowance"/>
+					<xsd:element minOccurs="0" ref="oa:GoodsReceiptDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:ServicesReceiptDateTime"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="InvoiceLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The InvoiceLine type supports order line invoicing.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="InvoiceLineBaseType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="CarrierParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipToParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipFromParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BillToParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:TransportationTerm"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="InvoiceSubLine"/>
+					<xsd:group ref="oa:ShippingWeightAndVolumeGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Event"/>
+					<xsd:element minOccurs="0" ref="oa:CategoryCodes"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="InvoiceSubLineType">
+		<xsd:complexContent>
+			<xsd:extension base="InvoiceLineBaseType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:HeatReference"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="InvoiceAllowanceChargeType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:AllowanceChargeABIEType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Tax"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Party"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:element name="InvoiceAllowance" type="InvoiceAllowanceChargeType"/>
+	<xsd:element name="InvoiceCharge" type="InvoiceAllowanceChargeType"/>
+</xsd:schema>

@@ -1,0 +1,236 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: UpdateODSWithSettlementStatus 										*
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_processPayment-Charge											*
+* Message Flow 				: ProcessPayment_Charge													*
+* Message Flow Description  : The primary function of this message flow is to receive canonical from*
+* 							  NotifySalesOrder service and translate it into Vanguard Webservice 	*
+*							  request Structure														*
+* Module Name 				: UpdateODSWithSettlementStatus_Compute									*
+* Description 				: The primary function of this Node is to receive created Payment 		*
+*							  canonical and update ODS with Settlement status and merge Input and 	*
+*							  Payment canonical to create the input for Confiramation call			*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1		6-MAR-2013 		Asif Hossain 	    The initial version. 								*
+****************************************************************************************************/
+CREATE COMPUTE MODULE UpdateODSWithSettlementStatus_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;		
+		--Declaring rerefence for input
+		DECLARE REF_Payment 				REFERENCE TO InputRoot.XMLNSC.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth 			REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		--Declaring reference for actual canonical input which is stored in Environment
+		DECLARE REF_EnvDataArea 			REFERENCE TO Environment.InputCanonical.NS_dfns:ProcessPayment.NS_dfns:DataArea;
+		DECLARE REF_EnvPayment 				REFERENCE TO REF_EnvDataArea.NS_dfns:Payment;
+		DECLARE REF_EnvPaymentAuth 			REFERENCE TO REF_EnvPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE REF_SalesOrderHeader		REFERENCE TO  REF_EnvDataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader;
+		
+		--Declaring variables for update statement
+		DECLARE CH_SettlementResp 			CHARACTER;
+		DECLARE CH_VGISRef 					CHARACTER;
+		DECLARE CH_qryStr 					CHARACTER;	
+		DECLARE CH_TransactionID 			CHARACTER;
+		DECLARE CH_Token 					CHARACTER;
+		DECLARE CH_CommIdea_Transaction_Id	CHARACTER;
+		DECLARE CH_CommIdea_Auth_DB			CHARACTER;
+		
+		
+		SET CH_TransactionID	= REF_SalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID;
+		SET CH_Token			= REF_EnvPaymentAuth.NS_dfns:Token;
+		
+		--Checking if the Commidea sends a error message or 
+		IF Environment.Variables.processMsgType = 'ERROR' OR UPPER(Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:txnresult) = 'ERROR' THEN
+			IF Environment.Variables.processMsgType = 'ERROR' THEN 
+				IF REF_EnvPayment.NS_dfns:TransactionType = 'CHARGE' THEN
+					SET CH_SettlementResp = 'CHARGEONLY RESPONSE: ERROR; ';
+				END IF;
+			
+				IF REF_EnvPayment.NS_dfns:TransactionType = 'REFUND' THEN
+					SET CH_SettlementResp = 'VPCREFUND RESPONSE: ERROR; ';
+				END IF;
+			ELSEIF UPPER(Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:txnresult) = 'ERROR' THEN
+				
+				IF REF_EnvPayment.NS_dfns:TransactionType = 'CHARGE' THEN
+					SET CH_SettlementResp = 'CHARGEONLY RESPONSE: '|| Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:txnresult || '; ';
+				END IF;
+		
+				IF REF_EnvPayment.NS_dfns:TransactionType = 'REFUND' THEN
+					SET CH_SettlementResp = 'VPCREFUND RESPONSE: '|| Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:txnresult || '; ';
+				END IF; 
+				
+			END IF;
+			
+			SET CH_qryStr = 'SELECT FIRST_SETTLEMENT_REQ_DATE FROM SALES_TRANSACTIONS_TENDER WHERE TRANSACTION_ID = '''|| CH_TransactionID || ''''
+						|| ' AND TOKEN = ''' || CH_Token || ''''
+						||'';
+							
+			SET Environment.Variables.Date = PASSTHRU(CH_qryStr);
+			
+			IF COALESCE(CAST(Environment.Variables.Date.FIRST_SETTLEMENT_REQ_DATE AS CHARACTER),'A') <> 'A' THEN
+				
+				--Updating SALES_TRANSACTIONS_TENDER with the settlement status for ERROR scenario
+				SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+							|| ' ,SETTLED = ''N''' 
+							|| ' ,LAST_SETTLEMENT_REQ_DATE = current_timestamp'
+							|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+							|| ' AND TOKEN = ''' || CH_Token || ''''
+							|| '';
+				
+				PASSTHRU(CH_qryStr);
+				
+				--Updating the table forcefully before throwing user Exception
+				PASSTHRU('COMMIT');
+			ELSE
+				--Updating SALES_TRANSACTIONS_TENDER with the settlement status for ERROR scenario
+				SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+							|| ' ,SETTLED = ''N''' 
+							|| ' ,FIRST_SETTLEMENT_REQ_DATE = current_timestamp'
+							|| ' ,LAST_SETTLEMENT_REQ_DATE = current_timestamp'
+							|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+							|| ' AND TOKEN = ''' || CH_Token || ''''
+							|| ' AND FIRST_SETTLEMENT_REQ_DATE IS NULL'
+							|| '';
+				
+				PASSTHRU(CH_qryStr);
+				
+				--Updating the table forcefully before throwing user Exception
+				PASSTHRU('COMMIT');
+			
+			END IF;
+			
+			--Throwing exception explicitly based on messagetype and txnresult
+			IF Environment.Variables.processMsgType = 'ERROR' THEN 
+				THROW USER EXCEPTION VALUES('Vanguard/CommIdea sent error message with ErrorCode: ' || Environment.Response.XMLNSC.ERROR.CODE ||' and MessgeText: ' || Environment.Response.XMLNSC.ERROR.MSGTXT);
+			ELSEIF UPPER(Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:txnresult) = 'ERROR' THEN
+				THROW USER EXCEPTION VALUES('Vanguard/CommIdea sent message with txnresult: ' || Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:txnresult ||' and authmessage: ' || Environment.Response.Success.XMLNSC.NS_txn:transactionresponse.NS_txn:authmessage);
+			END IF;
+			
+			RETURN FALSE;
+	
+		ELSE
+			IF REF_EnvPayment.NS_dfns:TransactionType = 'CHARGE' THEN
+				SET CH_SettlementResp = 'CHARGEONLY RESPONSE: '|| REF_EnvPaymentAuth.NS_dfns:TransactionStatus.NS_oa:Type  || '; ';
+			END IF;
+		
+			IF REF_EnvPayment.NS_dfns:TransactionType = 'REFUND' THEN
+				SET CH_SettlementResp = 'VPCREFUND RESPONSE: '|| REF_EnvPaymentAuth.NS_dfns:TransactionStatus.NS_oa:Type || '; ';
+				
+			END IF;
+			
+			SET CH_qryStr = 'SELECT FIRST_SETTLEMENT_REQ_DATE FROM SALES_TRANSACTIONS_TENDER WHERE TRANSACTION_ID = '''|| CH_TransactionID || ''''
+					|| ' AND TOKEN = ''' || CH_Token || ''''
+					||'';
+							
+			SET Environment.Variables.Date = PASSTHRU(CH_qryStr);
+			
+			SET CH_CommIdea_Transaction_Id 	= REF_EnvPaymentAuth.NS_dfns:ExternalTransactionID;
+			SET CH_CommIdea_Auth_DB			= REF_EnvPaymentAuth.NS_dfns:AuthorizationDatabaseID;
+			
+			IF COALESCE(CAST(Environment.Variables.Date.FIRST_SETTLEMENT_REQ_DATE AS CHARACTER),'A') <> 'A' THEN
+				
+				IF REF_EnvPaymentAuth.NS_dfns:VGISReferenceID <> '' THEN
+					SET CH_VGISRef = REF_EnvPaymentAuth.NS_dfns:VGISReferenceID;
+				
+					--Updating SALES_TRANSACTIONS_TENDER with the settlement status for success scenario and for VGIS Call
+					SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+								|| ' ,SETTLED = ''N''' 
+								|| ' ,LAST_SETTLEMENT_REQ_DATE = current_timestamp'
+								|| ' ,VGISREF = '''|| CH_VGISRef|| ''''
+								|| ' ,COMMIDEA_TRANSACTION_ID = '''|| CH_CommIdea_Transaction_Id|| ''''
+								|| ' ,COMMIDEA_AUTH_DB = '''|| CH_CommIdea_Auth_DB|| ''''
+								|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+								|| ' AND TOKEN = ''' || CH_Token || ''''
+								|| '';
+					
+					PASSTHRU(CH_qryStr);
+					
+					--Updating the table forcefully to save the the state of the call
+					PASSTHRU('COMMIT');
+					
+				ELSE
+					--Updating SALES_TRANSACTIONS_TENDER with the settlement status for success scenario without the VGIS column 
+					SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+								|| ' ,SETTLED = ''N''' 
+								|| ' ,LAST_SETTLEMENT_REQ_DATE = current_timestamp'
+								|| ' ,COMMIDEA_TRANSACTION_ID = '''|| CH_CommIdea_Transaction_Id|| ''''
+								|| ' ,COMMIDEA_AUTH_DB = '''|| CH_CommIdea_Auth_DB|| ''''
+								|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+								|| ' AND TOKEN = ''' || CH_Token || ''''
+								|| '';
+					
+					PASSTHRU(CH_qryStr);
+					
+					--Updating the table forcefully to save the the state of the call
+					PASSTHRU('COMMIT');
+				END IF;
+			ELSE
+				IF REF_EnvPaymentAuth.NS_dfns:VGISReferenceID <> '' THEN
+					SET CH_VGISRef = REF_EnvPaymentAuth.NS_dfns:VGISReferenceID;
+				
+					--Updating SALES_TRANSACTIONS_TENDER with the settlement status for success scenario and for VGIS Call
+					SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+								|| ' ,SETTLED = ''N''' 
+								|| ' ,FIRST_SETTLEMENT_REQ_DATE = current_timestamp'
+								|| ' ,LAST_SETTLEMENT_REQ_DATE = current_timestamp'
+								|| ' ,VGISREF = '''|| CH_VGISRef|| ''''
+								|| ' ,COMMIDEA_TRANSACTION_ID = '''|| CH_CommIdea_Transaction_Id|| ''''
+								|| ' ,COMMIDEA_AUTH_DB = '''|| CH_CommIdea_Auth_DB|| ''''
+								|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+								|| ' AND TOKEN = ''' || CH_Token || ''''
+								|| ' AND FIRST_SETTLEMENT_REQ_DATE IS NULL'
+								|| '';
+					
+					PASSTHRU(CH_qryStr);
+					
+					--Updating the table forcefully to save the the state of the call
+					PASSTHRU('COMMIT');
+					
+				ELSE
+					--Updating SALES_TRANSACTIONS_TENDER with the settlement status for success scenario without the VGIS column 
+					SET CH_qryStr = 'UPDATE SALES_TRANSACTIONS_TENDER SET SETTLEMENTRESP = ''' || CH_SettlementResp ||''''
+								|| ' ,SETTLED = ''N''' 
+								|| ' ,FIRST_SETTLEMENT_REQ_DATE = current_timestamp'
+								|| ' ,LAST_SETTLEMENT_REQ_DATE = current_timestamp'
+								|| ' ,COMMIDEA_TRANSACTION_ID = '''|| CH_CommIdea_Transaction_Id|| ''''
+								|| ' ,COMMIDEA_AUTH_DB = '''|| CH_CommIdea_Auth_DB|| ''''
+								|| ' WHERE TRANSACTION_ID = ''' || CH_TransactionID || ''''
+								|| ' AND TOKEN = ''' || CH_Token || ''''
+								|| ' AND FIRST_SETTLEMENT_REQ_DATE IS NULL'
+								|| '';
+					
+					PASSTHRU(CH_qryStr);
+					
+					--Updating the table forcefully to save the the state of the call
+					PASSTHRU('COMMIT');
+				END IF;
+				
+			END IF;	
+
+			--Creating output structure for confirm/reject call
+			SET OutputRoot.XMLNSC.NS_dfns:ProcessPayment	= Environment.InputCanonical.NS_dfns:ProcessPayment;
+			
+			RETURN TRUE;
+		END IF;
+		
+	END;
+	
+
+END MODULE;

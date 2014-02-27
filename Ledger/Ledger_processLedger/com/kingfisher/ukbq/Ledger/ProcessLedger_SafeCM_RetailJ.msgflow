@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:com_kingfisher_ukbq_Ledger_ProcessLedger_TerminalAndSafeCM_CDB.subflow="com/kingfisher/ukbq/Ledger/ProcessLedger_TerminalAndSafeCM_CDB.subflow" xmlns:com_kingfisher_ukbq_Ledger_ProcessLedger_TerminalAndSafeCM_ODS.subflow="com/kingfisher/ukbq/Ledger/ProcessLedger_TerminalAndSafeCM_ODS.subflow" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Ledger/ProcessLedger_SafeCM_RetailJ.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Ledger_ProcessLedger_SafeCM_RetailJ.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="ProcessLedger_SafeCM_RetailJ" bundleName="com/kingfisher/ukbq/Ledger/ProcessLedger_SafeCM_RetailJ" pluginId="Ledger_processLedger"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Ledger_processLedger/icons/full/obj16/ProcessLedger_SafeCM_RetailJ.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Ledger_processLedger/icons/full/obj30/ProcessLedger_SafeCM_RetailJ.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="197,274" queueName="SAFECM.RETAILJ.INBOUND.WMB" messageDomainProperty="XMLNSC" transactionMode="automatic" orderMode="byQueueOrder">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_SafeCM"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_MQInput_SafeCM receives SafeCMAction xml  through the MQ_Input Node."/>
+        <longDescription xmi:type="utility:ConstantString" string="WMB_MQInput_SafeCM receives SafeCMAction xml  through the MQ_Input Node."/>
+        <nsMappingTable nsPrefix="Led" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="GLD" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_SafeCM.transaction.Start" eventIdentity="WMB_MQInput_SafeCM.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/SafeCMAction/ SafeNumber" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/SafeCMAction/SequenceNumber" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_SafeCM.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_SafeCM.transaction.End" eventIdentity="WMB_MQInput_SafeCM.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/SafeCMAction/ SafeNumber" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/SafeCMAction/SequenceNumber " eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_SafeCM.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_SafeCM.terminal.catch" eventIdentity="WMB_MQInput_SafeCM.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/SafeCMAction/ SafeNumber" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/SafeCMAction/SequenceNumber " eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_SafeCM.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="Led" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="GLD" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_Ledger_ProcessLedger_TerminalAndSafeCM_CDB.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="569,241">
+        <translation xmi:type="utility:ConstantString" string="ProcessLedger_TerminalAndSafeCM_CDB"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Inserts record into the CDB table RETJCASHLD"/>
+        <longDescription xmi:type="utility:ConstantString" string="Inserts record into the CDB table RETJCASHLD"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_Ledger_ProcessLedger_TerminalAndSafeCM_ODS.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="571,318">
+        <translation xmi:type="utility:ConstantString" string="ProcessLedger_TerminalAndSafeCM_ODS"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Inserts record into SALES_TRANSACTIONS_TENDER and SALES_TRANSACTIONS_COUNT"/>
+        <longDescription xmi:type="utility:ConstantString" string="Inserts record into SALES_TRANSACTIONS_TENDER and SALES_TRANSACTIONS_COUNT"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="352,274" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Ledger#ProcessLedger_SafeCM_RetailJ_Compute.Main">
+        <translation xmi:type="utility:ConstantString" string="Create_ProcessLedger_Canonical"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Creates the ProcessLedger Canonical from the input SafeCMAction message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Creates the ProcessLedger Canonical from the input SafeCMAction message"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_1" location="363,185">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ErrorHandler to handle error in the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="ErrorHandler to handle error in the flow"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="151,10">
+        <body xmi:type="utility:ConstantString" string="Name           :  ProcessLedger_SafeCM_RetailJ&#xA;Author         :  Sourav Banu&#xA;Date            :  09 APR 2013&#xA;&#xA;Description  : 1. WMB_MQInput_SafeCM Node takes the SafeCMAction message as input.&#xA;                      2. Create_ProcessLedger_Canonical Node transforms the input into ProcessLedger Canonical message.&#xA;                      3. ProcessLedger_TerminalAndSafeCM_CDB subflow inserts data into CDB table, RETJCASHLD.&#xA;                      4. ProcessLedger_TerminalAndSafeCM_ODS subflow inserts data into ODS tables, SALES_TRANSACTIONS_COUNT&#xA;                         and  SALES_TRANSACTIONS_TENDER."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

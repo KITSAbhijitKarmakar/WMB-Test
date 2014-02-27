@@ -1,0 +1,12 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+-- Namespace declaration 
+DECLARE NS_dfns NAMESPACE 'http://www.kingfisher.com/oagis/9';
+DECLARE NS_oa 	NAMESPACE 'http://www.openapplications.org/oagis/9';

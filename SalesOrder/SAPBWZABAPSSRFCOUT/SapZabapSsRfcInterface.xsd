@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://www.ukbq.kingfisher.com/SAPR3/sapzabapssrfcinterface" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:sapasi="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:sappitheaders170544522="http://www.ukbq.kingfisher.com/SAPR3/sappitheaders170544522" xmlns:sappitlines2011053180="http://www.ukbq.kingfisher.com/SAPR3/sappitlines2011053180" xmlns:sappitpricemodifications1307301459="http://www.ukbq.kingfisher.com/SAPR3/sappitpricemodifications1307301459" xmlns:sappittaxes1517633149="http://www.ukbq.kingfisher.com/SAPR3/sappittaxes1517633149" xmlns:sappittenders2108994308="http://www.ukbq.kingfisher.com/SAPR3/sappittenders2108994308" xmlns:sapzabapssrfcinterface="http://www.ukbq.kingfisher.com/SAPR3/sapzabapssrfcinterface" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:import namespace="http://www.ukbq.kingfisher.com/SAPR3/sappitheaders170544522" schemaLocation="SapPITHeaders170544522.xsd"/>
+<xsd:import namespace="http://www.ukbq.kingfisher.com/SAPR3/sappitlines2011053180" schemaLocation="SapPITLines2011053180.xsd"/>
+<xsd:import namespace="http://www.ukbq.kingfisher.com/SAPR3/sappitpricemodifications1307301459" schemaLocation="SapPITPriceModifications1307301459.xsd"/>
+<xsd:import namespace="http://www.ukbq.kingfisher.com/SAPR3/sappittaxes1517633149" schemaLocation="SapPITTaxes1517633149.xsd"/>
+<xsd:import namespace="http://www.ukbq.kingfisher.com/SAPR3/sappittenders2108994308" schemaLocation="SapPITTenders2108994308.xsd"/>
+<xsd:import namespace="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata"/>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability">
+<info:resourceAdapter version="7.5.0.2_IF01" xmlns:info="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability"/>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="commonj.connector.asi">
+<asi:annotationSet asiNSURI="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:asi="commonj.connector.asi"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:complexType name="SapZabapSsRfcInterface">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIBusinessObjectTypeMetadata>
+<sapasi:Type>BAPI</sapasi:Type>
+<sapasi:Operation>
+<sapasi:MethodName>ZABAP_SS_RFC_INTERFACE</sapasi:MethodName>
+<sapasi:Name>Execute</sapasi:Name>
+</sapasi:Operation>
+</sapasi:sapBAPIBusinessObjectTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:sequence maxOccurs="1" minOccurs="1">
+<xsd:element maxOccurs="unbounded" minOccurs="1" name="SapPITHeaders" nillable="true" type="sappitheaders170544522:SapPITHeaders">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>P_I_T_HEADERS</sapasi:FieldName>
+<sapasi:FieldType>ZDT_SS_IDL_INT_HEADER</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+<sapasi:Description>Multiple headers are allowed</sapasi:Description>
+<sapasi:ParameterType>INOUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="1" name="SapPITLines" nillable="true" type="sappitlines2011053180:SapPITLines">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>P_I_T_LINES</sapasi:FieldName>
+<sapasi:FieldType>ZDT_SS_IDL_INT_LINE</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+<sapasi:Description>Multiple lines are allowed</sapasi:Description>
+<sapasi:ParameterType>INOUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="1" name="SapPITPriceModifications" nillable="true" type="sappitpricemodifications1307301459:SapPITPriceModifications">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>P_I_T_PRICE_MODIFICATIONS</sapasi:FieldName>
+<sapasi:FieldType>ZDT_SS_IDL_INT_P_MOD</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+<sapasi:Description>Multiple price modifications are allowed</sapasi:Description>
+<sapasi:ParameterType>INOUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="1" name="SapPITTaxes" nillable="true" type="sappittaxes1517633149:SapPITTaxes">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>P_I_T_TAXES</sapasi:FieldName>
+<sapasi:FieldType>ZDT_SS_IDL_INT_TAX</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+<sapasi:Description>Multiple taxes are allowed</sapasi:Description>
+<sapasi:ParameterType>INOUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="1" name="SapPITTenders" nillable="true" type="sappittenders2108994308:SapPITTenders">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapBAPIPropertyTypeMetadata>
+<sapasi:FieldName>P_I_T_TENDERS</sapasi:FieldName>
+<sapasi:FieldType>ZDT_SS_IDL_INT_TENDER</sapasi:FieldType>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+<sapasi:Description>Multiple tenders are allowed</sapasi:Description>
+<sapasi:ParameterType>INOUT</sapasi:ParameterType>
+</sapasi:sapBAPIPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+
+    <xsd:element ibmSchExtn:docRoot="true" name="SapZabapSsRfcInterface" type="sapzabapssrfcinterface:SapZabapSsRfcInterface"/>
+</xsd:schema>

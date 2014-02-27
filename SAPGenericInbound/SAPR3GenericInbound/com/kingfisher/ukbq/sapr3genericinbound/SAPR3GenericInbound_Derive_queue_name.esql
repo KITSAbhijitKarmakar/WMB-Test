@@ -1,0 +1,17 @@
+BROKER SCHEMA com.kingfisher.ukbq.sapr3genericinbound
+
+DECLARE ns NAMESPACE 'http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/sapgenericidocobject';
+
+CREATE COMPUTE MODULE SAPR3GenericInbound_Derive_queue_name
+      CREATE FUNCTION Main() RETURNS BOOLEAN
+      BEGIN
+            SET OutputRoot.Properties = null;
+
+            CREATE LASTCHILD OF OutputRoot DOMAIN 'BLOB';
+            -- Use IDOC Type to populate MQ Queue Name
+            SET OutputRoot.BLOB.BLOB = CAST(InputRoot.DataObject.ns:SapGenericIDocObject.IDocStreamData as BLOB);
+
+            SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName= InputRoot.DataObject.ns:SapGenericIDocObject.IDocType;
+            RETURN TRUE;
+      END;
+END MODULE;

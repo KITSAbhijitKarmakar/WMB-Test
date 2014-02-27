@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd"/>
+	<xsd:element name="AttributeName" type="oa:NameType"/>
+	<xsd:element name="AttributeValue" type="oa:NameType"/>
+	<xsd:element name="BulletText" type="oa:SequencedTextType"/>
+	<xsd:element name="FeatureText" type="oa:SequencedTextType"/>
+	<xsd:element name="SellingContent">
+		<xsd:complexType>
+			<xsd:complexContent>
+				<xsd:extension base="SellingContentType"/>
+			</xsd:complexContent>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="SellingItem">
+		<xsd:complexType>
+			<xsd:complexContent>
+				<xsd:extension base="SellingItemType"/>
+			</xsd:complexContent>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Variant" type="VariantType"/>
+	<xsd:complexType name="SellingContentType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SellingItem"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SellingHierarchy"/>
+		</xsd:sequence>
+		<xsd:attributeGroup ref="brand_channel"/>
+	</xsd:complexType>
+	<xsd:complexType name="SellingItemType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Represents any unique purchased part or manufactured product.  Product, as used here, refers to the basic information about an Product, including its attributes, cost, and locations.  It does not include Product quantities.  </xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="ProductItemType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="BodyCopy"/>
+					<xsd:element minOccurs="0" ref="FeatureCopy"/>
+					<xsd:element minOccurs="0" ref="LongDescription"/>
+					<xsd:element minOccurs="0" ref="MediumDescription"/>
+					<xsd:element minOccurs="0" ref="ShortDescription"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BulletText"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="FeatureText"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="TechnicalSpecificationText"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Qualification"/>
+					<xsd:element minOccurs="0" ref="Template"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Variant">
+						<xsd:annotation>
+							<xsd:documentation>Identifies All attributes which serve as variants in a multisku type association</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ShipmentServiceLevelCode"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Content"/>
+					<xsd:element minOccurs="0" ref="ProductSellingQuantity"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductSellingStatus"/>
+					<xsd:element minOccurs="0" ref="TradeStatus"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductBrandChannelExclusion"/>
+					<xsd:element minOccurs="0" ref="ProductNonDeliveryRegion"/>
+					<xsd:element minOccurs="0" ref="ProductSetItems"/>
+					<xsd:element minOccurs="0" ref="PrimaryItemID"/>
+				</xsd:sequence>
+				<xsd:attribute name="id" type="oa:NormalizedStringType"/>
+				<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="VariantType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="AttributeName">
+				<xsd:annotation>
+					<xsd:documentation>Variant attribute name such as colour and size sent as product technical information Name attribute value</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="AttributeValue"/>
+		</xsd:sequence>
+		<xsd:attribute name="displayScheme" type="xsd:string"/>
+		<xsd:attribute name="displaySequence" type="xsd:integer"/>
+	</xsd:complexType>
+</xsd:schema>

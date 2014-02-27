@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmPublication.msgnode="ComIbmPublication.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/FulfilmentSite/FulfilmentSite_notifyFulfilmentSite_SAP_Pub.msgflow"
+    nsPrefix="com_kingfisher_ukbq_FulfilmentSite_FulfilmentSite_notifyFulfilmentSite_SAP_Pub.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="FulfilmentSite_notifyFulfilmentSite_SAP_Pub" bundleName="com/kingfisher/ukbq/FulfilmentSite/FulfilmentSite_notifyFulfilmentSite_SAP_Pub" pluginId="FulfilmentSite_notifyFulfilmentSite"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/FulfilmentSite_notifyFulfilmentSite/icons/full/obj16/FulfilmentSite_notifyFulfilmentSite_SAP_Pub.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/FulfilmentSite_notifyFulfilmentSite/icons/full/obj30/FulfilmentSite_notifyFulfilmentSite_SAP_Pub.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="16,258" queueName="ZBETMASCP.SAP.INBOUND.WMB" messageDomainProperty="DataObject" messageTypeProperty="{http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp}:SapZbetmasCp" messageFormatProperty="SAP ALE IDoc" validateTiming="immediate" orderMode="byQueueOrder" validateMaster="contentAndValue">
+        <translation xmi:type="utility:ConstantString" string="SAP_MQInput_FulfilmentSite"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Receives data from SAP and start the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="The MQInput node receives the ZBETMAS_CP IDOC in the form of Data Object from SAP Generic Inbound Flow."/>
+        <nsMappingTable nsPrefix="sap" namespace="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="SAP_MQInput_FulfilmentSite.transaction.Start" eventIdentity="SAP_MQInput_FulfilmentSite.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZbetmasCp/SapZbetmasCpIDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZbetmasCp/SapZbetmasCpIDocBO/SapZbetmasCpDataRecord/SapZbetmasCpZ2t1wadrc000/WERKS" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_FulfilmentSite.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="SAP_MQInput_FulfilmentSite.transaction.End" eventIdentity="SAP_MQInput_FulfilmentSite.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZbetmasCp/SapZbetmasCpIDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZbetmasCp/SapZbetmasCpIDocBO/SapZbetmasCpDataRecord/SapZbetmasCpZ2t1wadrc000/WERKS" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_FulfilmentSite.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="SAP_MQInput_FulfilmentSite.terminal.catch" eventIdentity="SAP_MQInput_FulfilmentSite.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZbetmasCp/SapZbetmasCpIDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapZbetmasCp/SapZbetmasCpIDocBO/SapZbetmasCpDataRecord/SapZbetmasCpZ2t1wadrc000/WERKS" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_FulfilmentSite.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/ZBETMASCP/sapzbetmascp"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="230,258" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.FulfilmentSite#FulfilmentSite_notifyFulfilmentSite_SAP_Pub_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Map_FulfilmentSite_SAPIDOC_Canonical"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Convert to canonical and publish the message to a topic"/>
+        <longDescription xmi:type="utility:ConstantString" string="The IDOC is mapped into the FulfilmentSite canonical and set for Publication on the Topic information retrieved from DB table MBREPOS through this Compute node"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPublication.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="566,263">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQPub_FulfilmentSite"/>
+        <shortDescription xmi:type="utility:ConstantString" string="The FulfilmentSite Canonical is published for subscription."/>
+        <longDescription xmi:type="utility:ConstantString" string="The FulfilmentSite Canonical is published for subscription with the retrieved Topic through the Publication node."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="465,259" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_1" location="292,333">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="35,12">
+        <body xmi:type="utility:ConstantString" string="Name         - FulfilmentSite_notifyFulfilmentSite_SAP_Pub&#xA;Author       - Ipsita Sahoo&#xA;Date           - 05/04/2013&#xA;&#xA;Description&#xA;1. The MQInput node receives the ZBETMAS_CP IDOC in the form of Data Object from SAP Generic Inbound flow.&#xA;2. The IDOC is mapped into the FulfilmentSite canonical and set for Publication on the Topic information retrieved from the table MBTOPICS of&#xA;    MBREPOS database through the Compute node.&#xA;3. A SOAP Envelope is added.&#xA;4. Next, the FulfilmentSite canonical is published with the retrieved Topic through the Publication node.&#xA;5. Error Handler sub-flow is used to put the message into the error queue, for any error occuring during the execution of the flow.&#xA; "/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

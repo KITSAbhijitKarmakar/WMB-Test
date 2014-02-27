@@ -1,0 +1,3477 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				:  MapToCDB																			* 
+* Interface Id 				:  																					*
+* Interface Name 			:  SalesOrder_synchroniseSalesOrder_POSBasket										*
+* Message Flow 				:  SalesOrder_synchroniseSalesOrder_CDB_Sub											*
+* Message Flow Description  :  The primary function of this service capability is to update the CDB table 		*
+* Module Name 				:  MapToCDB_Compute 																*
+* Description 				:  The module will loop through the SalesOrderLine and insert into RJTILLTXLD 		*	
+*                              in CDB and look for LayAwayDetails and  insert into the same table.	            * 
+*																												*
+* Version 	Date 			Author 							Description 										*
+* ======= 	===========	  	========================== 		==================== 								*
+* 0.1 	  	19-Apr-2013   	Asif Hossain & Sourav Banu		The initial version. 								*
+* 0.2 	  	21-May-2013   	Sourav Banu						Handling null value for  Maximum Amount				*
+* 0.3 	  	30-May-2013   	Sourav Banu						Default null value added for Number field			*
+* 0.4 	  	10-SEP-2013   	Soutam Dutta					Prod fix for LINE_DATE_TIME value population		*
+* 0.5 	  	20-SEP-2013   	Soutam Dutta					Prod fix for No Sale transaction item				*
+* 0.6 		24-SEP-2013 	soutam Dutta & 					Updated the code for production defect			 	*
+*							Sourav Banu																			*
+* 0.7 		25-SEP-2013 	soutam Dutta & 					Updated the code for production defect 			 	*
+*							Sourav Banu						#INC0120099											*
+*****************************************************************************************************************/
+CREATE COMPUTE MODULE MapToCDB_Compute
+	
+	--Declaring reference to Environment
+	DECLARE REF_EnvDBValue REFERENCE TO Environment.Variables.DBValues;
+	
+	DECLARE DSN 	EXTERNAL NAME 'MBREPOS';
+	DECLARE IBODS	EXTERNAL NAME 'MBODS';
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		
+		--Loadling REPOS data to cache 
+		IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE OR 
+		EXISTS(CACHE_CONFIGDATA.PRICEMODIFIER[]) = FALSE THEN
+		
+		--Atomic block to prevent multiple thread to execute this section simultaneously 
+		CACHE_CONFIGDATA:BEGIN ATOMIC	
+			IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.TENDERDATA[] = PASSTHRU('SELECT * FROM TENDERDATA' TO Database.{DSN});
+			END IF; 
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBSTRCD[] = PASSTHRU('SELECT * FROM MBSTRCD' TO Database.{DSN});
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.PRICEMODIFIER[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.PRICEMODIFIER[] = PASSTHRU('SELECT * FROM PRICEMODIFIER' TO Database.{DSN});
+			END IF;
+		END ;	
+		
+	END IF;
+		
+		--Creating field for environment
+		CREATE FIELD Environment.Variables.DBValues AS REF_EnvDBValue;
+
+		--Call the procedure PROC_SynchroniseSalesOrderDetails()
+		CALL PROC_SynchroniseSalesOrderDetails();
+		RETURN TRUE;
+		
+	END;
+
+	/*****************************************************************************************
+	* Procedure Name	: PROC_SynchroniseSalesOrderDetails() 								 *
+	* Input Parameters	: None 																 *
+	* Output Parameters	: None 																 *
+	* Description		: Main procedure to populate values for CDB table					 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_SynchroniseSalesOrderDetails ( )
+	BEGIN
+				
+		--Declaring input references
+		DECLARE REF_Input 				REFERENCE TO InputRoot.XMLNSC;
+		DECLARE REF_AppArea 			REFERENCE TO REF_Input.NS_Dfns:SynchroniseSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_SalesOrder 			REFERENCE TO REF_Input.NS_Dfns:SynchroniseSalesOrder.NS_Dfns:DataArea.NS_Dfns:SalesOrder;
+		DECLARE REF_SalesOrderHeader 	REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderHeader;
+		DECLARE REF_SalesOrderLine 		REFERENCE TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		DECLARE REF_LayAwayDetails 		REFERENCE TO REF_SalesOrderHeader.NS_Dfns:LayAwayDetails;
+		DECLARE REF_Payment 			REFERENCE TO REF_SalesOrderHeader.NS_Dfns:Payment;
+		
+		DECLARE CH_vboole	CHARACTER;
+		
+		SET REF_EnvDBValue.SeqNumber 	= '0';
+		
+		
+		--Start: Filter Logic 
+		SET REF_EnvDBValue.TxType 										= COALESCE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:Type,'');
+		
+		IF COALESCE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:SuspendedTransactionIndicator,'') <> '' THEN
+			SET REF_EnvDBValue.SuspendFlag 								= REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:SuspendedTransactionIndicator;
+		ELSE
+			SET REF_EnvDBValue.SuspendFlag 								= '';
+		END IF;
+		
+		SET REF_EnvDBValue.Flag 										= 'TRUE';
+		
+		IF UPPER(REF_EnvDBValue.TxType) NOT IN ('RETAILTRANSACTIONSTOCKVIEW','CONTROLTRANSACTION') THEN
+			SET REF_EnvDBValue.Flag 									= 'FALSE' ;
+		ELSE
+			
+			WHILE LASTMOVE(REF_SalesOrderLine) DO
+				SET REF_EnvDBValue.FoundSaleOrRet				= 'FALSE';
+				
+				--Code Change Start For Production Defect 20/09/2013 version 0.5	
+				--ELSEIF CONTAINS(COALESCE(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,''),'NO SALE') THEN
+				IF CONTAINS(COALESCE(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,''),'NO SALE TRANSACTION ITEM') THEN	
+				--Code Change For Production Defect 20/09/2013	version 0.5
+					SET REF_EnvDBValue.FoundSaleOrRet				= 'TRUE';
+					SET REF_EnvDBValue.NoSaleFLag					= 'Y';
+					
+				ELSEIF CONTAINS(COALESCE(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,''),'SALE') THEN
+					SET REF_EnvDBValue.FoundSaleOrRet				= 'TRUE';
+						
+						IF COALESCE(REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:Type,'') NOT
+							IN ('Stock','Other','NotOnFile','MfgCoupon','StoreCoupon') THEN
+							SET REF_EnvDBValue.Flag						= 'FALSE' ;
+						END IF;
+				ELSEIF CONTAINS(COALESCE(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,''),'RETURN') THEN
+					SET REF_EnvDBValue.FoundSaleOrRet				= 'TRUE';
+						
+					IF COALESCE(REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:Type,'') NOT
+						IN ('Stock','Other','NotOnFile','MfgCoupon','StoreCoupon') THEN
+						SET REF_EnvDBValue.Flag						= 'FALSE' ;
+					END IF;
+					
+				END IF;
+					 
+				
+				SET CH_vboole ='FALSE';
+				IF COALESCE(REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code,'') = 'VOID ENTRY' THEN
+					SET CH_vboole ='TRUE';
+				END IF;
+				
+				IF REF_EnvDBValue.Flag ='TRUE' AND REF_EnvDBValue.FoundSaleOrRet = 'TRUE' AND CH_vboole = 'FALSE' THEN
+					--Calling CCCPLineMapping for each iteration
+					CALL PROC_CCCPLineMapping(REF_SalesOrderHeader,REF_SalesOrderLine,REF_AppArea,REF_SalesOrder);
+					SET REF_EnvDBValue.SeqNumber = CAST(CAST(REF_EnvDBValue.SeqNumber  AS INTEGER)+1 AS CHARACTER);
+					--call insert procedure
+					CALL PROC_InsertCCCPLineAndCommonMapping();
+				END IF;
+			MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+						
+			END WHILE;
+		
+		END IF;
+		
+		--*****Start of code fix as per the SIT defect 15
+		--Loop for Payment information
+		IF EXISTS(REF_SalesOrderHeader.NS_Dfns:Payment[]) THEN
+			
+			FOR REF_Payment AS REF_SalesOrderHeader.NS_Dfns:Payment[] DO
+				
+				SET CH_vboole ='FALSE';
+				IF COALESCE(REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code,'') = 'VOID ENTRY' THEN
+					SET CH_vboole ='TRUE';
+				END IF;
+				
+				IF COALESCE(REF_Payment.NS_Dfns:ChangeAmount,'') = '' AND CH_vboole = 'FALSE' THEN
+					--Call the procedure PROC_PaymentMapping()
+					CALL PROC_PaymentMapping(REF_SalesOrderHeader,REF_Payment,REF_AppArea);
+					
+					--Call the procedure PROC_CCCPLineCommonMapping()
+					CALL PROC_CCCPLineCommonMapping(REF_SalesOrder,REF_SalesOrderHeader,REF_SalesOrderLine);
+					
+					SET REF_EnvDBValue.SeqNumber = CAST(CAST(REF_EnvDBValue.SeqNumber  AS INTEGER)+1 AS CHARACTER);
+					--Call the procedure PROC_InsertLayAwayMapping()
+					CALL PROC_InsertPaymentMapping();
+				END IF;
+				
+			END FOR;
+		END IF;
+		
+		--******End of code fix as per the SIT defect 15
+		
+		--Loop for LayAwayMapping 
+		IF EXISTS(REF_SalesOrderHeader.NS_Dfns:LayAwayDetails[]) THEN
+			
+			FOR REF_LayAwayDetails AS REF_SalesOrderHeader.NS_Dfns:LayAwayDetails[] DO
+				--Call the procedure PROC_LayAwayMapping()
+				CALL PROC_LayAwayMapping(REF_SalesOrderHeader,REF_SalesOrderLine,REF_AppArea,REF_SalesOrder,REF_LayAwayDetails);
+				--Call the procedure PROC_CCCPLineCommonMapping()
+				CALL PROC_CCCPLineCommonMapping(REF_SalesOrder,REF_SalesOrderHeader,REF_SalesOrderLine);
+				
+				SET REF_EnvDBValue.SeqNumber = CAST(CAST(REF_EnvDBValue.SeqNumber  AS INTEGER)+1 AS CHARACTER);
+				--Call the procedure PROC_InsertLayAwayMapping()
+				CALL PROC_InsertLayAwayMapping();
+				
+				
+				
+			END FOR;
+		END IF;
+		
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CCCPLineMapping() 											 *
+	* Input Parameters	: REF_SalesOrderHeader, REF_SalesOrderLine, REF_AppArea,			 *
+	*					  REF_SalesOrder													 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to populate CCCP line mapping							 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	
+	CREATE PROCEDURE PROC_CCCPLineMapping (IN REF_SalesOrderHeader REFERENCE,IN REF_SalesOrderLine REFERENCE,IN REF_AppArea REFERENCE,IN REF_SalesOrder REFERENCE)
+	BEGIN
+		
+		--Declaring References
+		DECLARE REF_Payment 		REFERENCE TO REF_SalesOrderHeader.NS_Dfns:Payment;
+		DECLARE REF_PaymentCard 	REFERENCE TO REF_Payment.NS_Dfns:PaymentCard;
+		DECLARE REF_Allowance		REFERENCE TO REF_SalesOrderLine.NS_Dfns:Allowance;
+		DECLARE REF_SalesOrdRef 	REFERENCE TO REF_SalesOrderLine.NS_Dfns:SalesOrderReference;
+		DECLARE REF_Ord_Payment 	REFERENCE TO REF_SalesOrdRef.NS_Dfns:Payment;
+		DECLARE REF_PrdTechInfo		REFERENCE TO REF_SalesOrderLine.NS_Dfns:ProductItem.NS_Dfns:ProductTechnicalInformation; 
+		DECLARE REF_Env				REFERENCE TO Environment;
+		
+		--Declaring variables 
+		DECLARE DC_TempAmount 		DECIMAL;
+		DECLARE CH_RecType			CHARACTER '2';	
+		DECLARE CH_Uid 				CHARACTER;
+		DECLARE CH_ZbAuthId 		CHARACTER;
+		DECLARE CH_VoidFlag 		CHARACTER;
+		DECLARE CH_VBool			CHARACTER;
+		DECLARE CH_Quantity 		CHARACTER;
+		DECLARE CH_Amount 			CHARACTER;
+		DECLARE CH_TenderId			CHARACTER;
+		DECLARE CH_ArticleDesc 		CHARACTER;
+		DECLARE CH_SapCoAmt			CHARACTER;
+		DECLARE CH_RefundIndicator 	CHARACTER;
+		DECLARE CH_AuthCode			CHARACTER;
+		DECLARE CH_Hlevel			CHARACTER;
+		DECLARE DC_Quantity			DECIMAL;
+		DECLARE IN_TempAmount		INTEGER;
+			
+		
+		--Mapping for CC_CSHBK_AMT column
+		SET REF_EnvDBValue.CC_CSHBK_AMT							= 'null';
+		
+		SET  REF_EnvDBValue.GIFT_CARD_SERIAL_NUMBER		= '';
+		WHILE LASTMOVE(REF_PrdTechInfo) DO
+			IF (REF_PrdTechInfo.NS_oa:NameValue.(XMLNSC.Attribute)name = 'SERIAL NUMBER') THEN
+				SET REF_EnvDBValue.GIFT_CARD_SERIAL_NUMBER		= REF_PrdTechInfo.NS_oa:NameValue;
+			END IF;
+			MOVE REF_PrdTechInfo NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		--Mapping for ITEM_CODE
+		SET REF_EnvDBValue.ITEM_CODE 							= REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:UPCID;
+		
+		--Mapping for ITEM_CUST_AGE_RESTRICT
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:ProductItem.NS_Dfns:SellingRestriction.NS_oa:Code[]) THEN
+			SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT 			= REF_SalesOrderLine.NS_Dfns:ProductItem.NS_Dfns:SellingRestriction.NS_oa:Code;
+		ELSE
+			SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT 			= '';
+		END IF;
+		
+			IF EXISTS(REF_SalesOrder.NS_Dfns:SalesOrderLine[]) THEN
+			
+			IF UPPER(REF_SalesOrderLine.NS_Dfns:SellingRestrictionPromptIndicator) = 'TRUE' THEN
+				SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_PROMPT = 'Y';
+			ELSE
+				SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_PROMPT = 'N';
+			END IF;
+			
+		ELSE
+			SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_PROMPT 	 = '';
+		END IF;
+		
+		--IF  EXISTS(REF_SalesOrderLine.NS_Dfns:SellingRestrictionRefusalIndicator [])THEN
+		IF EXISTS(REF_SalesOrder.NS_Dfns:SalesOrderLine[]) THEN
+			
+			IF UPPER(REF_SalesOrderLine.NS_Dfns:SellingRestrictionRefusalIndicator) = 'TRUE' THEN
+				SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_REFUSE 	= 'Y';
+			ELSE
+				SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_REFUSE 	= 'N';
+			END IF;
+			
+		ELSE
+			SET REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_REFUSE		= '';
+		END IF;
+		
+		IF  EXISTS(REF_SalesOrderLine.NS_Dfns:ManualKeyingIndicator []) AND UPPER(REF_SalesOrderLine.NS_Dfns:ManualKeyingIndicator) = 'TRUE' THEN
+			SET REF_EnvDBValue.ITEM_KEYED 							= 'Y';
+		ELSE
+			SET REF_EnvDBValue.ITEM_KEYED 							= 'N';
+		END IF;
+		
+		--Mapping for ITEM_MARKDOWN_REASON_DESC,ITEM_MARKDOWN_REASON_CODE and REF_EnvDBValue.LINE_MARKDN_DATE_TIME,ITM_MKDN_FLG
+		
+		SET REF_EnvDBValue.LINE_MARKDN_DATE_TIME 					= '';
+		SET REF_EnvDBValue.LINE_DISC_DATE_TIME						= '';
+		SET REF_EnvDBValue.ITEM_MARKDOWN_REASON_CODE				= '';
+		SET REF_EnvDBValue.ITEM_MARKDOWN_REASON_DESC 				= ''; 
+		SET REF_EnvDBValue.ITM_MKDN_FLG 							= 'N';
+		
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:Allowance[]) THEN
+			
+			WHILE LASTMOVE(REF_Allowance) DO
+				
+				IF UPPER(REF_Allowance.NS_oa:Description) IN ('ITEMDISCOUNT','PRICEOVERRIDE') THEN
+					
+					--Replace and substring to remove 'T' and time zone offset from timestamp
+					SET REF_EnvDBValue.LINE_MARKDN_DATE_TIME 		= SUBSTRING(REPLACE(REF_Allowance.NS_oa:LastModificationDateTime, 'T' ,' ') FROM 1 FOR 19);
+					SET REF_EnvDBValue.ITEM_MARKDOWN_REASON_CODE 	= REF_Allowance.NS_oa:ReasonCode;
+					SET REF_EnvDBValue.ITEM_MARKDOWN_REASON_DESC 	= REF_Allowance.NS_oa:ReasonCode.(XMLNSC.Attribute)name;
+					
+					
+				END IF; 
+					
+				IF UPPER(REF_Allowance.NS_oa:Description) = 'TRANSACTIONEMPLOYEEDISCOUNT' THEN
+					SET REF_EnvDBValue.LINE_DISC_DATE_TIME			= SUBSTRING(REPLACE(REF_Allowance.NS_oa:LastModificationDateTime, 'T' ,' ') FROM 1 FOR 19);
+				END IF;
+				
+				
+				IF COALESCE(REF_Allowance.NS_oa:Description,'') <> '' THEN
+					
+					IF UPPER(REF_Allowance.NS_oa:Description) 			= 'ITEMDISCOUNT'THEN
+							
+						SET REF_EnvDBValue.VboolaFLAG 					= 'TRUE';
+					ELSE
+						SET REF_EnvDBValue.VboolaFLAG 					= 'FALSE';
+					END IF;
+					
+					IF REF_EnvDBValue.VboolaFLAG = 'FALSE' THEN
+						
+						IF  UPPER(REF_Allowance.NS_oa:Description)	= 'PRICEOVERRIDE' THEN
+							SET REF_EnvDBValue.VboolaFLAG 			= 'TRUE'; 
+						END IF;
+					END IF;
+					
+					IF REF_EnvDBValue.VboolaFLAG = 'TRUE' THEN
+						SET REF_EnvDBValue.ITM_MKDN_FLG 			= 'Y';
+					END IF;
+					
+				END IF;
+				
+				MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+				
+			END WHILE;
+			ELSE
+				
+				SET REF_EnvDBValue.LINE_MARKDN_DATE_TIME			= '';
+				SET REF_EnvDBValue.ITEM_MARKDOWN_REASON_CODE		= '';
+				SET REF_EnvDBValue.ITEM_MARKDOWN_REASON_DESC		= '';
+				
+			END IF;
+		
+		--Building query for date datatype column
+		IF REF_EnvDBValue.LINE_DISC_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.LINE_DISC_DATE_TIME 			= COALESCE('to_date('''|| REF_EnvDBValue.LINE_DISC_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.LINE_DISC_DATE_TIME 			= '''''';
+		END IF;
+		
+		IF REF_EnvDBValue.LINE_MARKDN_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.LINE_MARKDN_DATE_TIME 				= COALESCE('to_date('''|| REF_EnvDBValue.LINE_MARKDN_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.LINE_MARKDN_DATE_TIME 				= '''''';
+		END IF;
+				
+		--Mapping for ITEM_QTY
+		SET DC_Quantity	= COALESCE(CAST(REF_SalesOrderLine.NS_oa:Quantity AS DECIMAL),0);
+		SET DC_Quantity	= DC_Quantity * 100;
+		
+		--If less than 0 then make it positive
+		IF (DC_Quantity < 0) THEN
+			SET DC_Quantity = DC_Quantity * -1;
+		END IF;
+		
+		IF  REF_SalesOrderLine.NS_oa:Quantity <> '' THEN
+			SET REF_EnvDBValue.ITEM_QTY 							= CAST (DC_Quantity AS CHARACTER);
+		ELSE
+			SET REF_EnvDBValue.ITEM_QTY 							= '0';
+		END IF;
+		
+		--Mapping for ITEM_RETURN_REASON_CODE
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:ReasonCode[]) THEN
+			SET REF_EnvDBValue.ITEM_RETURN_REASON_CODE 				= REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:ReasonCode;
+		ELSE
+			SET REF_EnvDBValue.ITEM_RETURN_REASON_CODE 				= '';
+		END IF;
+		
+		--Mapping for ITEM_RETURN_REASON_DESC
+		IF REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:Reason <> '' THEN
+			SET REF_EnvDBValue.ITEM_RETURN_REASON_DESC 				= REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:Reason;
+		ELSE
+			SET REF_EnvDBValue.ITEM_RETURN_REASON_DESC 				= '';
+		END IF;
+		
+		--Mapping For ITEM_DEPT
+		IF COALESCE(REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'') IN ('ACCOUNT PAYMENT RETURN','ACCOUNT PAYMENT SALE') OR REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+			SET REF_EnvDBValue.ITM_DEPT								= '8888';
+		
+		ELSE IF( REF_SalesOrderLine.NS_Dfns:ProductItem.NS_Dfns:MerchandisingHierarchy.NS_oa:Type = '') THEN
+				SET CH_Hlevel											= '';
+			ELSE
+				SET CH_Hlevel											= REF_SalesOrderLine.NS_Dfns:ProductItem.NS_Dfns:MerchandisingHierarchy.NS_oa:Type;
+			END IF;
+		END IF;
+		
+		IF  CH_Hlevel = 'Department' THEN
+			SET REF_EnvDBValue.ITM_DEPT									= REF_SalesOrderLine.NS_Dfns:ProductItem.NS_Dfns:MerchandisingHierarchy.NS_oa:ID;
+		END IF;
+		
+		IF STARTSWITH (REF_EnvDBValue.ITM_DEPT,'0') THEN
+			SET REF_EnvDBValue.ITM_DEPT									= SUBSTRING(REF_EnvDBValue.ITM_DEPT FROM 2 FOR 3);
+		END IF;
+		
+		--End Mapping For ITEM_DEPT
+		
+		--Mapping for ITEM_RETURN_REFERENCE
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:Description[]) AND LENGTH(REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:Description)>20 THEN
+			SET REF_EnvDBValue.ITEM_RETURN_REFERENCE 				= SUBSTRING(REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:Description FROM 1 FOR 20);
+		ELSE
+			SET REF_EnvDBValue.ITEM_RETURN_REFERENCE 				= COALESCE(REF_SalesOrderLine.NS_Dfns:ReturnStatus.NS_oa:Description,'');
+		END IF;
+		
+		--Mapping for ITM_POS_PRC
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount[]) AND REF_SalesOrderLine.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount <> '' THEN
+			
+			SET DC_TempAmount 										= CAST(REF_SalesOrderLine.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount AS DECIMAL)*100 ;
+			
+			IF DC_TempAmount < 0 THEN
+				SET DC_TempAmount 									= DC_TempAmount*(-1);
+			END IF;
+			
+			SET REF_EnvDBValue.ITM_POS_PRC 							= CAST(DC_TempAmount AS CHARACTER);
+		ELSE
+			SET REF_EnvDBValue.ITM_POS_PRC 							= '0';
+		END IF; 
+		
+		--Mapping for ITM_SYST_PRC(The value of REF_EnvDBValue.ITM_SYST_PRC is getting overridden if PreOverriddenUnitPrice exists)
+		SET REF_EnvDBValue.ITM_SYST_PRC 						= '0';
+			IF COALESCE(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount,'') <> '' THEN
+				SET DC_TempAmount										= CAST(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount AS DECIMAL)*100;
+			ELSE
+				SET DC_TempAmount										= 0;	
+			END IF;
+			
+			IF COALESCE(REF_SalesOrderLine.NS_Dfns:PreOverriddenUnitPrice.NS_oa:Amount,'') <> '' THEN
+				SET DC_TempAmount										= CAST(REF_SalesOrderLine.NS_Dfns:PreOverriddenUnitPrice.NS_oa:Amount AS DECIMAL)*100;
+			
+			END IF;
+			 
+			IF DC_TempAmount < 0 THEN
+				SET DC_TempAmount									= DC_TempAmount * -1;
+			END IF;
+			
+			SET REF_EnvDBValue.ITM_SYST_PRC 						= CAST (DC_TempAmount AS CHARACTER);
+		
+		--Mapping for ITM_VOID_FLG
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET REF_EnvDBValue.ITM_VOID_FLG 						= 'Y';
+		ELSE
+			SET REF_EnvDBValue.ITM_VOID_FLG 						= 'N';
+		END IF;
+		
+		--Mapping for ITM_VOID_TYP
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET REF_EnvDBValue.ITM_VOID_TYP 						= 'V';
+		ELSE
+			SET REF_EnvDBValue.ITM_VOID_TYP 						= '';
+		END IF;
+		
+		--IF REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CancelledIndicator = '' THEN
+		IF UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CancelledIndicator) = 'TRUE' THEN			
+			SET REF_EnvDBValue.ITM_VOID_TYP 						= 'M';
+		END IF;
+
+		--MApping for ITM_WGHT_FLG
+		SET REF_EnvDBValue.ITM_WGHT_FLG 					= 'N';
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:UOMCode[]) THEN
+			
+			IF REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:UOMCode = '' THEN				
+				SET REF_EnvDBValue.Uom								= '';
+				SET REF_EnvDBValue.Vboola							= 'TRUE';				
+			ELSE					
+				SET REF_EnvDBValue.Uom 								= REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:UOMCode;
+				SET REF_EnvDBValue.Vboola 							= 'FALSE';				
+			END IF;
+			
+			IF REF_EnvDBValue.Uom = 'each' THEN
+				SET REF_EnvDBValue.Vboolb 							= 'TRUE';
+			ELSE
+				SET REF_EnvDBValue.Vboolb 							= 'FALSE';
+			END IF; 
+			
+			IF REF_EnvDBValue.Vboola = 'FALSE' AND REF_EnvDBValue.Vboolb = 'FALSE' THEN
+				SET REF_EnvDBValue.ITM_WGHT_FLG 					= 'Y';
+			ELSE
+				SET REF_EnvDBValue.ITM_WGHT_FLG 					= 'N';
+			END IF;
+			
+		END IF;
+		
+		--Mapping for ITM_XTND_PRC
+		IF COALESCE(REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount,'') = '' THEN
+			SET REF_EnvDBValue.Price 								= '0';
+		ELSE
+			SET REF_EnvDBValue.Price 								= REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount;
+		END IF;
+		
+		IF EXISTS(REF_SalesOrderLine.NS_oa:Quantity[]) AND COALESCE(REF_SalesOrderLine.NS_oa:Quantity,'') <> '' THEN
+			SET REF_EnvDBValue.Quantity 							= REF_SalesOrderLine.NS_oa:Quantity;
+		ELSE
+			SET REF_EnvDBValue.Quantity 							= '0';
+		END IF;
+		
+		IF COALESCE(REF_SalesOrderLine.NS_Dfns:Tax.NS_oa:BasisAmount,'') <> '' THEN
+			SET REF_EnvDBValue.Tax 									= REF_SalesOrderLine.NS_Dfns:Tax.NS_oa:BasisAmount;
+		ELSE
+			SET REF_EnvDBValue.Tax									= '0';
+		END IF;
+		
+		SET REF_EnvDBValue.Tax 										= CAST((CAST(REF_EnvDBValue.Tax AS DECIMAL)*100) AS CHARACTER);
+		
+		SET DC_TempAmount											= (CAST(REF_EnvDBValue.Quantity AS DECIMAL)*CAST(REF_EnvDBValue.Price AS DECIMAL))*100;
+		SET IN_TempAmount											= CAST(DC_TempAmount AS INTEGER);
+		IF IN_TempAmount< 0 THEN
+			SET IN_TempAmount = IN_TempAmount * -1;
+		END IF;
+		SET REF_EnvDBValue.ITM_XTND_PRC								= CAST(IN_TempAmount AS CHARACTER);
+		
+		IF CAST(REF_EnvDBValue.Tax AS DECIMAL) < 0 THEN
+			SET REF_EnvDBValue.Tax 									= CAST(REF_EnvDBValue.Tax AS DECIMAL)*(-1);--REF_EnvDBValue.Tax is iTax
+		END IF;
+		
+		SET REF_EnvDBValue.ITax 									= REF_EnvDBValue.Tax;
+		
+		--Mapping for LINE_DATE_TIME
+		SET REF_EnvDBValue.LINE_DATE_TIME 							= SUBSTRING(REPLACE(REF_SalesOrderLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime, 'T' ,' ') FROM 1 FOR 19);
+		
+		IF COALESCE(REF_EnvDBValue.LINE_DATE_TIME,'') <> '' THEN
+			SET REF_EnvDBValue.LINE_DATE_TIME 						= COALESCE('to_date('''|| REF_EnvDBValue.LINE_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.LINE_DATE_TIME 						= '''''';
+		END IF;		
+		
+		--Mapping for LINE_VOID_DATE_TIME
+		SET REF_EnvDBValue.LINE_VOID_DATE_TIME 						= SUBSTRING(REPLACE(REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:EffectiveDateTime, 'T' ,' ') FROM 1 FOR 19);
+		
+		IF REF_EnvDBValue.LINE_VOID_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.LINE_VOID_DATE_TIME 					= COALESCE('to_date('''|| REF_EnvDBValue.LINE_VOID_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.LINE_VOID_DATE_TIME 					= '''''';
+		END IF;		
+		
+		--Mapping for ORIG_BASKET_FOUND
+		IF UPPER(REF_SalesOrdRef.NS_Dfns:ReferenceFoundIndicator) = 'TRUE' THEN
+			SET REF_EnvDBValue.ORIG_BASKET_FOUND 					= 'Y';
+		ELSE
+			SET REF_EnvDBValue.ORIG_BASKET_FOUND 					= 'N';
+		END IF;
+		
+		--Mapping for ORIG_OP_ID
+		IF LENGTH(REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_Dfns:OperatorID)>20 THEN
+			SET REF_EnvDBValue.ORIG_OP_ID 							= SUBSTRING(REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_Dfns:OperatorID FROM 1 FOR 20);
+		ELSE
+			SET REF_EnvDBValue.ORIG_OP_ID 							= REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_Dfns:OperatorID;
+		END IF;
+
+		
+		--Mapping for ORIG_RECEIPT
+		IF UPPER(REF_SalesOrdRef.NS_Dfns:ReferenceProvidedIndicator) = 'TRUE' THEN
+			SET REF_EnvDBValue.ORIG_RECEIPT 						 = 'Y';
+		ELSE
+			SET REF_EnvDBValue.ORIG_RECEIPT 						 = 'N';
+		END IF;
+		
+		--Mapping for ORIG_STORE
+		IF LENGTH(REF_SalesOrdRef.NS_oa:SourceID)>6 THEN
+			SET REF_EnvDBValue.ORIG_STORE 							= SUBSTRING(REF_SalesOrdRef.NS_oa:SourceID FROM 1 FOR 6);
+		ELSE
+			SET REF_EnvDBValue.ORIG_STORE 							= REF_SalesOrdRef.NS_oa:SourceID;
+		END IF;
+		
+		--Mapping for ORIG_TILL
+		IF LENGTH(REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_Dfns:TillID)>4 THEN
+			SET REF_EnvDBValue.ORIG_TILL 							= SUBSTRING(REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_Dfns:TillID FROM 1 FOR 4);
+		ELSE
+			SET REF_EnvDBValue.ORIG_TILL 							= REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_Dfns:TillID;
+		END IF;
+		
+		--Mapping for ORIG_TRANS_DATE_TIME
+		SET REF_EnvDBValue.ORIG_TRANS_DATE_TIME 					= SUBSTRING(REPLACE(REF_SalesOrdRef.NS_oa:DocumentDateTime, 'T' ,' ') FROM 1 FOR 19);
+		
+		IF REF_EnvDBValue.ORIG_TRANS_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.ORIG_TRANS_DATE_TIME 				= COALESCE('to_date('''|| REF_EnvDBValue.ORIG_TRANS_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.ORIG_TRANS_DATE_TIME 				= '''''';
+		END IF;		
+		
+		--Mapping for ORIG_TRANS_NUMBER
+		SET REF_EnvDBValue.ORIG_TRANS_NUMBER						= COALESCE( REF_SalesOrdRef.NS_Dfns:SalesTransaction.NS_oa:Sequence,'');
+		
+		
+		--Mapping for ORIG_UNIT_PRICE(Added NS_oa:Amount)
+		IF UPPER(REF_SalesOrdRef.NS_Dfns:ReferenceFoundIndicator) = 'TRUE' THEN
+			
+			IF COALESCE(REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_oa:UnitPrice.NS_oa:Amount,'') <> '' THEN
+				SET REF_EnvDBValue.ORIG_UNIT_PRICE 					= CAST((CAST(REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_oa:UnitPrice.NS_oa:Amount AS DECIMAL)*100) AS CHARACTER);
+			ELSE
+				SET REF_EnvDBValue.ORIG_UNIT_PRICE 					= 'null';
+			END IF;
+			
+		ELSE
+			SET REF_EnvDBValue.ORIG_UNIT_PRICE 						= 'null';
+		END IF;
+		
+		
+		--Mapping for POS_QTY_EX_VAT
+		SET REF_EnvDBValue.ArtDesc 									= REF_AppArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET REF_EnvDBValue.POS_QTY_EX_VAT 							= '0';
+		SET REF_EnvDBValue.POS_QTY_VAT								= '0';
+		
+		IF REF_SalesOrderLine.NS_Dfns:TotalTaxableAmount <> '' THEN 
+			SET REF_EnvDBValue.TaxTotal 							= REF_SalesOrderLine.NS_Dfns:TotalTaxableAmount;
+		ELSE
+			SET REF_EnvDBValue.TaxTotal 							= '0';
+		END IF;
+		
+		IF REF_SalesOrderLine.NS_Dfns:Tax.NS_oa:Amount <> '' THEN
+			SET REF_EnvDBValue.Tax 									= REF_SalesOrderLine.NS_Dfns:Tax.NS_oa:Amount;
+		ELSE
+			SET REF_EnvDBValue.Tax 									= '0';
+		END IF;
+		
+		IF REF_SalesOrderLine.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount <> '' THEN
+			SET REF_EnvDBValue.PosPrice 							= REF_SalesOrderLine.NS_Dfns:DiscountedUnitPrice.NS_oa:Amount;
+		ELSE
+			SET REF_EnvDBValue.PosPrice 							= '0';
+		END IF;
+		
+		IF REF_EnvDBValue.ArtDesc = 'SAPCO' THEN
+			
+			SET REF_EnvDBValue.PosPrice 							= CAST((CAST(REF_EnvDBValue.PosPrice AS DECIMAL)*100) AS CHARACTER); 	 
+			
+			IF CAST(REF_EnvDBValue.PosPrice AS DECIMAL) <0 THEN
+				SET REF_EnvDBValue.PosPrice 						= CAST(REF_EnvDBValue.PosPrice AS DECIMAL)*(-1);
+			END IF;
+				SET REF_EnvDBValue.POS_QTY_EX_VAT 					= ROUND(CAST(REF_EnvDBValue.PosPrice AS DECIMAL) ,0 MODE ROUND_HALF_UP);
+				SET REF_EnvDBValue.POS_QTY_VAT						= '0.00';
+			
+		
+		ELSE
+			IF REF_EnvDBValue.TaxTotal = '0' THEN
+				SET REF_EnvDBValue.TaxTotal 							= REF_EnvDBValue.PosPrice;
+			END IF;
+			
+			SET REF_EnvDBValue.BdTaxTotal 							= CAST((CAST(REF_EnvDBValue.TaxTotal AS DECIMAL)*100) AS CHARACTER);
+			SET REF_EnvDBValue.BdTax 								= CAST((CAST(REF_EnvDBValue.Tax AS DECIMAL)*100) AS CHARACTER);
+			SET REF_EnvDBValue.BdTaxTotal   						= CAST((CAST(REF_EnvDBValue.BdTaxTotal AS DECIMAL) - CAST(REF_EnvDBValue.BdTax AS DECIMAL)) AS CHARACTER); 
+			
+			IF CAST(REF_EnvDBValue.BdTaxTotal AS DECIMAL)<0 THEN
+				SET REF_EnvDBValue.ITaxTotal 						= CAST((CAST(REF_EnvDBValue.BdTaxTotal AS DECIMAL)*(-1)) AS CHARACTER);
+			ELSE
+				SET REF_EnvDBValue.ITaxTotal 						= REF_EnvDBValue.BdTaxTotal;
+			END IF;
+			
+			IF CAST(REF_EnvDBValue.BdTax AS DECIMAL)<0 THEN
+				SET REF_EnvDBValue.ITax 							= CAST((CAST(REF_EnvDBValue.BdTax AS DECIMAL)*(-1)) AS CHARACTER);
+			ELSE
+				SET REF_EnvDBValue.ITax 							= REF_EnvDBValue.BdTax;
+			END IF;
+	
+			--Code Change for Production defect version 0.6
+			SET REF_EnvDBValue.POS_QTY_EX_VAT 						= ROUND(CAST(REF_EnvDBValue.ITaxTotal AS DECIMAL) , 0 MODE ROUND_HALF_DOWN);
+--			SET REF_EnvDBValue.POS_QTY_VAT							= ROUND(CAST(REF_EnvDBValue.ITax AS DECIMAL) , 0 MODE ROUND_DOWN); 
+			--SET REF_EnvDBValue.POS_QTY_EX_VAT 						= ROUND(CAST(REF_EnvDBValue.ITaxTotal AS DECIMAL) , 0 MODE ROUND_HALF_UP);
+			SET REF_EnvDBValue.POS_QTY_VAT							= ROUND(CAST(REF_EnvDBValue.ITax AS DECIMAL) , 0 MODE ROUND_HALF_UP); 
+			
+		END IF;
+		
+		--Start:Mapping for RECORD_TYPE
+		SET CH_RecType 											= '02';
+		IF UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:SuspendedTransactionIndicator) = 'TRUE' OR COALESCE(UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:TrainingModeIndicator),'') = 'TRUE' THEN
+			SET CH_RecType 										= '04';
+		END IF;
+		
+		
+		SET REF_EnvDBValue.RECORD_TYPE 							= CH_RecType;
+		
+		--End:Mapping for RECORD_TYPE
+	
+		--Calling Procedure  PROC_CCCPLineCommonMapping() 
+		CALL PROC_CCCPLineCommonMapping(REF_SalesOrder,REF_SalesOrderHeader,REF_SalesOrderLine);
+		
+		--Mapping for ITEM_AUTH_USER_ID in Line Mapping
+		
+		--Code Change Start For Production Defect 25/09/2013 version 0.7
+--		IF REF_Payment.NS_Dfns:AuthorizingUserID <> '' THEN
+--			SET CH_Uid												= REF_Payment.NS_Dfns:AuthorizingUserID;
+--			IF LENGTH(CH_Uid) >6 THEN
+--				SET CH_Uid 											= SUBSTRING(CH_Uid FROM 1 FOR 6);
+--			END IF;
+--					
+--		ELSEIF EXISTS(REF_Allowance.NS_Dfns:AuthorizingUserID[]) THEN
+		--Code Change end For Production Defect 25/09/2013 version 0.7
+		FOR REF_Allowance AS REF_SalesOrderLine.NS_Dfns:Allowance[] DO
+			IF COALESCE(REF_Allowance.NS_Dfns:AuthorizingUserID,'') <> '' THEN
+			
+				SET CH_Uid 												= REF_Allowance.NS_Dfns:AuthorizingUserID;
+				IF LENGTH(CH_Uid) >6 THEN
+					SET CH_Uid 											= SUBSTRING(CH_Uid FROM 1 FOR 6);
+				END IF;
+			END IF;
+		END FOR;
+		
+		SET REF_EnvDBValue.ITEM_AUTH_USER_ID 						= COALESCE(CH_Uid,'');
+		
+		--Start of Mapping for REFUND_FLG
+		
+		SET CH_RefundIndicator 										= 'N';
+		SET CH_VBool 												= 'FALSE';
+		
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET CH_VoidFlag 										= 'TRUE';
+		ELSE
+			SET CH_VoidFlag 										= 'FALSE';
+		END IF;
+		
+		IF CH_VoidFlag = 'TRUE' THEN
+			SET CH_VBool 											= 'TRUE';
+		ELSE
+			SET CH_VBool 											= 'FALSE';
+		END IF;
+		
+		IF COALESCE(REF_SalesOrderLine.NS_oa:Quantity,'') <> '' THEN
+			SET CH_Quantity 										= REF_SalesOrderLine.NS_oa:Quantity;
+		ELSE
+			SET CH_Quantity 										= '0';
+		END IF;
+		
+		IF COALESCE(REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:Name,'') <>'' THEN
+			SET CH_ArticleDesc 										= REF_SalesOrderLine.NS_Dfns:ProductItem.NS_oa:Name;
+		ELSE
+			SET CH_ArticleDesc 										= '0';
+		END IF;
+		
+		IF COALESCE(REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount,'') <>'' THEN
+			SET CH_SapCoAmt 										= REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount;
+		ELSE
+			SET CH_SapCoAmt 										= '0';
+		END IF;
+		
+		IF CH_VBool = 'TRUE' THEN
+			SET CH_Quantity 										= CAST((CAST(CH_Quantity AS DECIMAL)* (-1)) AS CHARACTER);
+		END IF;
+		
+		IF CAST(CH_Quantity AS DECIMAL) < 0 THEN
+			SET CH_RefundIndicator 									= 'Y';
+		END IF;
+		
+		IF CH_ArticleDesc = 'SAPCO' AND CAST(CH_SapCoAmt AS DECIMAL)< 0 THEN
+			SET CH_RefundIndicator 									= 'Y';
+		END IF;
+		
+		--Code Change Start For Production Defect 25/09/2013 version 0.7 
+--		IF CAST(REF_EnvDBValue.TNDR_BALANCE AS DECIMAL) < 0 THEN
+--			SET CH_RefundIndicator 									= 'Y';
+--		
+--		END IF; 
+		--Code Change end For Production Defect 25/09/2013 version 0.7 
+		
+		SET REF_EnvDBValue.REFUND_FLG 								= CH_RefundIndicator;
+		--End of mapping for REFUND_FLG
+	
+		--Mapping for ORIGINAL_RECEIPT_KEYED
+		IF EXISTS(REF_SalesOrder.NS_Dfns:SalesOrderLine[]) THEN
+			
+			IF UPPER(REF_SalesOrdRef.NS_Dfns:ManualKeyingIndicator) = 'TRUE' AND 
+							REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type = 'PRODUCT RETURN' THEN
+				SET REF_EnvDBValue.ORIGINAL_RECEIPT_KEYED 			= 'Y';
+			ELSE
+				SET REF_EnvDBValue.ORIGINAL_RECEIPT_KEYED 			= 'N';
+			END IF;
+			
+		ELSE 
+			SET REF_EnvDBValue.ORIGINAL_RECEIPT_KEYED 				= '';
+		END IF;
+		
+		--Mapping for PRICE_ENTERED
+		IF EXISTS(REF_SalesOrder.NS_Dfns:SalesOrderLine[]) THEN
+			
+			IF UPPER(REF_SalesOrderLine.NS_Dfns:PriceOverriddenIndicator) = 'TRUE' THEN
+				SET REF_EnvDBValue.PRICE_ENTERED 					= 'Y';
+			ELSE
+				SET REF_EnvDBValue.PRICE_ENTERED 					= 'N';
+			END IF;
+			
+		ELSE 
+			SET REF_EnvDBValue.PRICE_ENTERED 						= '';
+		END IF;
+		
+		--Mapping for PRICE_CHANGE_ID
+		IF REF_SalesOrderLine.NS_Dfns:OverriddenUnitPrice.NS_oa:Code <> '' THEN
+                  SET REF_EnvDBValue.PRICE_CHANGE_ID                                = REF_SalesOrderLine.NS_Dfns:OverriddenUnitPrice.NS_oa:Code;
+        ELSE
+                  SET REF_EnvDBValue.PRICE_CHANGE_ID                                = '';
+        END IF;
+		
+		
+		--Finding Maximum Amount
+		SET REF_EnvDBValue.BdPrimaryOTenderAmount 				= COALESCE(REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_Dfns:Payment.NS_oa:Amount);
+		FOR REF_Ord_Payment AS REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_Dfns:Payment[] DO
+			
+			IF COALESCE(REF_Ord_Payment.NS_oa:Amount,'') <> '' THEN
+				IF CAST(REF_Ord_Payment.NS_oa:Amount AS DECIMAL) > CAST(REF_EnvDBValue.BdPrimaryOTenderAmount AS DECIMAL) THEN
+					SET REF_EnvDBValue.BdPrimaryOTenderAmount = REF_Ord_Payment.NS_oa:Amount;
+				END IF;
+			END IF;
+			
+			IF COALESCE(REF_EnvDBValue.BdPrimaryOTenderAmount,'') = '' THEN
+				SET REF_EnvDBValue.BdPrimaryOTenderAmount = REF_Ord_Payment.NS_oa:Amount;
+			END IF;
+			
+		END FOR;			
+		
+		-- Mapping for ORIG_PRIMARY_TENDER_ID,
+		SET REF_Env.OUT[] 							= SELECT R FROM REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_Dfns:Payment[] AS R
+													  WHERE R.NS_oa:Amount 	= REF_EnvDBValue.BdPrimaryOTenderAmount;
+
+		SET REF_EnvDBValue.OTenderID 				= REF_Env.OUT.id;
+		SET REF_EnvDBValue.OHashedCardNo 			= REF_Env.OUT.NS_Dfns:PaymentCard.NS_Dfns:HashedNumber;
+		SET REF_EnvDBValue.OToken 					= REF_Env.OUT.NS_Dfns:PaymentCard.NS_Dfns:PaymentAuthorization.NS_Dfns:Token;
+		
+		IF REF_EnvDBValue.OTenderID = '30' THEN
+			SET REF_EnvDBValue.OTenderDesc 						= 'CREDIT/DEBIT CARD';
+		ELSEIF REF_EnvDBValue.OTenderID = '130' THEN
+			SET REF_EnvDBValue.OTenderDesc 						= 'GIFT CARD';
+		ELSE
+			--Retrieves CCCPTenderDescription information from TENDERDATA
+			--SET REF_EnvDBValue.QryStr 						= 'SELECT CCCPTENDERDESCRIPTION FROM TENDERDATA WHERE RETAILJCARDTYPE =''' ||REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_Dfns:Payment.(XMLNSC.Attribute)id||'''';
+			--SET Environment.OutVal[] 							= PASSTHRU(REF_EnvDBValue.QryStr TO Database.{DSN});
+			
+			SET Environment.OutVal[] 							= SELECT TD.CCCPTENDERDESCRIPTION FROM CACHE_CONFIGDATA.TENDERDATA[] AS TD WHERE TD.RETAILJCARDTYPE = REF_SalesOrderLine.NS_Dfns:SalesOrderReference.NS_Dfns:Payment.(XMLNSC.Attribute)id;
+			
+			SET REF_EnvDBValue.OTenderDesc 						= Environment.OutVal[1].CCCPTENDERDESCRIPTION;
+		END IF;
+		
+		SET REF_EnvDBValue.ORIG_HASHED_CARD_NUMBER 				= REF_EnvDBValue.OHashedCardNo;
+		
+		--Mapping for ORIG_PRIMARY_TENDER_AMOUNT
+		SET REF_EnvDBValue.ORIG_PRIMARY_TENDER_AMOUNT 			= CAST((CAST(REF_EnvDBValue.BdPrimaryOTenderAmount AS DECIMAL)*100) AS CHARACTER);
+		IF (CAST(REF_EnvDBValue.ORIG_PRIMARY_TENDER_AMOUNT AS DECIMAL) <0) THEN
+		    SET REF_EnvDBValue.ORIG_PRIMARY_TENDER_AMOUNT      = CAST(CAST(REF_EnvDBValue.ORIG_PRIMARY_TENDER_AMOUNT AS DECIMAL)*-1 AS CHARACTER);
+		END IF;    
+		--Mapping for ORIG_PRIMARY_TENDER_ID
+		SET REF_EnvDBValue.ORIG_PRIMARY_TENDER_ID 				= COALESCE(REF_EnvDBValue.OTenderDesc,'');
+		
+		--Mapping for ORIG_HASHED_CARD_NUMBER_TOKEN
+		SET REF_EnvDBValue.ORIG_HASHED_CARD_NUMBER_TOKEN 		= REF_EnvDBValue.OToken;
+		
+	
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_LayAwayMapping() 											 *
+	* Input Parameters	: REF_SalesOrderHeader, IN REF_SalesOrderLine, REF_AppArea, 		 *
+	*					  REF_SalesOrder , REF_LayAwayDetails								 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to populate LayAwayMapping								 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_LayAwayMapping (IN REF_SalesOrderHeader REFERENCE,IN REF_SalesOrderLine REFERENCE,IN REF_AppArea REFERENCE,IN REF_SalesOrder REFERENCE,IN REF_LayAwayDetails REFERENCE )
+	BEGIN
+		
+		IF UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:LayAwayNotResumedIndicator) = 'TRUE' THEN
+			SET REF_EnvDBValue.NOT_RESUME 							= 'Y';
+		ELSE
+			SET REF_EnvDBValue.NOT_RESUME 							= 'N';
+		END IF;
+		
+		SET REF_EnvDBValue.RECORD_TYPE 								= '03';
+		
+		--Mapping for TRANS_LAYAWAY_DATE_TIME
+		IF UPPER(REF_LayAwayDetails.NS_oa:Status.NS_oa:Type) = 'LAYAWAY' THEN
+			SET REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME 				= SUBSTRING(REPLACE(REF_LayAwayDetails.NS_oa:StartDateTime, 'T' ,' ') FROM 1 FOR 19);
+		ELSE
+			SET REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME 				= '';
+		END IF; 
+		
+		IF REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME 				= COALESCE('to_date('''|| REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME 				= '''''';
+		END IF;
+		
+		--Checking if oa:Type is RESUME or not to populate column values 
+		IF UPPER(REF_LayAwayDetails.NS_oa:Status.NS_oa:Type) = 'RESUME' THEN
+			
+			SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME 			= SUBSTRING(REPLACE(REF_LayAwayDetails.NS_oa:StartDateTime, 'T' ,' ') FROM 1 FOR 19);
+			
+			IF REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME <> '' THEN
+				SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME 		= COALESCE('to_date('''|| REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+			ELSE
+				SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME 		= '''''';
+			END IF;
+			
+			SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_TILL 			= REF_LayAwayDetails.NS_Dfns:TillID;
+
+			IF LENGTH(REF_LayAwayDetails.NS_Dfns:OperatorID)> 20 THEN
+				SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_OP_ID 		= SUBSTRING(REF_LayAwayDetails.NS_Dfns:OperatorID FROM 1 FOR 20);
+			ELSE
+				SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_OP_ID 		= REF_LayAwayDetails.NS_Dfns:OperatorID;
+			END IF;
+			
+		ELSE
+			
+			SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME 			= '''''';
+			SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_TILL 			= '';
+			SET REF_EnvDBValue.TRANS_LAYAWAY_RESUME_OP_ID 			= '';
+				
+		END IF;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_InsertLayAwayMapping() 										 *
+	* Input Parameters	: None																 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to insert LayAwayMapping 								 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_InsertLayAwayMapping ()
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;
+			 
+		
+		DECLARE CH_QryStr CHARACTER;
+		
+		SET CH_QryStr = 'INSERT INTO RJTILLTXLD(
+				TRANS_LAYAWAY_NOT_RESUMED,
+				RECORD_TYPE,
+				TRANS_LAYAWAY_DATE_TIME,
+				TRANS_LAYAWAY_RESUME_DTIME,
+				TRANS_LAYAWAY_RESUME_OP_ID,
+				TRANS_LAYAWAY_RESUME_TILL,
+				CASH_FLG,
+				CC_HASH_CARD_NUM,
+				CHANGE_GIVEN,
+				CREATION_DTE,
+				CSTMR_REFRNC,
+				CSTMR_TYPE,
+				CUSTOMER_POSTCODE,
+				STC_DATE_TIME,
+				DURATION,
+				FNL_DISCOUNT,
+				FNL_ITM_MKDN,
+				FNL_ITM_RFND,
+				FNL_ITM_SLS,
+				FNL_ITM_VOID,
+				FNL_MARKDOWN,
+				FNL_STAFDISC,
+				FNL_TENDERNO,
+				FNL_TRN_DISC,
+				GIFTVCH_FLG,
+				MANFCTR_FLG,
+				NO_SALES_FLG,
+				NOSALE_DATE_TIME,
+				NOSALE_REASON_CODE,
+				NOSALE_REASON_DESC,
+				OPERATOR_ID,
+				SC_TYPE_CUST_REF,
+				SEGFIELD,
+				STORE_CARD_CUST_REF,
+				STRE_CPN_FLG,
+				TILL_NUMBER,
+				TNDR_BAL_EX_VAT,
+				TNDR_BAL_VAT,
+				TRANS_COMPLETE_DATE_TIME,
+				TRANS_COMPLETING_OP_ID,
+				TRANS_COMPLETING_TILL_ID,
+				TRANS_TRAINING_FLAG,
+				TRANS_VOID_DATE_TIME,
+				TRANS_VOID_REASON_CODE,
+				TRANS_VOID_REASON_DESC,
+				TRANSACTN_ID,
+				TRANSCTN_DTE,
+				TRANSCTN_NO,
+				TRANSCTN_TME,
+				TRNSCTN_VOID,
+				XCHNGNTE_FLG,
+				CC_HASH_CARD_NUM_TOKEN,
+				STORE_CODE,
+				STORE_NAME,
+				STORE_DIV_CD,
+				STORE_TYPE,
+				TNDR_BALANCE,
+				ITEM_BALANCE,
+				SEQ_NUMBER)
+				VALUES('''
+				|| COALESCE(REF_EnvDBValue.NOT_RESUME,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.RECORD_TYPE,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.TRANS_LAYAWAY_DATE_TIME,'''''')
+				||','  || COALESCE(REF_EnvDBValue.TRANS_LAYAWAY_RESUME_DTIME,'''''')
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_LAYAWAY_RESUME_OP_ID,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_LAYAWAY_RESUME_TILL,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.CASH_FLG,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.CC_HASH_CARD_NUM,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.CHANGE_GIVEN,'null')
+				||', sysdate'
+				||','''|| COALESCE(REF_EnvDBValue.CSTMR_REFRNC,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.CSTMR_TYPE,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.CUSTOMER_POSTCODE,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.STC_DATE_TIME,'''''')
+				||','  || COALESCE(REF_EnvDBValue.DURATION,'null') 
+				||','  || COALESCE(REF_EnvDBValue.FNL_DISCOUNT,'null') 
+				||','  || COALESCE(REF_EnvDBValue.FNL_ITM_MKDN,'null')
+				||','  || COALESCE(REF_EnvDBValue.FNL_ITM_RFND,'null') 
+				||','  || COALESCE(REF_EnvDBValue.FNL_ITM_SLS,'null')
+				||','  || COALESCE(REF_EnvDBValue.FNL_ITM_VOID,'null') 
+				||','  || COALESCE(REF_EnvDBValue.FNL_MARKDOWN,'null') 
+				||','''|| COALESCE(REF_EnvDBValue.FNL_STAFDIS,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.FNL_TENDERNO,'null') 
+				||','''|| COALESCE(REF_EnvDBValue.FNL_TRN_DIS,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.GIFTVCH_FLG,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.MANFCTR_FLG,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.NO_SALES_FLG,'')||''''
+				||','  || COALESCE(REF_EnvDBValue.NOSALE_DATE_TIME,'''''')
+				||','''|| COALESCE(REF_EnvDBValue.NOSALE_REASON_CODE,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.NOSALE_REASON_DESC,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.OPERATOR_ID,'null') 
+				||','''|| COALESCE(REF_EnvDBValue.SC_TYPE_CUST_REF,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.SEGFIELD,'''''')
+				||','''|| COALESCE(REF_EnvDBValue.STORE_CARD_CUST_REF,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.STRE_CPN_FLG,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.TILL_NUMBER,'null') 
+				||','  || COALESCE(REF_EnvDBValue.TNDR_BAL_EX_VAT,'null') 
+				||','  || COALESCE(REF_EnvDBValue.TNDR_BAL_VAT,'null')
+				||','  || COALESCE(REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME,'''''')
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_COMPLETING_OP_ID,'')  ||''''
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_COMPLETING_TILL_ID,'')||''''
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_TRAINING_FLAG,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.TRANS_VOID_DATE_TIME,'''''')
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_VOID_REASON_CODE,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.TRANS_VOID_REASON_DESC,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.TRANSACTN_ID,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.TRANSCTN_DTE,'''''')
+				||','  || COALESCE(REF_EnvDBValue.TRANSCTN_NO,'null')
+				||','''|| COALESCE(REF_EnvDBValue.TRANSCTN_TME,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.TRNSCTN_VOID,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.XCHNGNTE_FLG,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.CC_HASH_CARD_NUM_TOKEN,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.STORE_CODE,'') ||'''' 
+				||','''|| COALESCE(REF_EnvDBValue.STORE_NAME,'') ||''''
+				||','''|| COALESCE(REF_EnvDBValue.STORE_DIV_CD,'')||''''
+				||','''|| COALESCE(REF_EnvDBValue.STORE_TYPE,'') ||''''
+				||','  || COALESCE(REF_EnvDBValue.TNDR_BALANCE,'null')
+				||','  || COALESCE(REF_EnvDBValue.ITEM_BALANCE,'null') 
+				||','  || COALESCE(REF_EnvDBValue.SeqNumber,'null')
+				||')'
+				||'';
+		
+		DECLARE temp CHARACTER 	CH_QryStr;		
+		PASSTHRU(CH_QryStr);
+		
+		
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_InsertCCCPLineAndCommonMapping()								 *
+	* Input Parameters	: None																 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to insert CCCP Line Mapping 							 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_InsertCCCPLineAndCommonMapping()
+	BEGIN
+		
+ 		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;
+		
+		--Declaring variables
+		DECLARE CH_QryStr CHARACTER;
+		
+						--Insert Query string for RJTILLTXLD table
+						SET CH_QryStr = 'INSERT INTO RJTILLTXLD (
+						CC_CSHBK_AMT,
+						ITEM_CODE,
+						ITEM_CUST_AGE_RESTRICT,
+						ITEM_CUST_AGE_RESTRICT_PROMPT,
+						ITEM_CUST_AGE_RESTRICT_REFUSE,
+						ITEM_KEYED,
+						ITEM_MARKDOWN_REASON_CODE,
+						ITEM_MARKDOWN_REASON_DESC,
+						ITEM_QTY,
+						ITEM_RETURN_REASON_CODE,
+						ITEM_RETURN_REASON_DESC,
+						ITEM_RETURN_REFERENCE,
+						ITM_DEPT,
+						ITM_MKDN_FLG,
+						ITM_POS_PRC,
+						ITM_SYST_PRC,
+						ITM_VOID_FLG,
+						ITM_VOID_TYP,
+						ITM_WGHT_FLG,
+						ITM_XTND_PRC,
+						LINE_DATE_TIME,
+						LINE_DISC_DATE_TIME,
+						LINE_MARKDN_DATE_TIME,
+						LINE_VOID_DATE_TIME,
+						ORIG_BASKET_FOUND,
+						ORIG_OP_ID,
+						ITEM_AUTH_USER_ID,
+						ORIG_RECEIPT,
+						ORIG_STORE,
+						ORIG_TILL,
+						ORIG_TRANS_DATE_TIME,
+						ORIG_TRANS_NUMBER,
+						ORIG_UNIT_PRICE,
+						POS_QTY_EX_VAT,
+						REFUND_FLG,
+						ORIGINAL_RECEIPT_KEYED,
+						PRICE_ENTERED,
+						PRICE_CHANGE_ID,
+						CASH_FLG,
+						CC_HASH_CARD_NUM,
+						CHANGE_GIVEN,
+						CREATION_DTE,
+						CSTMR_REFRNC,
+						CSTMR_TYPE,
+						CUSTOMER_POSTCODE,
+						STC_DATE_TIME,
+						DURATION,
+						FNL_DISCOUNT,
+						FNL_ITM_MKDN,
+						FNL_ITM_RFND,
+						FNL_ITM_SLS,
+						FNL_ITM_VOID,
+						FNL_MARKDOWN,
+						FNL_STAFDISC,
+						FNL_TENDERNO,
+						FNL_TRN_DISC,
+						GIFTVCH_FLG,
+						MANFCTR_FLG,
+						NO_SALES_FLG,
+						NOSALE_DATE_TIME,
+						NOSALE_REASON_CODE,
+						NOSALE_REASON_DESC,
+						OPERATOR_ID,
+						SC_TYPE_CUST_REF,
+						SEGFIELD,
+						STORE_CARD_CUST_REF,
+						STRE_CPN_FLG,
+						TILL_NUMBER,
+						TNDR_BAL_EX_VAT,
+						TNDR_BAL_VAT,
+						TRANS_COMPLETE_DATE_TIME,
+						TRANS_COMPLETING_OP_ID,
+						TRANS_COMPLETING_TILL_ID,
+						TRANS_TRAINING_FLAG,
+						TRANS_VOID_DATE_TIME,
+						TRANS_VOID_REASON_CODE,
+						TRANS_VOID_REASON_DESC,
+						TRANSACTN_ID,
+						TRANSCTN_DTE,
+						TRANSCTN_NO,
+						TRANSCTN_TME,
+						TRNSCTN_VOID,
+						XCHNGNTE_FLG,
+						CC_HASH_CARD_NUM_TOKEN,
+						STORE_CODE,
+						STORE_NAME,
+						STORE_DIV_CD,
+						STORE_TYPE,
+						TNDR_BALANCE,
+						ITEM_BALANCE,
+						SEQ_NUMBER,
+						POS_QTY_VAT,
+						GIFT_CARD_SERIAL_NUMBER,RECORD_TYPE,
+						ORIG_HASHED_CARD_NUMBER,
+						ORIG_PRIMARY_TENDER_AMOUNT,
+						ORIG_PRIMARY_TENDER_ID,
+						ORIG_HASHED_CARD_NUMBER_TOKEN)
+						VALUES('	|| COALESCE(REF_EnvDBValue.CC_CSHBK_AMT,'null')
+						-- || ','''	|| COALESCE(REF_EnvDBValue.SC_TYPE_CARD_NUM,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_CODE,'') ||''''						
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT,'') ||''''	
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_PROMPT,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_CUST_AGE_RESTRICT_REFUSE,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_KEYED,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_MARKDOWN_REASON_CODE,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_MARKDOWN_REASON_DESC,'') ||''''
+						 || ','		|| COALESCE(REF_EnvDBValue.ITEM_QTY,'null') 
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_RETURN_REASON_CODE,'') ||'''' 
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_RETURN_REASON_DESC,'') ||'''' 
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_RETURN_REFERENCE,'') ||''''
+						 || ','		|| COALESCE(REF_EnvDBValue.ITM_DEPT,'null') 
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITM_MKDN_FLG,'') ||'''' 
+						 || ','		|| COALESCE(REF_EnvDBValue.ITM_POS_PRC,'null') 
+						 || ','		|| COALESCE(REF_EnvDBValue.ITM_SYST_PRC,'null') 
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITM_VOID_FLG,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITM_VOID_TYP,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITM_WGHT_FLG,'') ||''''
+						 || ','		|| COALESCE(REF_EnvDBValue.ITM_XTND_PRC,'null')
+						 || ','		|| COALESCE(REF_EnvDBValue.LINE_DATE_TIME,'''''')	
+						 || ','		|| COALESCE(REF_EnvDBValue.LINE_DISC_DATE_TIME,'''''')
+						 || ','		|| COALESCE(REF_EnvDBValue.LINE_MARKDN_DATE_TIME,'''''')
+						 || ','		|| COALESCE(REF_EnvDBValue.LINE_VOID_DATE_TIME,'''''')
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_BASKET_FOUND,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_OP_ID,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_AUTH_USER_ID,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_RECEIPT,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_STORE,'') ||'''' 
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_TILL,'') ||'''' 
+						 || ','		|| COALESCE(REF_EnvDBValue.ORIG_TRANS_DATE_TIME,'''''')
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_TRANS_NUMBER,'null') ||''''
+						 || ','		|| COALESCE(REF_EnvDBValue.ORIG_UNIT_PRICE,'null')
+						 || ','		|| COALESCE(CAST(REF_EnvDBValue.POS_QTY_EX_VAT AS CHARACTER),'null')
+						 || ','''	|| COALESCE(REF_EnvDBValue.REFUND_FLG,'') ||'''' 
+						 --|| ','''	|| COALESCE(REF_EnvDBValue.TEND_CN_NOT_FOUND,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIGINAL_RECEIPT_KEYED,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.PRICE_ENTERED,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.PRICE_CHANGE_ID,'') ||''''
+						 ||',''' 	|| COALESCE(REF_EnvDBValue.CASH_FLG,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.CC_HASH_CARD_NUM,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.CHANGE_GIVEN,'null')
+						 ||', sysdate'
+						 ||','''	|| COALESCE(REF_EnvDBValue.CSTMR_REFRNC,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.CSTMR_TYPE,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.CUSTOMER_POSTCODE,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.STC_DATE_TIME,'''''')
+						 ||','  	|| COALESCE(REF_EnvDBValue.DURATION,'null') 
+						 ||',' 	 	|| COALESCE(REF_EnvDBValue.FNL_DISCOUNT,'null') 
+						 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_MKDN,'null')
+						 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_RFND,'null') 
+						 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_SLS,'null')
+						 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_VOID,'null') 
+						 ||','  	|| COALESCE(REF_EnvDBValue.FNL_MARKDOWN,'null') 
+						 ||','''	|| COALESCE(REF_EnvDBValue.FNL_STAFDIS,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.FNL_TENDERNO,'null') 
+						 ||','''	|| COALESCE(REF_EnvDBValue.FNL_TRN_DIS,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.GIFTVCH_FLG,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.MANFCTR_FLG,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.NO_SALES_FLG,'')||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.NOSALE_DATE_TIME,'''''')
+						 ||','''	|| COALESCE(REF_EnvDBValue.NOSALE_REASON_CODE,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.NOSALE_REASON_DESC,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.OPERATOR_ID,'null') 
+						 ||','''	|| COALESCE(REF_EnvDBValue.SC_TYPE_CUST_REF,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.SEGFIELD,'''''')
+						 ||','''	|| COALESCE(REF_EnvDBValue.STORE_CARD_CUST_REF,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.STRE_CPN_FLG,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.TILL_NUMBER,'null') 
+						 ||','  	|| COALESCE(REF_EnvDBValue.TNDR_BAL_EX_VAT,'null') 
+						 ||','  	|| COALESCE(REF_EnvDBValue.TNDR_BAL_VAT,'null')
+						 ||','  	|| COALESCE(REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME,'''''')
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_COMPLETING_OP_ID,'')  ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_COMPLETING_TILL_ID,'')||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_TRAINING_FLAG,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.TRANS_VOID_DATE_TIME,'''''')
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_VOID_REASON_CODE,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_VOID_REASON_DESC,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANSACTN_ID,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.TRANSCTN_DTE,'''''')
+						 ||','  	|| COALESCE(REF_EnvDBValue.TRANSCTN_NO,'null')
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRANSCTN_TME,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.TRNSCTN_VOID,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.XCHNGNTE_FLG,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.CC_HASH_CARD_NUM_TOKEN,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.STORE_CODE,'') ||'''' 
+						 ||','''	|| COALESCE(REF_EnvDBValue.STORE_NAME,'') ||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.STORE_DIV_CD,'')||''''
+						 ||','''	|| COALESCE(REF_EnvDBValue.STORE_TYPE,'') ||''''
+						 ||','  	|| COALESCE(REF_EnvDBValue.TNDR_BALANCE,'null')
+						 ||','  	|| COALESCE(REF_EnvDBValue.ITEM_BALANCE,'null') 
+						 ||','  	|| COALESCE(REF_EnvDBValue.SeqNumber,'null')
+						 ||','  	|| COALESCE(CAST(REF_EnvDBValue.POS_QTY_VAT AS CHARACTER),'null')
+						 || ','''	|| COALESCE(REF_EnvDBValue.GIFT_CARD_SERIAL_NUMBER,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.RECORD_TYPE,'') ||''''	
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_HASHED_CARD_NUMBER,'') ||''''
+						 || ','		|| COALESCE(REF_EnvDBValue.ORIG_PRIMARY_TENDER_AMOUNT,'null')
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_PRIMARY_TENDER_ID,'') ||''''
+						 || ','''	|| COALESCE(REF_EnvDBValue.ORIG_HASHED_CARD_NUMBER_TOKEN,'') ||''''					  
+						 ||')'
+						 ||'';
+						 
+	DECLARE temp CHARACTER 	CH_QryStr;
+	PASSTHRU(CH_QryStr);	
+	
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CCCPLineCommonMapping() 										 *
+	* Input Parameters	: REF_SalesOrder, REF_SalesOrderHeader, REF_SalesOrderLine			 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to populate commomn mapping								 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CCCPLineCommonMapping (IN REF_SalesOrder REFERENCE,IN REF_SalesOrderHeader REFERENCE,IN REF_SalesOrderLine REFERENCE )
+	BEGIN
+		
+	--Declaring reference
+	DECLARE REF_Payment 				REFERENCE TO REF_SalesOrderHeader.NS_Dfns:Payment;
+	DECLARE REF_SalesTransaction		REFERENCE TO REF_SalesOrderHeader.NS_Dfns:SalesTransaction; 
+	DECLARE REF_PaymentAuthorization 	REFERENCE TO REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:PaymentAuthorization;
+ 	DECLARE REF_Allowance 				REFERENCE TO REF_SalesOrderLine.NS_Dfns:Allowance;
+ 	DECLARE REF_PayFromParty 			REFERENCE TO REF_SalesOrderHeader.NS_Dfns:PayFromParty;
+ 	DECLARE REF_CustomerParty          	REFERENCE TO REF_SalesOrderHeader.NS_Dfns:CustomerParty;
+	DECLARE REF_Location                REFERENCE TO REF_CustomerParty.NS_Dfns:Contact.NS_Dfns:Location;
+ 	DECLARE REF_SalesOrderLineInit	    REFERENCE TO REF_SalesOrderLine;
+ 	
+	--Declaring Variable 
+	DECLARE TS_TimeStamp				TIMESTAMP;
+	DECLARE CH_Date						CHARACTER;
+	DECLARE CH_Voidflag					CHARACTER;
+	DECLARE CH_Veflag					CHARACTER;
+	DECLARE CH_ItemTax					CHARACTER;
+	DECLARE CH_ModId					CHARACTER;
+	DECLARE CH_Mfcflag					CHARACTER;
+	DECLARE CH_Vboolm 					CHARACTER 'FALSE';
+	DECLARE CH_Vboolm1					CHARACTER 'FALSE';
+	DECLARE CH_Gvflag					CHARACTER;
+	DECLARE CH_Vboolg					CHARACTER 'FALSE';
+	DECLARE CH_Vboolg1 					CHARACTER 'FALSE';
+	DECLARE CH_Vboolg2 					CHARACTER 'FALSE';
+	DECLARE CH_Vboolg3 					CHARACTER 'FALSE';
+	DECLARE CH_Vboolr					CHARACTER 'FALSE';
+	DECLARE CH_Vbool					CHARACTER;
+	DECLARE CH_Vbool1					CHARACTER;
+	DECLARE CH_Modifierid				CHARACTER;
+	DECLARE CH_Vboola					CHARACTER;
+	DECLARE CH_Disctypes				CHARACTER;
+	DECLARE CH_Exntflag					CHARACTER;
+	DECLARE CH_Vboole					CHARACTER 'FALSE';
+	DECLARE CH_Token					CHARACTER;
+	DECLARE CH_CccpDesc					CHARACTER;
+	DECLARE CH_Vboolc					CHARACTER 'FALSE';
+	DECLARE CH_Vboolc1					CHARACTER 'FALSE';
+	DECLARE CH_Account					CHARACTER;
+	DECLARE CH_Description				CHARACTER;
+	DECLARE CH_Refind					CHARACTER;
+	DECLARE CH_CustCode					CHARACTER;
+	DECLARE CH_SourceDateTime			CHARACTER;
+	DECLARE CH_SqlStr					CHARACTER;
+	DECLARE CH_BeginDate				CHARACTER;
+	DECLARE CH_EndDate					CHARACTER;
+	DECLARE IN_BeginDate				INTEGER;
+	DECLARE IN_EndDate					INTEGER;
+	DECLARE IN_Begin					INTEGER;
+	DECLARE IN_End						INTEGER;
+	DECLARE IN_Duration					INTEGER;
+	DECLARE IN_Items					INTEGER;
+	DECLARE DC_Quantity					DECIMAL;
+	DECLARE DC_BdPromoAmnt				DECIMAL;
+	DECLARE IN_TotalItemTax				INTEGER;
+	DECLARE DC_BdTotalItemTax			DECIMAL 0;
+	DECLARE IN_TotalItemBalance			INTEGER;
+	DECLARE IN_DiscountCount			INTEGER 0;
+	DECLARE IN_TenderCount				INTEGER;
+	DECLARE IN_TotalAmount				INTEGER 0;
+	DECLARE IN_iamount					INTEGER;
+	DECLARE DC_Amount					DECIMAL;
+	DECLARE IN_Temp 					INTEGER;
+	DECLARE DC_TenderAmount				DECIMAL;
+	DECLARE DC_ChangeAmount				DECIMAL;
+	DECLARE IN_Cni						INTEGER 0;
+	DECLARE DC_TotalAmount				DECIMAL;
+	DECLARE IN_TotalAmountC				INTEGER;
+	DECLARE IN_TenderAmount				INTEGER;
+	DECLARE IN_ChangeAmount				INTEGER;
+	DECLARE CH_RecType					CHARACTER;
+	DECLARE IN_Min						INTEGER;
+	DECLARE DC_Duration					DECIMAL;
+	DECLARE IN_Ihours					INTEGER;
+	DECLARE CH_Shours					CHARACTER;
+	DECLARE CH_Smins					CHARACTER;
+	DECLARE CH_Duration					CHARACTER;
+	
+	DECLARE REF_Input 				REFERENCE TO InputRoot.XMLNSC;
+	DECLARE REF_AppArea 			REFERENCE TO REF_Input.NS_Dfns:SynchroniseSalesOrder.NS_oa:ApplicationArea;
+	
+	
+	--Call PROC_CustomLogic1()
+	CALL PROC_CustomLogic1(CH_Vboolm,CH_Vboolm1,CH_Vboolg,CH_Vboolg1,CH_Vboolg2,CH_Vboolg3,CH_Vboolr,CH_Vboole,CH_Vboolc,CH_Vboolc1,REF_Payment);
+	
+	SET REF_EnvDBValue.CASH_FLG									= 'N';
+	
+	IF CH_Vboolc = 'TRUE' OR CH_Vboolc1 						= 'TRUE' THEN
+		SET REF_EnvDBValue.CASH_FLG								= 'Y';
+	END IF;
+	
+	--Call PROC_CustomLogic2()
+	CALL PROC_CustomLogic2(CH_Token,CH_Account,REF_SalesOrderHeader,REF_PaymentAuthorization);
+	
+	IF COALESCE(CH_Account,'') <> '' THEN
+		SET REF_EnvDBValue.CC_HASH_CARD_NUM 					= CH_Account; 
+	ELSE
+		SET REF_EnvDBValue.CC_HASH_CARD_NUM 					= '';
+	END IF;
+	
+	--Mapping Change Given--
+	SET IN_Temp 												= 0;
+	SET IN_TotalAmount											= 0;
+	SET IN_Cni													= 0;
+	SET IN_ChangeAmount											= 0;
+	SET IN_TotalAmountC											= 0;
+	
+	WHILE LASTMOVE(REF_Payment) DO
+		IF EXISTS(REF_SalesOrderHeader.NS_Dfns:Payment[]) THEN
+			IF COALESCE(REF_Payment.NS_oa:Amount,'') = '' THEN
+			SET DC_TenderAmount									= 0;
+			ELSE
+			SET DC_TenderAmount									= REF_Payment.NS_oa:Amount;
+			END IF;
+		
+			IF COALESCE(REF_Payment.NS_Dfns:ChangeAmount,'') = '' THEN
+				SET DC_ChangeAmount 								= 0;
+			ELSE
+				SET DC_ChangeAmount 								= REF_Payment.NS_Dfns:ChangeAmount;
+			END IF;
+		
+			IF COALESCE(REF_Payment.(XMLNSC.Attribute)id,'') = '' THEN
+				SET CH_Description 									= 0;
+			ELSE
+				SET CH_Description = REF_Payment.(XMLNSC.Attribute)id;
+			END IF;
+			SET DC_TenderAmount	= DC_TenderAmount * 100;
+			SET IN_TenderAmount	= CAST(DC_TenderAmount AS INTEGER);
+			
+			IF UPPER(CH_Description) = 'CHANGENOTISSUED' THEN
+				SET IN_Cni 											= IN_Cni + IN_TenderAmount;
+			ELSE
+				SET IN_TotalAmount 									= IN_TotalAmount + IN_TenderAmount;
+				SET IN_Temp		   									= IN_Temp+ IN_TenderAmount;
+			END IF;
+			
+			SET DC_ChangeAmount   	= DC_ChangeAmount * 100;
+			SET IN_ChangeAmount		= CAST(DC_ChangeAmount AS INTEGER);
+			SET IN_TotalAmountC		= IN_TotalAmountC + IN_ChangeAmount;
+		END IF;
+		
+		
+	 MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;	
+	 
+	END WHILE;
+	
+	MOVE REF_Payment TO REF_SalesOrderHeader.NS_Dfns:Payment;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	
+	WHILE LASTMOVE( REF_SalesOrderLine )DO
+		
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:Allowance[]) THEN
+			MOVE REF_Allowance 	TO  REF_SalesOrderLine.NS_Dfns:Allowance;
+			WHILE LASTMOVE(REF_Allowance) DO
+				
+				IF (UPPER(REF_Allowance.NS_oa:ID) = 'STORECOUPONTRANSACTION') THEN 
+					
+				    SET IN_TotalAmount = IN_TotalAmount + CAST(CAST(REF_Allowance.NS_oa:BasisAmount AS DECIMAL)* 100 AS INTEGER);
+				END IF;
+				
+				MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME; 
+			END WHILE;
+			
+			MOVE REF_Allowance TO REF_SalesOrderLine.NS_Dfns:Allowance;
+			
+		END IF;
+		
+		MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	
+	SET IN_Temp 												= IN_Temp - IN_Cni;
+	SET IN_TotalAmount											= IN_TotalAmount - IN_TotalAmountC;
+	SET IN_Temp													= IN_Temp - IN_TotalAmountC;
+	
+	IF IN_TotalAmount < 0 THEN
+	 	SET CH_Refind											= 'Y';
+	END IF;
+	
+	SET REF_EnvDBValue.CHANGE_GIVEN								= CAST (IN_TotalAmountC AS CHARACTER);
+	
+	--Mapping TNDR_BALANCE
+	SET REF_EnvDBValue.TNDR_BALANCE 							= CAST(IN_TotalAmount AS CHARACTER);
+	
+	--Call proc_CustomLogic3()
+	CALL PROC_CustomLogic3(CH_CccpDesc,CH_CustCode,REF_SalesOrder,REF_Allowance,REF_SalesOrderHeader);
+	SET REF_EnvDBValue.CH_CccpDesc								= CH_CccpDesc;
+	
+	IF COALESCE(CH_CustCode,'')	<> '' THEN
+		SET REF_EnvDBValue.CSTMR_TYPE							= CH_CustCode;
+	ELSE
+		SET REF_EnvDBValue.CSTMR_TYPE							= '';
+	END IF;
+	
+	--Mapping CUSTOMER_POSTCODE --
+	SET REF_EnvDBValue.CUSTOMER_POSTCODE                         = REF_Location.NS_oa:Address.NS_oa:PostalCode;
+
+	--Mapping STC_DATE_TIME
+	SET CH_SourceDateTime 										= '';
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	WHILE LASTMOVE( REF_SalesOrderLine )DO
+		
+		MOVE REF_Allowance TO REF_SalesOrderLine.NS_Dfns:Allowance;
+		IF EXISTS(REF_SalesOrderLine.NS_Dfns:Allowance[]) THEN
+			WHILE LASTMOVE(REF_Allowance) DO
+				
+				IF UPPER(REF_Allowance.NS_oa:ID)		= 'STORECOUPONTRANSACTION' THEN
+					SET CH_SourceDateTime							= REF_Allowance.NS_oa:LastModificationDateTime;
+				END IF;
+				MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+		END IF;
+		MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	MOVE REF_Allowance TO REF_SalesOrderLine.NS_Dfns:Allowance;
+	
+	SET REF_EnvDBValue.STC_DATE_TIME 							= SUBSTRING(REPLACE(CH_SourceDateTime, 'T' ,' ') FROM 1 FOR 19);
+	
+	--Setting NOSALE_DATE_TIME
+	IF REF_EnvDBValue.STC_DATE_TIME <> '' THEN
+		SET REF_EnvDBValue.STC_DATE_TIME 						= COALESCE('to_date('''|| REF_EnvDBValue.STC_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+	ELSE
+		SET REF_EnvDBValue.STC_DATE_TIME 						= '''''';
+	END IF;
+	
+	--Mapping  DURATION
+	IF COALESCE(UPPER(REF_SalesTransaction.NS_Dfns:LayAwayNotResumedIndicator ),'')	<> 'TRUE' THEN
+		
+		SET CH_BeginDate										= SUBSTRING(REPLACE(REF_SalesTransaction.NS_oa:StartDateTime, 'T' ,'') FROM 1 FOR 18);
+		SET CH_BeginDate										= REPLACE(CH_BeginDate, '-' ,'');
+		SET CH_EndDate											= SUBSTRING(REPLACE(REF_SalesTransaction.NS_oa:EndDateTime, 'T' ,'') FROM 1 FOR 18);
+		SET CH_EndDate											= REPLACE(CH_EndDate, '-' ,'');
+		
+		--Calling the function FUNC_DateDiffCalculation()
+		SET IN_Begin											= FUNC_DateDiffCalculation('1970010112:23:23',CH_BeginDate);
+		
+		--Calling the function FUNC_DateDiffCalculation()
+		SET IN_End   											= FUNC_DateDiffCalculation('1970010112:23:23',CH_EndDate);
+		
+		--SET IN_Duration 										= COALESCE((IN_Begin - IN_End),'null');
+		SET IN_Duration 										= (IN_End - IN_Begin );
+		SET IN_Duration											= IN_Duration + 59000;
+		
+		SET DC_Duration											= IN_Duration / 60000;
+		SET IN_Min												= CAST(DC_Duration AS INTEGER);
+		
+		SET IN_Ihours = 0;
+		WHILE IN_Min>= 60 DO
+			SET IN_Min = IN_Min - 60;
+			SET IN_Ihours = IN_Ihours + 1;
+		END WHILE;
+		SET CH_Shours = CAST(IN_Ihours AS CHARACTER);
+		IF LENGTH(CH_Shours)= 0 THEN
+			SET CH_Shours = '00';
+		END IF;
+		IF LENGTH(CH_Shours)= 1 THEN
+			SET CH_Shours = '0' || CH_Shours;
+		END IF;
+		SET CH_Smins	=	CAST(IN_Min AS CHARACTER);
+		IF LENGTH(CH_Smins)= 0 THEN
+			SET CH_Smins = '00';
+		END IF;
+		IF LENGTH(CH_Smins)= 1 THEN
+			SET CH_Smins = '0' || CH_Smins;
+		END IF;
+		IF STARTSWITH(CH_Smins,'-') THEN
+			SET CH_Duration = '-'|| CH_Shours||SUBSTRING(CH_Smins FROM 2);
+		ELSE
+			SET CH_Duration = CH_Shours || CH_Smins;
+		END IF;
+		
+		SET REF_EnvDBValue.DURATION								= CH_Duration;
+		
+	END IF;
+	
+	--Setting FNL_DISCOUNT 
+	--Call PROC_CustomLogic4()
+	CALL PROC_CustomLogic4(IN_DiscountCount,IN_TotalAmount,REF_SalesOrderLine,REF_Allowance,REF_SalesOrder);
+	
+	SET REF_EnvDBValue.FNL_DISCOUNT								= CAST(IN_TotalAmount AS CHARACTER);
+	
+	--Call PROC_CustomLogic5()
+	CALL PROC_CustomLogic5(IN_TotalAmount,IN_Items,REF_SalesOrderLine,REF_Allowance,REF_SalesOrder);
+	
+	SET REF_EnvDBValue.FNL_ITM_MKDN								= CAST(IN_Items AS CHARACTER);
+	
+	--Mapping  FNL_ITM_RFND
+	SET IN_Items 												= 0;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	WHILE LASTMOVE(REF_SalesOrderLine) DO
+		
+		IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN('PRODUCT RETURN','ACCOUNT PAYMENT RETURN','GIFT VOUCHER RETURN') THEN
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID LINE' THEN 
+				SET CH_Voidflag									= 'TRUE';
+			ELSE
+				SET CH_Voidflag									= '';
+			END IF;
+			
+			IF CH_Voidflag	= 'TRUE' THEN
+				SET CH_Vbool									= 'TRUE';
+			ELSE
+				SET CH_Vbool									= 'FALSE';
+			END IF;
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID ENTRY' THEN 
+				SET CH_Veflag									= 'TRUE';
+			ELSE
+				SET CH_Veflag									= '';
+			END IF;
+			
+			--Code Fix for Production Defect version 0.6
+			--IF CH_Voidflag	= 'TRUE' THEN
+			IF CH_Veflag	= 'TRUE' THEN
+				SET CH_Vbool1									= 'TRUE';
+			ELSE
+				SET CH_Vbool1									= 'FALSE';
+			END IF;
+			
+			IF CH_Vbool	= 'FALSE' AND CH_Vbool1 = 'FALSE' THEN
+				SET IN_Items									= IN_Items + 1;
+			END IF;
+			
+		END IF;
+		
+	MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+	
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	SET REF_EnvDBValue.FNL_ITM_RFND								= CAST(IN_Items AS CHARACTER);
+	
+	--Mapping FNL_ITM_SLS
+	SET IN_Items 												= 0;
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	WHILE LASTMOVE(REF_SalesOrderLine) DO
+		
+		IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type	IN('PRODUCT SALE','ACCOUNT PAYMENT SALE','GIFT VOUCHER SALE','RECHARGEABLE VOUCHER SALE','CONTACT CENTRE PRODUCT SALE') THEN
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID LINE' THEN 
+				SET CH_Voidflag									= 'TRUE';
+			ELSE
+				SET CH_Voidflag									= '';
+			END IF;
+			
+			IF CH_Voidflag	= 'TRUE' THEN
+				SET CH_Vbool									= 'TRUE';
+			ELSE
+				SET CH_Vbool									= 'FALSE';
+			END IF;
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID ENTRY' THEN 
+				SET CH_Veflag									= 'TRUE';
+			ELSE
+				SET CH_Veflag									= '';
+			END IF;
+			
+			IF CH_Veflag	= 'TRUE' THEN
+				SET CH_Vbool1									= 'TRUE';
+			ELSE
+				SET CH_Vbool1									= 'FALSE';
+			END IF;
+			
+			IF CH_Vbool	= 'FALSE' AND CH_Vbool1 = 'FALSE' THEN
+				SET IN_Items									= IN_Items + 1;
+			END IF;
+			
+		END IF;
+		
+	MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	SET REF_EnvDBValue.FNL_ITM_SLS	= CAST(IN_Items AS CHARACTER);
+	
+	--Mapping FNL_ITM_VOID
+	SET IN_Items 												= 0;
+	SET CH_Vboola												= 'FALSE';
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	WHILE LASTMOVE(REF_SalesOrderLine) DO
+		
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID LINE' THEN
+			SET CH_Voidflag										= 'TRUE';
+		ELSE
+			SET CH_Voidflag										= '';
+		END IF;
+		
+		IF  CH_Voidflag	= 'TRUE' THEN
+			SET CH_Vboola										= 'TRUE';
+		ELSE
+			SET CH_Vboola										= 'FALSE';
+		END IF;
+		
+		IF CH_Vboola = 'TRUE' THEN
+			SET IN_Items										= IN_Items + 1;
+		END IF;
+		
+	MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+	
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	SET REF_EnvDBValue.FNL_ITM_VOID								= CAST(IN_Items AS CHARACTER);
+	
+	SET REF_EnvDBValue.FNL_MARKDOWN 							= CAST(IN_TotalAmount AS CHARACTER);
+	
+	--Mapping FNL_STAFDIS
+	SET IN_TotalAmount								=	0;
+	SET CH_Vboola 									= 'FALSE';
+	SET IN_iamount									= 0;
+	 
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	WHILE LASTMOVE(REF_SalesOrderLine) DO
+		
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+		   SET CH_Voidflag 										= 'TRUE' ;
+		ELSE
+			SET CH_Voidflag 									= '' ;
+		END IF;
+		
+		IF CH_Voidflag = 'TRUE' THEN
+			SET CH_Vbool  										= 'TRUE';
+		ELSE
+			SET CH_Vbool  										= 'FALSE';
+		END IF;
+		
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+			SET CH_Veflag 										= 'TRUE';
+		ELSE
+			SET CH_Veflag 										= '';
+		END IF;
+		
+		IF CH_Veflag = 'TRUE' THEN
+			SET CH_Vbool1 										= 'TRUE';
+		ELSE
+			SET CH_Vbool1  										= 'FALSE';	
+		END IF;
+		
+		IF CH_Vbool = 'FALSE' AND CH_Vbool1 = 'FALSE' THEN
+			
+			FOR REF_Allowance AS REF_SalesOrderLine.NS_Dfns:Allowance[] DO
+				
+				IF COALESCE(REF_Allowance.NS_oa:ID,'')= '' THEN
+					SET CH_Modifierid 							='';
+					
+				ELSE
+					SET CH_Modifierid 							= REF_Allowance.NS_oa:ID;
+				END IF;
+				
+				SET CH_Disctypes 								= 'VALIDATEKFDISCOUNT01' ||' '|| 'VALIDATEKFDISCOUNT03'||' '|| 'VALIDATEKFDISCOUNT04' ||' '||'VALIDATEKFDISCOUNT20' ||' '|| 'VALIDATEKFDISCOUNT50'||' '|| 'VALIDATEKFDISCOUNT90'||' '|| 'VALIDATEKFDISCOUNT95'||' '|| 'VALIDATEKFDISCOUNT98';
+				SET CH_Modifierid 								= UPPER(CH_Modifierid);  
+				
+				SET CH_Vboola 									= 'FALSE';    
+        		IF CONTAINS(CH_Disctypes ,CH_Modifierid )THEN
+        			SET CH_Vboola 								= 'TRUE';
+        		END IF;
+        		
+       			IF CH_Vboola = 'TRUE' THEN
+       				
+       				IF COALESCE(REF_Allowance.NS_oa:BasisAmount,'')='' THEN
+       					SET DC_Amount							= 0;
+       				ELSE
+       					SET DC_Amount = CAST(REF_Allowance.NS_oa:BasisAmount AS DECIMAL); 
+       				END IF;
+       				
+       				SET DC_Amount 								= DC_Amount * 100;
+       				SET IN_iamount								= CAST(DC_Amount  AS INTEGER);
+       				SET IN_TotalAmount 							= IN_TotalAmount + IN_iamount;
+       				
+       			END IF;
+       			 
+			END FOR;
+			
+		END IF;
+		MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+		
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	
+	SET REF_EnvDBValue.FNL_STAFDIS = CAST(IN_TotalAmount AS CHARACTER); 
+	
+	--Mapping  FNL_TENDERNO
+	SET IN_TenderCount 											= 0;
+	
+	FOR REF_Payment AS REF_SalesOrderHeader.NS_Dfns:Payment[] DO
+		
+		IF COALESCE(REF_Payment.NS_Dfns:ChangeAmount,'') = '' THEN
+			SET IN_TenderCount 									= IN_TenderCount + 1;
+		END IF;
+		
+	END FOR;
+	
+	SET REF_EnvDBValue.FNL_TENDERNO 							= CAST(IN_TenderCount AS CHARACTER);
+	
+	--Mapping FNL_TRN_DIS
+	SET REF_EnvDBValue.FNL_TRN_DIS 								= CAST(IN_DiscountCount AS CHARACTER);
+	
+	--Mapping GIFTVCH_FLG
+	--Call PROC_CustomLogic1 ()
+	CALL PROC_CustomLogic1 (CH_Vboolm,CH_Vboolm1,CH_Vboolg,CH_Vboolg1,CH_Vboolg2,CH_Vboolg3,CH_Vboolr,CH_Vboole,CH_Vboolc,CH_Vboolc1,REF_Payment);
+	
+	SET CH_Gvflag  												= 'N';
+	IF CH_Vboolg = 'TRUE' OR CH_Vboolg1 ='TRUE' OR CH_Vboolg2 = 'TRUE' OR CH_Vboolg3 ='TRUE' OR CH_Vboolr ='TRUE' THEN
+		SET CH_Gvflag  											= 'Y'; 
+	END IF;
+	
+	IF  COALESCE(CH_Gvflag,'') <> '' THEN
+		SET REF_EnvDBValue.GIFTVCH_FLG 							= CH_Gvflag;
+	END IF;
+	
+	--Mapping ITEM_BALANCE
+	--Call Proc_ItemBalanceMapping()
+	 CALL Proc_ItemBalanceMapping(DC_BdTotalItemTax,IN_TotalItemBalance,REF_SalesOrderLine,REF_SalesOrder);
+	 
+	 SET REF_EnvDBValue.ITEM_BALANCE 							= CAST(IN_TotalItemBalance AS CHARACTER);
+	 
+	--Mapping MANFCTR_FLG
+	--Call PROC_CustomLogic1 ()
+	CALL PROC_CustomLogic1(CH_Vboolm,CH_Vboolm1,CH_Vboolg,CH_Vboolg1,CH_Vboolg2,CH_Vboolg3,CH_Vboolr,CH_Vboole,CH_Vboolc,CH_Vboolc1,REF_Payment);
+	SET CH_Mfcflag 												= 'N';
+	IF CH_Vboolm = 'TRUE' OR CH_Vboolm1 = 'TRUE' THEN
+		SET CH_Mfcflag 											= 'Y';
+	END IF;
+	
+	IF COALESCE(CH_Mfcflag,'') <> ''  THEN
+		SET REF_EnvDBValue.MANFCTR_FLG 							= CH_Mfcflag;
+	END IF;
+	
+	--Mapping  NO_SALES_FLG
+	
+	IF COALESCE(REF_EnvDBValue.NoSaleFLag,'') <> 'Y' THEN
+		SET REF_EnvDBValue.NO_SALES_FLG 							= 'N';
+	ELSE
+		SET REF_EnvDBValue.NO_SALES_FLG 							= REF_EnvDBValue.NoSaleFLag;
+	END IF;
+	
+	--Mapping NOSALE_DATE_TIME
+	SET REF_EnvDBValue.NOSALE_DATE_TIME 						= SUBSTRING(REPLACE(REF_SalesTransaction.NS_Dfns:NoSaleStatus.NS_Dfns:EffectiveDateTime, 'T' ,' ') FROM 1 FOR 19);
+	
+	--Format the query string for NOSALE_DATE_TIME
+	IF REF_EnvDBValue.NOSALE_DATE_TIME <> '' THEN
+		SET REF_EnvDBValue.NOSALE_DATE_TIME 					= COALESCE('to_date('''|| REF_EnvDBValue.NOSALE_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+	ELSE
+		SET REF_EnvDBValue.NOSALE_DATE_TIME 					= '''''';
+	END IF;
+	
+	--Mapping NOSALE_REASON_CODE
+	SET REF_EnvDBValue.NOSALE_REASON_CODE 						= REF_SalesTransaction.NS_Dfns:NoSaleStatus.NS_oa:Code;
+	
+	--Mapping NOSALE_REASON_DESC
+	SET REF_EnvDBValue.NOSALE_REASON_DESC 						=  REF_SalesTransaction.NS_Dfns:NoSaleStatus.NS_oa:Description;
+	
+	--Mapping OPERATOR_ID
+	IF COALESCE(REF_SalesTransaction.NS_Dfns:FullOperatorID ,'') = '' OR REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+		SET REF_EnvDBValue.OPERATOR_ID 							= 'null';
+	ELSE
+		SET REF_EnvDBValue.OPERATOR_ID 							= REPLACE(REF_SalesTransaction.NS_Dfns:FullOperatorID,'SC','99');
+	END IF;
+	
+	
+	IF STARTSWITH(REF_SalesOrderHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID,'2900') AND 
+			   (REF_EnvDBValue.RECORD_TYPE = '05' OR REF_EnvDBValue.RECORD_TYPE = '01') 	THEN	
+	  
+	   SET REF_EnvDBValue.SC_TYPE_CUST_REF						= 'TRADE POINT';
+	   
+	ELSE											 
+		SET REF_EnvDBValue.SC_TYPE_CUST_REF 					= REF_EnvDBValue.CH_CccpDesc;
+	END IF;	
+				
+	--Mapping SEGFIELD
+	SET REF_EnvDBValue.SEGFIELD 								= SUBSTRING(REPLACE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:StartDateTime, 'T' ,' ') FROM 1 FOR 19);
+	
+	--Format the query string for NOSALE_DATE_TIME
+	IF REF_EnvDBValue.SEGFIELD <> '' THEN
+		SET REF_EnvDBValue.SEGFIELD 							= COALESCE('to_date('''|| REF_EnvDBValue.SEGFIELD ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+	ELSE
+		SET REF_EnvDBValue.SEGFIELD 							= '''''';
+	END IF;
+	
+	--Mapping STORE_CARD_CUST_REF
+	IF STARTSWITH(REF_SalesOrderHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID,'2900')AND 
+			   (REF_EnvDBValue.RECORD_TYPE = '05' OR REF_EnvDBValue.RECORD_TYPE = '01') 		THEN
+			   	
+	   SET REF_EnvDBValue.STORE_CARD_CUST_REF 			= REF_SalesOrderHeader.NS_Dfns:CustomerParty.NS_Dfns:MembershipCard.NS_oa:ID;
+	ELSE											
+		SET REF_EnvDBValue.STORE_CARD_CUST_REF 			= REF_SalesOrderHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number;   
+	END IF;
+			
+	--Mapping STRE_CPN_FLG
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	
+	SET REF_EnvDBValue.STRE_CPN_FLG 				= 'N';
+	WHILE LASTMOVE(REF_SalesOrderLine) DO 
+		IF EXISTS (REF_SalesOrderLine.NS_Dfns:Allowance[]) THEN
+		
+		FOR REF_Allowance AS REF_SalesOrderLine.NS_Dfns:Allowance[] DO
+			
+			IF COALESCE(REF_Allowance.NS_oa:ID,'') = ''  THEN
+				SET CH_ModId 									= '';	
+			ELSE
+				SET CH_ModId 									= REF_Allowance.NS_oa:ID;
+			END IF;
+			
+			IF UPPER(CH_ModId)= 'STORECOUPONTRANSACTION' THEN
+				SET CH_Vbool 									= 'TRUE';
+			ELSE
+				SET CH_Vbool 									= 'FALSE';
+			END IF;
+			
+			IF CH_Vbool = 'TRUE'  THEN
+				SET REF_EnvDBValue.STRE_CPN_FLG 				= 'Y';
+			END IF;
+			
+		END FOR;
+	END IF;
+		
+	MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;	
+	END WHILE;
+	MOVE REF_SalesOrderLine TO REF_SalesOrderLineInit ;
+	
+	--Mapping TILL_NUMBER	
+	IF CONTAINS(REF_SalesTransaction.NS_Dfns:WorkstationID, '.') THEN
+		SET REF_EnvDBValue.TILL_NUMBER 							= FUNC_GetSubStrBetweenFirstAndLastDelimiter(REF_SalesTransaction.NS_Dfns:WorkstationID, '.');
+	END IF;	
+	
+	IF LENGTH(REF_EnvDBValue.TILL_NUMBER) < 3 THEN
+		
+		WHILE LENGTH(REF_EnvDBValue.TILL_NUMBER) < 3 DO
+		SET REF_EnvDBValue.TILL_NUMBER 							= '0' || REF_EnvDBValue.TILL_NUMBER; 
+		END WHILE;
+		
+	END IF;
+	
+	
+	SET DC_BdTotalItemTax 										= ROUND(DC_BdTotalItemTax/1,0 MODE ROUND_HALF_UP);
+	SET IN_TotalItemTax 										= CAST(DC_BdTotalItemTax AS INTEGER);
+	SET REF_EnvDBValue.TNDR_BAL_VAT 							= CAST(IN_TotalItemTax AS CHARACTER);
+	
+	--Mapping TNDR_BAL_EX_VAT
+	SET REF_EnvDBValue.TNDR_BAL_EX_VAT							=	CAST((IN_Temp - IN_TotalItemTax) AS CHARACTER);
+	
+	--Mapping TRANS_COMPLETE_DATE_TIME
+	IF  COALESCE(UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:LayAwayNotResumedIndicator),'') <> 'TRUE'  THEN
+		
+		SET REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME 			= SUBSTRING(REPLACE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:EndDateTime, 'T' ,' ') FROM 1 FOR 19);
+		
+		--Format the query string for NOSALE_DATE_TIME
+		IF REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME 		= COALESCE('to_date('''|| REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME 		= '''''';
+		END IF;
+		
+	END IF;
+	
+	IF LENGTH(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CompletingOperatorID)>20 THEN
+		SET REF_EnvDBValue.TRANS_COMPLETING_OP_ID				= SUBSTRING(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CompletingOperatorID FROM 1 FOR 20);
+	ELSE
+		SET REF_EnvDBValue.TRANS_COMPLETING_OP_ID				= REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CompletingOperatorID;
+	END IF;
+	
+	SET REF_EnvDBValue.TRANS_COMPLETING_TILL_ID 				=	REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CompletingTillID;
+	
+	IF COALESCE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:TrainingModeIndicator,'')	<>	'' THEN
+		
+		IF REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:TrainingModeIndicator = 'true' THEN
+			SET REF_EnvDBValue.TRANS_TRAINING_FLAG 				= 'Y';
+		ELSE
+			SET REF_EnvDBValue.TRANS_TRAINING_FLAG 				= 'N';
+		END IF;
+		
+	END IF;
+	
+	SET REF_EnvDBValue.TRANS_VOID_DATE_TIME 					= SUBSTRING(REPLACE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:Status.NS_oa:EffectiveDateTime, 'T' ,' ') FROM 1 FOR 19);
+	
+	--Format the query string for NOSALE_DATE_TIME
+	IF REF_EnvDBValue.TRANS_VOID_DATE_TIME <> '' THEN
+		SET REF_EnvDBValue.TRANS_VOID_DATE_TIME 				= COALESCE('to_date('''|| REF_EnvDBValue.TRANS_VOID_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+	ELSE
+		SET REF_EnvDBValue.TRANS_VOID_DATE_TIME 				= '''''';
+	END IF;
+	
+	SET REF_EnvDBValue.TRANS_VOID_REASON_CODE					= REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:Status.NS_oa:Code; 
+	
+	SET REF_EnvDBValue.TRANS_VOID_REASON_DESC					= REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:Status.NS_oa:Description;
+	SET REF_EnvDBValue.TRANSCTN_DTE = SUBSTRING(REPLACE(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:StartDateTime, 'T' ,' ') FROM 1 FOR 19);
+	
+	--Format the query string for NOSALE_DATE_TIME
+	IF REF_EnvDBValue.TRANSCTN_DTE <> '' THEN
+		SET REF_EnvDBValue.TRANSCTN_DTE 						= COALESCE('to_date('''|| REF_EnvDBValue.TRANSCTN_DTE ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+	ELSE
+		SET REF_EnvDBValue.TRANSCTN_DTE 						= '''''';
+	END IF;
+	
+	SET REF_EnvDBValue.TRANSCTN_NO								=	REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:Sequence;
+	
+	WHILE LENGTH(REF_EnvDBValue.TRANSCTN_NO)< 5 DO
+		SET REF_EnvDBValue.TRANSCTN_NO 							= '0' ||  REF_EnvDBValue.TRANSCTN_NO;
+	END WHILE;
+	
+	SET REF_EnvDBValue.TRANSCTN_TME								= SUBSTRING(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:StartDateTime FROM 12 FOR 5);
+	SET REF_EnvDBValue.TRANSCTN_TME								= REPLACE(REF_EnvDBValue.TRANSCTN_TME, ':' ,'');
+	
+	
+	SET REF_EnvDBValue.TRNSCTN_VOID 						= 'N';
+	IF UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:CancelledIndicator) = 'TRUE' THEN
+	   	SET REF_EnvDBValue.TRNSCTN_VOID 						= 'Y';
+	ELSEIF	REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN	
+	
+		SET REF_EnvDBValue.TRNSCTN_VOID 						= 'Y';
+	END IF;
+	
+	--Mapping  XCHNGNTE_FLG
+	--Call PROC_CustomLogic1()
+	CALL PROC_CustomLogic1(CH_Vboolm,CH_Vboolm1,CH_Vboolg,CH_Vboolg1,CH_Vboolg2,CH_Vboolg3,CH_Vboolr,CH_Vboole,CH_Vboolc,CH_Vboolc1,REF_Payment);
+	SET CH_Exntflag 											= 'N';
+	IF CH_Vboole = 'TRUE' THEN
+		SET CH_Exntflag 										= 'Y';
+	END IF;
+	
+	IF COALESCE(CH_Exntflag,'')<>'' THEN
+		SET REF_EnvDBValue.XCHNGNTE_FLG 						= CH_Exntflag;
+	END IF;
+	
+	--Mapping  CC_HASH_CARD_NUM_TOKEN
+	
+	IF COALESCE(CH_Token,'') <> '' THEN
+		SET REF_EnvDBValue.CC_HASH_CARD_NUM_TOKEN 				= CH_Token;
+	END IF;
+	
+	--SET CH_SqlStr = 'SELECT FULLSTORECODE,STORENAME,STOREDIVISION,STORETYPE FROM MBSTRCD WHERE GENERICSTORECODE = '''|| REF_SalesOrderHeader.NS_oa:SourceID ||'''';
+	--SET Environment.MBSTRCD [] = PASSTHRU(CH_SqlStr TO Database.{DSN}) ;
+	
+	SET Environment.STORECD [] = SELECT M.FULLSTORECODE,M.STORENAME,M.STOREDIVISION,M.STORETYPE FROM CACHE_CONFIGDATA.MBSTRCD[] AS M WHERE M.GENERICSTORECODE = REF_SalesOrderHeader.NS_oa:SourceID; 
+	
+	SET REF_EnvDBValue.STORE_CODE 	= Environment.STORECD[1].FULLSTORECODE;
+	SET REF_EnvDBValue.STORE_NAME 	= Environment.STORECD[1].STORENAME;
+	SET REF_EnvDBValue.STORE_DIV_CD = Environment.STORECD[1].STOREDIVISION;
+	SET REF_EnvDBValue.STORE_TYPE 	= Environment.STORECD[1].STORETYPE;
+	
+	
+	--Code change start for handling STORE_NAME having characters more than 20 characters
+    IF LENGTH(REF_EnvDBValue.STORE_NAME) > 20 THEN
+    	SET REF_EnvDBValue.STORE_NAME = SUBSTRING(REF_EnvDBValue.STORE_NAME FROM 1 FOR 20);
+    END IF;
+    --Code change end for handling STORE_NAME having characters more than 20 characters
+
+	
+	--Mapping  TRANSACTN_ID
+	SET CH_Date													= SUBSTRING(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_oa:StartDateTime FROM 1 FOR 10);
+	SET CH_Date													= REPLACE(CH_Date, '-' ,'');
+	SET REF_EnvDBValue.TRANSACTN_ID 							= REF_EnvDBValue.STORE_CODE	||	CH_Date	||	REF_EnvDBValue.TRANSCTN_TME ||	REF_EnvDBValue.TILL_NUMBER	||	REF_EnvDBValue.TRANSCTN_NO;
+	
+	END;
+	
+	/*****************************************************************************************
+	* Function Name		: FUNC_GetSubStrBetweenFirstAndLastDelimiter 						 *
+	* Input Parameters	: CH_SourceString, CH_Delimiter										 *
+	*					  REF_SalesOrder													 *
+	* Output Parameters	: CH_WorkingSource													 *
+	* Description		: The function will find the substring between the first and last	 *
+	*					  delimeter															 *	
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE FUNCTION  FUNC_GetSubStrBetweenFirstAndLastDelimiter(CH_SourceString CHARACTER, CH_Delimiter CHARACTER) RETURNS CHARACTER
+	BEGIN
+		--Declaring variables
+		DECLARE CH_WorkingSource 			CHARACTER CH_SourceString;
+		DECLARE INT_TargetStringPosition 	INTEGER 0;
+		DECLARE INT_LastDelimiterPosition 	INTEGER 0;
+		DECLARE INT_DelimiterPosition 		INTEGER 0;
+	    DECLARE INT_CurrentFieldPosition 	INTEGER 1;
+	    DECLARE INT_StartNewString 			INTEGER 1;
+	    DECLARE INT_FirstDelimiterPosition 	INTEGER 0;
+	    DECLARE INT_SubstringLength 		INTEGER 0;
+	    
+	    SET INT_TargetStringPosition 	= LENGTH(CH_SourceString);
+	    SET INT_DelimiterPosition 		= POSITION(CH_Delimiter IN CH_SourceString);
+	    SET INT_FirstDelimiterPosition 	= INT_DelimiterPosition;
+	    SET INT_LastDelimiterPosition 	= INT_DelimiterPosition;
+	    
+	    WHILE INT_CurrentFieldPosition < INT_TargetStringPosition DO
+	    	
+	     		IF INT_DelimiterPosition = 0  THEN
+	   				SET INT_CurrentFieldPosition 		= INT_TargetStringPosition;
+	     		ELSE
+	     			
+	     			SET INT_StartNewString 				= INT_DelimiterPosition + 1;
+	     			SET CH_WorkingSource 				= SUBSTRING(CH_WorkingSource FROM INT_StartNewString);
+	     			SET INT_DelimiterPosition 			= POSITION(CH_Delimiter IN CH_WorkingSource);
+	     			
+	     			IF INT_DelimiterPosition <> 0 THEN
+	     				SET INT_LastDelimiterPosition 	= INT_LastDelimiterPosition + INT_DelimiterPosition;
+	     			END IF;
+	     			
+	     			SET INT_CurrentFieldPosition 		= INT_CurrentFieldPosition + 1;
+	     		END IF;
+	     		
+	    END WHILE;
+	    
+	    
+	    SET INT_SubstringLength 						= INT_LastDelimiterPosition - INT_FirstDelimiterPosition;
+	    
+	    IF INT_SubstringLength> 0 THEN
+	    	
+	       SET CH_WorkingSource 						= SUBSTRING(CH_SourceString FROM (INT_FirstDelimiterPosition + 1) FOR INT_SubstringLength -1); 
+	       SET OutputRoot.XMLNSC.WorkingSource 			= CH_WorkingSource;
+	       	    	
+	    END  IF;
+	    
+		RETURN CH_WorkingSource;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CustomLogic1() 											 *
+	* Input Parameters	: CH_Vboolm, CH_Vboolm1, CH_Vboolg, CH_Vboolg1, CH_Vboolg2, 		 *
+	*					  CH_Vboolg3, CH_Vboolr, CH_Vboole, CH_Vboolc, CH_Vboolc1,REF_Payment*
+	* Output Parameters	: CH_Vboolm, CH_Vboolm1, CH_Vboolg, CH_Vboolg1, CH_Vboolg2, 		 *
+	*					  CH_Vboolg3, CH_Vboolr, CH_Vboole, CH_Vboolc, CH_Vboolc1			 *
+	* Description		: Custom logic to set flag variables based on tendet type			 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CustomLogic1 (INOUT CH_Vboolm CHARACTER,INOUT CH_Vboolm1 CHARACTER ,INOUT CH_Vboolg CHARACTER,INOUT CH_Vboolg1 CHARACTER,INOUT CH_Vboolg2 CHARACTER,INOUT CH_Vboolg3 CHARACTER,INOUT CH_Vboolr CHARACTER,INOUT CH_Vboole CHARACTER,INOUT CH_Vboolc CHARACTER,INOUT CH_Vboolc1 CHARACTER,IN REF_Payment REFERENCE)
+	BEGIN
+		--Declaring Variables 
+		DECLARE CH_TenderType	CHARACTER;
+		
+		WHILE LASTMOVE(REF_Payment) DO
+			
+			IF COALESCE(REF_Payment.(XMLNSC.Attribute)id,'') = '' THEN 
+				SET CH_TenderType								= '';
+			ELSE
+				SET CH_TenderType								= REF_Payment.(XMLNSC.Attribute)id;
+			END IF;
+			
+			IF COALESCE(REF_Payment.NS_Dfns:ChangeAmount,'') = '' THEN
+	
+				IF UPPER(CH_TenderType) = 'CASH' THEN
+					SET CH_Vboolc 								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'TRAVELCHEQUE' THEN
+					SET CH_Vboolc1								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'GIFTVOUCHER'THEN
+					SET CH_Vboolg								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'KINGFISHERVOUCHER'THEN
+					SET CH_Vboolg1								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'CREDITVOUCHER' THEN
+					SET CH_Vboolg2								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'DECORATORVOUCHER' THEN
+					SET CH_Vboolg3								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'MANUFACTURERCOUPON' THEN
+					SET CH_Vboolm								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'PROVIDENTVOUCHER' THEN 
+					SET CH_Vboolm1								= 'TRUE';
+				END IF;
+				
+				IF UPPER(CH_TenderType)	= 'CREDITNOTE' THEN
+					SET CH_Vboole								= 'TRUE';
+				END IF;
+				
+				IF LENGTH(CH_TenderType)>= 19 THEN
+					
+					IF UPPER(SUBSTRING(CH_TenderType FROM 1 FOR 19))= 'RECHARGEABLEVOUCHER' THEN
+						SET CH_Vboolr 							= 'TRUE';
+					END IF;
+					
+				END IF;
+				
+			END IF;
+			
+	MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+	
+	END WHILE;
+	
+  END;	
+	
+	/*****************************************************************************************
+	* Procedure Name	: Proc_ItemBalanceMapping 											 *
+	* Input Parameters	: DC_BdTotalItemTax, IN_TotalItemBalance,  REF_SalesOrderLine,		 *
+	*					  REF_SalesOrder 													 *
+	* Output Parameters	: DC_BdTotalItemTax, IN_TotalItemBalance							 *
+	* Description		: The procedure will mapping for ITEM_BALANCE						 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE  Proc_ItemBalanceMapping(INOUT DC_BdTotalItemTax DECIMAL,INOUT IN_TotalItemBalance INTEGER,IN REF_SalesOrderLine REFERENCE,IN REF_SalesOrder REFERENCE )
+	BEGIN
+		--Declaring variables
+		DECLARE CH_Voidflag	 			CHARACTER '';
+		DECLARE CH_Vboolv 				CHARACTER 'FALSE';
+		DECLARE CH_Veflag 				CHARACTER '';
+		DECLARE CH_ItemTax	  			CHARACTER '';
+		DECLARE DC_BdPrice				DECIMAL 0;
+		DECLARE DC_Quantity				DECIMAL 0;
+		DECLARE DC_BdSalesBalance		DECIMAL 0;
+		DECLARE IN_SalesBalance			INTEGER 0;
+		DECLARE IN_TotalSalesBalance	INTEGER 0;
+		DECLARE DC_BdPromoAmnt			DECIMAL 0;
+		DECLARE DC_BdPmnDiscPerUnit		DECIMAL 0;
+		DECLARE DC_ReturnBalance		DECIMAL 0;
+		DECLARE IN_RreturnBalance		INTEGER 0;
+		DECLARE IN_TotalReturnBalance	INTEGER 0;
+		DECLARE DC_BdItemTax			DECIMAL 0;
+		
+		
+		SET DC_BdTotalItemTax 									= 0;
+		SET IN_TotalItemBalance									= 0;
+		MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine; 
+		
+		WHILE LASTMOVE(REF_SalesOrderLine) DO
+			 
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET CH_Voidflag 									= 'TRUE';
+		ELSE
+			SET CH_Voidflag 									= '';
+		END IF;
+		
+		IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN
+				SET CH_Veflag 									= 'TRUE';
+		ELSE
+				SET CH_Veflag 									= '';
+		END IF;
+			
+		IF CH_Voidflag = 'TRUE' THEN
+			SET CH_Vboolv 										= 'TRUE';
+		ELSE
+			SET CH_Vboolv 										= 'FALSE';
+		END IF;
+		
+		IF CH_Vboolv = 'FALSE' THEN
+			
+			IF CH_Veflag = 'TRUE' THEN
+				SET  CH_Vboolv 									= 'TRUE';
+			ELSE
+				SET  CH_Vboolv 									= 'FALSE';
+			END IF;
+			
+		END IF;
+		
+		IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN ('PRODUCT SALE','ACCOUNT PAYMENT SALE','GIFT VOUCHER SALE','RECHARGEABLE VOUCHER SALE','CONTACT CENTRE PRODUCT SALE') THEN
+			
+			SET IN_SalesBalance	= 0;
+			IF COALESCE(REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount,'') = '' THEN
+				SET DC_BdPrice									= CAST(0 AS DECIMAL);
+			ELSE
+				SET DC_BdPrice									= CAST(REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount AS DECIMAL);	
+		
+			END IF;
+			
+			IF COALESCE(REF_SalesOrderLine.NS_oa:Quantity,'') = '' THEN
+				SET DC_Quantity									= CAST(0 AS DECIMAL);
+		
+			ELSE
+				SET DC_Quantity									= CAST(REF_SalesOrderLine.NS_oa:Quantity AS DECIMAL);
+			END IF;
+			
+			SET DC_BdSalesBalance								= ROUND((DC_BdPrice*DC_Quantity)/1 ,2 MODE ROUND_HALF_UP);
+			SET DC_BdSalesBalance								=  DC_BdSalesBalance*100;
+			SET IN_SalesBalance 								= CAST(DC_BdSalesBalance AS INTEGER);
+			
+			IF IN_SalesBalance < 0 THEN
+		  		SET IN_SalesBalance 							= IN_SalesBalance * -1;
+		  	END IF;
+		  	
+			IF CH_Vboolv = 'FALSE' THEN
+				SET IN_TotalSalesBalance						= IN_TotalSalesBalance + IN_SalesBalance;
+				
+			END IF;
+			SET IN_SalesBalance 							= 0;
+		END IF;
+		
+		
+		IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN ('PRODUCT RETURN','ACCOUNT PAYMENT RETURN','GIFT VOUCHER RETURN','CONTACT CENTRE PRODUCT RETURN') THEN
+			
+			SET IN_RreturnBalance	= 0;
+			IF COALESCE(REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount,'') = '' THEN
+				SET DC_BdPrice									= CAST(0 AS DECIMAL);
+			ELSE
+				SET DC_BdPrice									= CAST(REF_SalesOrderLine.NS_Dfns:QualifiedUnitPrice.NS_oa:Amount AS DECIMAL);
+			END IF;
+			
+			IF COALESCE(REF_SalesOrderLine.NS_oa:Quantity,'') = '' THEN
+				SET DC_Quantity									= CAST(0 AS DECIMAL); 
+			ELSE
+				SET DC_Quantity									= CAST(REF_SalesOrderLine.NS_oa:Quantity AS DECIMAL);
+			END IF;
+			
+				
+				FOR REF_Allowance AS REF_SalesOrderLine.NS_Dfns:Allowance[] DO
+					
+					--Code Change Start For Production Defect 24/09/2013 version 0.6
+					--IF UPPER(TRIM(REF_SalesOrderLine.NS_Dfns:Allowance.NS_oa:Description)) = 'PRICERULE' THEN
+					IF UPPER(TRIM(REF_Allowance.NS_oa:Description)) = 'PRICERULE' THEN
+					--Code Change end For Production Defect 24/09/2013 version 0.6
+					
+						SET DC_BdPromoAmnt  = CAST(REF_Allowance.NS_oa:BasisAmount AS DECIMAL);
+						
+						SET DC_BdPmnDiscPerUnit = 0;
+						
+		  				IF DC_Quantity <> 0 THEN
+							SET DC_BdPmnDiscPerUnit				= ROUND(DC_BdPromoAmnt/DC_Quantity, 2 MODE ROUND_UP);
+							SET DC_BdPrice						= DC_BdPrice - DC_BdPmnDiscPerUnit;
+						END IF;
+						
+					END IF;
+					
+				END FOR;
+			
+		SET DC_ReturnBalance									= DC_BdPrice * DC_Quantity;
+		SET DC_ReturnBalance									= ROUND(DC_ReturnBalance/1 , 2 MODE ROUND_HALF_UP);
+		SET IN_RreturnBalance									= CAST(DC_ReturnBalance * 100 AS INTEGER);
+		
+		
+		
+		IF IN_RreturnBalance < 0  THEN
+			SET IN_RreturnBalance 								= IN_RreturnBalance * -1;
+		END IF;	
+		
+		IF CH_Vboolv = 'FALSE' THEN
+			SET IN_TotalReturnBalance 							= IN_TotalReturnBalance + IN_RreturnBalance;
+		END IF;	
+		
+		SET IN_RreturnBalance 									= 0;
+		END IF;
+		
+		IF REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN('PRODUCT RETURN','PRODUCT SALE') AND EXISTS(REF_SalesOrderLine.NS_Dfns:Tax[]) THEN
+			
+			IF COALESCE(REF_SalesOrderLine.NS_Dfns:Tax.NS_oa:Amount,'')='' THEN
+				SET CH_ItemTax 									= 0;
+			ELSE
+				SET CH_ItemTax 									= REF_SalesOrderLine.NS_Dfns:Tax.NS_oa:Amount;
+			END IF;	
+			
+			SET DC_BdItemTax 										= CAST(CH_ItemTax AS DECIMAL);
+			SET DC_BdItemTax 										= DC_BdItemTax*100;
+		
+		
+		
+			IF CH_Vboolv = 'FALSE' THEN
+			SET DC_BdTotalItemTax 								= DC_BdTotalItemTax + DC_BdItemTax;
+			END IF;
+		
+		END IF;
+		
+		MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+			
+		END WHILE;
+		
+		SET IN_TotalItemBalance 								= IN_TotalSalesBalance - IN_TotalReturnBalance;
+		
+	END;
+		
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CustomLogic2 											 	 *
+	* Input Parameters	: CH_Token, CH_Account, REF_SalesOrderHeader,REF_PaymentAuthorization*
+	* Output Parameters	: CH_Token, CH_Account												 *
+	* Description		: Procedure to determine token and account variable based on 		 *
+	*					  payment information    	    									 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CustomLogic2 (INOUT CH_Token CHARACTER,INOUT CH_Account CHARACTER,IN REF_SalesOrderHeader REFERENCE,IN REF_PaymentAuthorization REFERENCE )
+	BEGIN
+		--Declaring variables
+		DECLARE CH_VeFlag			CHARACTER;
+		DECLARE CH_VFlag			CHARACTER;
+		DECLARE CH_TenderId			CHARACTER '';
+		DECLARE CH_TenderType		CHARACTER '';
+		DECLARE CH_Account1			CHARACTER '';
+		DECLARE DC_TenderAmount	 	DECIMAL 0;
+		DECLARE DC_TenderAmount1	DECIMAL 0;
+		DECLARE REF_Payment			REFERENCE  TO REF_SalesOrderHeader.NS_Dfns:Payment;
+		
+		WHILE LASTMOVE(REF_Payment) DO
+			
+		
+		IF (REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code 			= 'VOID LINE')THEN
+			SET CH_VeFlag										= 'TRUE';
+		ELSE
+			SET CH_VeFlag										= 'FALSE';
+		END IF;
+		
+		IF (REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY') THEN
+			SET CH_VFlag										= 'TRUE';
+		ELSE
+			SET CH_VFlag										= 'FALSE';
+		END IF;
+		
+		IF COALESCE(REF_Payment.(XMLNSC.Attribute)id,'') = '' THEN
+			SET CH_TenderId										= '';
+		ELSE
+			SET CH_TenderId	= REF_Payment.(XMLNSC.Attribute)id;
+		END IF;
+		
+		--SET Environment.TenderType[] = PASSTHRU('SELECT TENDERTYPE FROM TENDERDATA WHERE TENDERID = '''||CH_TenderId ||'''' TO Database.{DSN});
+		
+		SET Environment.TenderType[] = SELECT T.TENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS T WHERE T.TENDERID = CH_TenderId;
+		
+		SET CH_TenderType = COALESCE(Environment.TenderType[1].TENDERTYPE,'');
+		
+		 IF((CH_TenderType = 'P') AND (CH_VFlag	= 'FALSE') AND (CH_VeFlag = 'FALSE' ))THEN
+		 
+		 	IF COALESCE(REF_Payment.NS_oa:Amount,'') = '' THEN
+		 		SET DC_TenderAmount1							= 0;
+		 	ELSE
+		 		SET DC_TenderAmount1							= REF_Payment.NS_oa:Amount;
+		 	END IF;
+		 	
+		 		IF COALESCE(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:HashedNumber,'') = '' THEN  
+		 			SET CH_Account1 							= '';
+		 		ELSE
+		 			SET CH_Account1 = REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:HashedNumber;
+		 		END IF;
+		 		
+		 	
+		 	IF (DC_TenderAmount1 < 0)THEN 
+		 		SET DC_TenderAmount1 							= DC_TenderAmount1 * -1;
+		 	END IF;
+		 	
+		 	IF (DC_TenderAmount1 >= DC_TenderAmount) AND CH_Account1 <> '' THEN
+		 		
+		 		SET CH_Account = CH_Account1;
+		 		SET DC_TenderAmount = DC_TenderAmount1;
+		 		
+		 			IF COALESCE(REF_PaymentAuthorization.NS_Dfns:Token,'')<>'' THEN
+		 				SET CH_Token								= REF_PaymentAuthorization.NS_Dfns:Token;
+		 			ELSE
+		 				SET CH_Token								= '';
+		 				
+		 			END IF;
+		 			
+		 		
+		 	END IF;
+		 	 
+	     END IF; 
+		MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+		
+	END WHILE;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CustomLogic3 										  		 *
+	* Input Parameters	: CH_CccpDesc, CH_CustCode ,REF_SalesOrderLine, REF_Allowance		 *
+	*					  																	 *
+	* Output Parameters	: CH_CccpDesc, CH_CustCode											 *
+	* Description		: Procedure to set CH_CccpDesc,CH_CustCode variables based on 		 *
+	*					  Allownace     	    											 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+   	CREATE PROCEDURE PROC_CustomLogic3 (INOUT CH_CccpDesc CHARACTER,INOUT CH_CustCode CHARACTER,IN REF_SalesOrder REFERENCE,IN REF_Allowance REFERENCE,IN REF_SalesOrderHeader REFERENCE)
+   	BEGIN
+   		
+   		--Declaring variables
+   		DECLARE CH_CustType1	CHARACTER ;
+   		DECLARE CH_Vboolo		CHARACTER 'FALSE';
+   		DECLARE CH_Vbools		CHARACTER 'FALSE';
+   		DECLARE CH_Vboolg		CHARACTER 'FALSE';
+   		DECLARE CH_LocalVar		CHARACTER '';
+   		
+   		SET CH_CustCode 										= '';
+   		SET CH_CccpDesc 										= '';
+   		
+   		FOR REF_SalesOrderLine AS REF_SalesOrder.NS_Dfns:SalesOrderLine[] DO
+   		
+	   		IF EXISTS(REF_SalesOrderLine.NS_Dfns:Allowance[]) THEN
+	   			
+					WHILE LASTMOVE(REF_Allowance) AND CH_CustCode = '' DO
+						
+						IF COALESCE(REF_Allowance.NS_oa:ID,'')	= '' THEN
+							SET CH_CustType1						= '';
+						ELSE
+							SET CH_CustType1	= REF_Allowance.NS_oa:ID;  
+						END IF;
+						
+						IF COALESCE(CH_CustType1,'')	<> '' THEN
+							
+							IF UPPER(CH_CustType1)	= 'DIAMOND' THEN
+								SET CH_Vboolo						= 'TRUE';
+							END IF;
+							SET CH_CustType1					= UPPER(CH_CustType1);
+							
+							IF CH_CustType1	= 'VALIDATEKFDISCOUNT35' THEN
+								SET CH_CustCode						= 'B';
+							ELSE
+								
+								IF CH_CustType1	IN('VALIDATEKFDISCOUNT01','VALIDATEKFDISCOUNT03','VALIDATEKFDISCOUNT04') THEN
+									SET CH_Vbools					= 'TRUE';
+								ELSE
+									IF LENGTH(CH_CustType1)	> 18 THEN
+										SET CH_CustType1			= SUBSTRING(CH_CustType1 FROM 1 FOR 18);
+										
+										IF UPPER(CH_CustType1)	= 'VALIDATEKFDISCOUNT' THEN
+											SET CH_Vboolg			= 'TRUE';
+										ELSE
+											SET CH_Vboolg			= 'FALSE';
+										END IF;
+										
+									END IF;
+								END IF;	
+									IF CH_Vboolo	= 'TRUE' THEN
+										SET CH_CustCode				= 'O';
+									END IF;
+									
+									IF CH_Vbools	= 'TRUE' THEN
+										SET CH_CustCode				= 'S';
+									END IF;
+									IF CH_Vboolg					= 'TRUE' THEN
+										SET CH_CustCode				= 'G';
+									END IF;	
+									
+							END IF;
+						
+					END IF;
+					
+					MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					
+			 		END WHILE;
+			 		MOVE REF_Allowance TO REF_SalesOrderLine.NS_Dfns:Allowance;
+			 	
+			END IF;
+   		END FOR;
+		IF COALESCE(REF_SalesOrderHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number ,'')	<> '' AND LENGTH(REF_SalesOrderHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number )	> 7 THEN
+			
+			SET CH_LocalVar										= SUBSTRING(REF_SalesOrderHeader.NS_Dfns:Allowance.NS_Dfns:Card.NS_oa:Number  FROM 7 FOR 2);
+			IF CH_LocalVar	= '35' THEN
+				SET CH_CustCode									= 'B';
+			END IF;
+			
+		END IF;
+		
+		IF LENGTH(CH_LocalVar)	> 0 THEN
+			
+		--Retrieves CCCPDescription information from MBModfId
+			
+--		SET CH_CccpDesc										= THE(SELECT ITEM MB.CCCPDescription FROM Database.{DSN}.MBREPOS.PRICEMODIFIER AS MB
+--										 						  WHERE MB.RetailJModifier = CH_LocalVar);
+		
+		--Code change for Production Defect Version 0.6
+		--SET CH_CccpDesc										= THE(SELECT ITEM MB.CCCPDescription FROM CACHE_CONFIGDATA.PRICEMODIFIER[] AS MB
+										 						--  WHERE MB.RetailJModifier = CH_LocalVar);
+		
+				
+		SET CH_CccpDesc										= THE(SELECT ITEM MB.CCCPDESCRIPTION FROM CACHE_CONFIGDATA.PRICEMODIFIER[] AS MB
+										 						  WHERE MB.RETAILJMODIFIER = CH_LocalVar);
+											 						  
+		END IF;
+   END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CustomLogic4 											 	 *
+	* Input Parameters	: IN_DiscountCount, IN_TotalAmount, REF_SalesOrderLine ,REF_Allowance*
+	*					  REF_SalesOrder 		 											 *
+	* Output Parameters	: IN_DiscountCount, IN_TotalAmount									 *
+	* Description		: Procedure to populate IN_DiscountCount,IN_TotalAmount variables	 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CustomLogic4 (INOUT IN_DiscountCount INTEGER,INOUT IN_TotalAmount INTEGER,IN REF_SalesOrderLine REFERENCE,IN REF_Allowance REFERENCE,IN REF_SalesOrder REFERENCE )
+	BEGIN
+		--Declaring variables
+		DECLARE CH_Voidflag 	CHARACTER '';
+		DECLARE CH_Vbool		CHARACTER;
+		DECLARE CH_Veflag		CHARACTER '';
+		DECLARE CH_Vbool1		CHARACTER;
+		DECLARE CH_MethodCode 	CHARACTER '';	
+		DECLARE CH_Vbool2		CHARACTER 'FALSE';
+		DECLARE CH_ModId		CHARACTER '';
+		DECLARE CH_Vboola		CHARACTER 'FALSE';
+		DECLARE CH_ModId1		CHARACTER '';
+		DECLARE CH_DiscTypes 	CHARACTER;
+		DECLARE IN_Amount		INTEGER 0;
+		DECLARE IN_MaxHits		INTEGER 0;
+		DECLARE DE_Amount		DECIMAL;
+		
+		SET IN_DiscountCount									= 0;
+		SET IN_TotalAmount										= 0;
+		
+		MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		WHILE LASTMOVE(REF_SalesOrderLine) DO
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID LINE' THEN
+				SET CH_Voidflag									= 'TRUE';
+			ELSE
+				SET CH_Voidflag									= '';
+			END IF;
+			
+			IF CH_Voidflag = 'TRUE' THEN
+				SET CH_Vbool									= 'TRUE';
+			ELSE
+				SET CH_Vbool									= 'FALSE';
+			END IF;
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID ENTRY' THEN
+				SET CH_Veflag									= 'TRUE';
+			ELSE
+				SET CH_Veflag									= '';
+			END IF;
+			
+			IF CH_Veflag	= 'TRUE' THEN
+				SET CH_Vbool1									= 'TRUE';
+			ELSE
+				SET CH_Vbool1									= 'FALSE';
+			END IF;
+			
+			IF CH_Vbool	= 'FALSE' AND CH_Vbool1	= 'FALSE' THEN
+				
+				MOVE REF_Allowance TO REF_SalesOrderLine.NS_Dfns:Allowance;
+				
+				--IF COALESCE(REF_Allowance,'')	<> '' THEN
+				IF EXISTS(REF_SalesOrderLine.NS_Dfns:Allowance[]) THEN
+					
+					WHILE LASTMOVE(REF_Allowance) DO
+						
+						IF COALESCE(REF_Allowance.NS_oa:Description,'')	<> '' THEN
+							SET CH_MethodCode					= REF_Allowance.NS_oa:Description;
+						ELSE
+							SET CH_MethodCode					= '';
+						END IF;
+						
+						IF UPPER(CH_MethodCode) = 'PRICERULE' THEN
+							SET CH_Vbool2						= 'TRUE';
+						ELSE
+							SET CH_Vbool2						= 'FALSE';
+						END IF;
+						
+						IF COALESCE(REF_Allowance.NS_oa:ID,'') <> '' THEN
+							SET CH_ModId						= REF_Allowance.NS_oa:ID;
+						ELSE
+							SET CH_ModId						= '';
+						END IF;
+						
+						IF UPPER(CH_ModId) = 'DIAMOND' THEN
+							SET CH_Vboola						= 'TRUE';
+						ELSE
+							SET CH_Vboola						= 'FALSE';
+						END IF;
+						
+						SET CH_ModId1							= CH_ModId;
+						
+						IF CH_Vboola	= 'FALSE' THEN
+							
+							IF LENGTH(CH_ModId) > 18 THEN
+								SET CH_ModId1					= SUBSTRING(CH_ModId FROM 1 FOR 18);
+							END IF;
+							
+							IF UPPER(CH_ModId1)	= 'VALIDATEKFDISCOUNT' THEN
+								SET CH_Vboola					= 'TRUE';
+							END IF;
+							
+						END IF;
+						
+						IF CH_Vboola = 'TRUE' THEN
+							
+							SET CH_ModId	= UPPER(CH_ModId);
+							IF CONTAINS(COALESCE(CH_DiscTypes,''),CH_ModId) <> TRUE THEN
+								
+								SET CH_DiscTypes 					= COALESCE(CH_DiscTypes,'') || ' ' || CH_ModId;
+								SET IN_DiscountCount			= IN_DiscountCount + 1;
+								
+							END IF;
+														
+							IF COALESCE(REF_Allowance.NS_oa:BasisAmount,'') <> '' THEN
+								SET DE_Amount					= CAST(REF_Allowance.NS_oa:BasisAmount AS DECIMAL);
+							ELSE
+								SET DE_Amount					= 0;
+							END IF;	
+												
+							SET IN_TotalAmount					= IN_TotalAmount + CAST(DE_Amount * 100 AS INTEGER) ;
+							SET CH_Vboola						= 'FALSE';
+							
+						END IF;
+						
+						IF CH_Vbool2 = 'TRUE' THEN
+							
+							IF REF_Allowance.NS_oa:ReferenceID > IN_MaxHits THEN
+								SET IN_MaxHits					= REF_Allowance.NS_oa:ReferenceID;
+							END IF;
+							
+							IF COALESCE(REF_Allowance.NS_oa:BasisAmount,'')	<> '' THEN
+								SET DE_Amount					= CAST(REF_Allowance.NS_oa:BasisAmount AS DECIMAL);
+							ELSE
+								SET DE_Amount					= 0;
+							END IF;
+							SET DE_Amount	=	DE_Amount *100;
+							SET IN_Amount = CAST(DE_Amount AS INTEGER);
+							SET IN_TotalAmount	= IN_TotalAmount + IN_Amount;
+							SET CH_Vbool2						= 'FALSE';
+							
+						END IF;
+						
+					MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE;
+					
+						
+					
+				END IF;
+				
+			END IF;
+				
+		MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+			
+	END WHILE;
+	
+	MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	
+	SET IN_DiscountCount										= IN_DiscountCount + IN_MaxHits;
+END;
+
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CustomLogic5 												 *
+	* Input Parameters	: IN_TotalAmount, IN_Items, REF_SalesOrderLine, REF_Allowance 		 *
+	*					  REF_SalesOrder													 *
+	* Output Parameters	: IN_TotalAmount, IN_Items											 *
+	* Description		: Procedure to set IN_TotalAmount,IN_Items variables   				 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE  PROC_CustomLogic5(INOUT IN_TotalAmount INTEGER,INOUT IN_Items INTEGER,IN REF_SalesOrderLine REFERENCE,IN REF_Allowance REFERENCE,IN REF_SalesOrder REFERENCE )
+	BEGIN
+		
+		--Declaring variables
+		DECLARE CH_Voidflag		CHARACTER '';
+		DECLARE CH_Vbool		CHARACTER;
+		DECLARE CH_Veflag		CHARACTER '';
+		DECLARE CH_Vbool1 		CHARACTER;
+		DECLARE CH_MethodCode 	CHARACTER '';
+		DECLARE CH_Vboola		CHARACTER 'FALSE';
+		DECLARE IN_Amount		INTEGER 0;
+		DECLARE CH_VeFlag		CHARACTER '';
+		DECLARE DE_Amount		DECIMAL ;
+		
+		SET IN_TotalAmount										= 0;
+		SET IN_Items											= 0;
+		
+		MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+		WHILE LASTMOVE(REF_SalesOrderLine) DO
+			SET CH_Vboola	=	'FALSE';
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID LINE' THEN
+				SET CH_Voidflag									= 'TRUE';
+			ELSE
+				SET CH_Voidflag									= '';
+			END IF;
+			
+			IF CH_Voidflag	= 'TRUE' THEN
+				SET CH_Vbool									= 'TRUE';
+			ELSE
+				SET CH_Vbool									= 'FALSE';
+			END IF;
+			
+			IF REF_SalesOrderLine.NS_Dfns:VoidStatus.NS_oa:Code	= 'VOID ENTRY' THEN
+				SET CH_Veflag									= 'TRUE';
+			ELSE
+				SET CH_Veflag									= '';
+			END IF;
+			IF CH_Veflag	= 'TRUE' THEN
+				SET CH_Vbool1									= 'TRUE';
+			ELSE
+				SET CH_Vbool1									= 'FALSE';
+			END IF;
+			
+			MOVE REF_Allowance TO REF_SalesOrderLine.NS_Dfns:Allowance;
+				
+			IF EXISTS(REF_SalesOrderLine.NS_Dfns:Allowance[]) = 'TRUE' THEN
+				
+				WHILE LASTMOVE(REF_Allowance) DO
+					
+					IF COALESCE(REF_Allowance.NS_oa:Description,'') <> '' THEN
+						SET CH_MethodCode						= REF_Allowance.NS_oa:Description;
+					ELSE
+						SET CH_MethodCode						= '';
+					END IF;
+					
+					IF UPPER(CH_MethodCode) = 'ITEMDISCOUNT' THEN
+						SET CH_Vboola							= 'TRUE';
+					ELSE
+						SET CH_Vboola							= 'FALSE';
+					END IF;
+					
+					IF CH_Vboola	= 'FALSE' THEN
+						
+						IF UPPER(CH_MethodCode)	= 'PRICEOVERRIDE' THEN 
+							SET CH_Vboola						= 'TRUE';
+						ELSE
+							SET CH_Vboola						= 'FALSE';
+						END IF;
+						
+					END IF;
+					
+					IF CH_Vbool	= 'FALSE' AND CH_Vbool1	= 'FALSE' AND CH_Vboola	= 'TRUE' THEN
+						
+						SET IN_Items							= IN_Items + 1;
+						
+						IF COALESCE(REF_Allowance.NS_oa:BasisAmount,'')	<> '' THEN
+							SET DE_Amount						= CAST (REF_Allowance.NS_oa:BasisAmount AS DECIMAL);
+						ELSE
+							SET DE_Amount						= 0;
+						END IF;
+						
+						SET DE_Amount	=	DE_Amount *100;
+						SET IN_Amount = CAST(DE_Amount AS INTEGER);
+						SET IN_TotalAmount	= IN_TotalAmount + IN_Amount;
+						
+					END IF;
+					
+				MOVE REF_Allowance NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;
+				
+						
+			END IF;
+			
+			MOVE REF_SalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		MOVE REF_SalesOrderLine TO REF_SalesOrder.NS_Dfns:SalesOrderLine;
+	END;
+	
+	/*****************************************************************************************
+	* Function Name		: PROC_PaymentMapping 												 *
+	* Input Parameters	: 						 											 *
+	*					  REF_SalesOrder													 *
+	* Output Parameters	: None																 *
+	* Description		: The function will populate the values for Payment information		 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	07-MAY-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_PaymentMapping (IN REF_SalesOrderHeader REFERENCE,IN REF_Payment REFERENCE,IN REF_AppArea REFERENCE)
+	BEGIN
+		
+		DECLARE CH_RecType 			CHARACTER;
+		DECLARE CH_Uid				CHARACTER;
+		DECLARE CH_ZbAuthId			CHARACTER;
+		DECLARE	CH_AuthCode			CHARACTER;
+		DECLARE	CH_RefundIndicator	CHARACTER;
+		DECLARE CH_VoidFlag 		CHARACTER;
+		DECLARE CH_VBool			CHARACTER;
+		DECLARE CH_Amount			CHARACTER;
+		DECLARE	CH_TenderId			CHARACTER;
+		DECLARE REF_Env				REFERENCE TO Environment;
+		
+		DECLARE REF_PaymentCard 		REFERENCE TO REF_Payment.NS_Dfns:PaymentCard;
+		
+		
+		--Building Select query 
+		--SET REF_EnvDBValue.QryStr 							= 'SELECT APPSTENDERTYPE,CCCPTENDERDESCRIPTION,CCCPTENDERTYPE FROM TENDERDATA WHERE TENDERID =''' ||REF_Payment.(XMLNSC.Attribute)id||'''';
+		--SET Environment.OutVal[] 								= PASSTHRU(REF_EnvDBValue.QryStr TO Database.{DSN});
+		
+		SET Environment.OutVal[] 								= SELECT TND.APPSTENDERTYPE,TND.CCCPTENDERDESCRIPTION,TND.CCCPTENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS TND WHERE TND.TENDERID = REF_Payment.(XMLNSC.Attribute)id;
+		
+		SET REF_EnvDBValue.APPSTenderType 						= Environment.OutVal[1].APPSTENDERTYPE;
+		SET REF_EnvDBValue.CCCPTenderType 						= Environment.OutVal[1].CCCPTENDERTYPE;
+		SET REF_EnvDBValue.TenderDescription					= Environment.OutVal[1].CCCPTENDERDESCRIPTION;
+		
+		--Start of Mapping for AMNT_TENDRD column
+		IF COALESCE(REF_Payment.NS_oa:Amount,'') <> '' THEN
+			SET REF_EnvDBValue.AMNT_TENDRD 						= CAST(CAST(REF_Payment.NS_oa:Amount AS DECIMAL)*100 AS CHARACTER);
+		ELSE
+			SET REF_EnvDBValue.AMNT_TENDRD 						= '0' ;
+		END IF;
+		IF(CAST(REF_EnvDBValue.AMNT_TENDRD AS DECIMAL)<0) THEN
+		    SET REF_EnvDBValue.AMNT_TENDRD                      =  CAST(CAST(REF_Payment.NS_oa:Amount AS DECIMAL)*100*-1 AS CHARACTER);               
+	    END IF;
+		--End of Mapping for AMNT_TENDRD column
+		
+		--Start of Mapping for CC_KEYED_FLG column
+		IF REF_EnvDBValue.APPSTenderType = 'P' AND REF_Payment.NS_Dfns:EntryType.(XMLNSC.Attribute)name = 'Keyboard' THEN
+           SET REF_EnvDBValue.CC_KEYED_FLG                       = 'Y';
+        ELSEIF REF_EnvDBValue.APPSTenderType = 'T' AND REF_Payment.NS_Dfns:EntryType.(XMLNSC.Attribute)name = 'Keyboard' THEN
+           SET REF_EnvDBValue.CC_KEYED_FLG                       = 'Y';
+        ELSEIF REF_EnvDBValue.APPSTenderType = 'P' AND REF_Payment.NS_Dfns:EntryType.(XMLNSC.Attribute)name <> 'Keyboard' THEN
+
+           SET REF_EnvDBValue.CC_KEYED_FLG                       = 'N';
+        ELSEIF REF_EnvDBValue.APPSTenderType = 'T' AND REF_Payment.NS_Dfns:EntryType.(XMLNSC.Attribute)name <> 'Keyboard' THEN 
+
+           SET REF_EnvDBValue.CC_KEYED_FLG                       = 'N';
+        ELSE
+           SET REF_EnvDBValue.CC_KEYED_FLG                             = '';
+        END IF;
+        
+        --Code Change Start For Production Defect 25/09/2013 version 0.7   
+		SET REF_EnvDBValue.CC_HASH_CC_REF					= '';
+		SET REF_EnvDBValue.CC_END_CARD_NUM					= '';
+		--Code Change end For Production Defect 25/09/2013 version 0.7
+		IF REF_EnvDBValue.CCCPTenderType IN ('CC','SC','DC') THEN
+			IF STARTSWITH(REF_EnvDBValue.TenderDescription,'HFC') = FALSE  THEN
+				IF EXISTS(REF_Payment.NS_Dfns:PaymentCard.NS_oa:Number[])THEN
+					SET REF_EnvDBValue.AccountId				= SUBSTRING(REF_Payment.NS_Dfns:PaymentCard.NS_oa:Number FROM 1 FOR 6);	
+					SET REF_EnvDBValue.CC_END_CARD_NUM			= SUBSTRING(REF_Payment.NS_Dfns:PaymentCard.NS_oa:Number FROM LENGTH(REF_Payment.NS_Dfns:PaymentCard.NS_oa:Number)-3);
+					
+					IF EXISTS(REF_PaymentCard.NS_Dfns:HashedNumber[]) THEN
+						SET REF_EnvDBValue.CC_HASH_CC_REF		= REF_PaymentCard.NS_Dfns:HashedNumber;
+					ELSE
+						SET REF_EnvDBValue.CC_HASH_CC_REF		= '';
+					END IF;
+					
+				END IF;
+					
+			ELSE
+				IF EXISTS(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber[])THEN
+					
+					SET REF_EnvDBValue.AccountId 				= SUBSTRING(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber FROM 1 FOR 6);
+					SET REF_EnvDBValue.CC_END_CARD_NUM			= SUBSTRING(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber FROM LENGTH(REF_EnvDBValue.CC_END_CARD_NUM)-4 FOR LENGTH(REF_EnvDBValue.CC_END_CARD_NUM));
+					
+				END IF;
+				
+				IF EXISTS(REF_Payment.NS_Dfns:GiftCard.NS_oa:Number[])THEN
+					
+					SET REF_EnvDBValue.AccountId				= SUBSTRING(REF_Payment.NS_Dfns:GiftCard.NS_oa:Number FROM 1 FOR 6);
+					SET REF_EnvDBValue.CC_END_CARD_NUM			= SUBSTRING(REF_Payment.NS_Dfns:GiftCard.NS_oa:Number FROM LENGTH(REF_EnvDBValue.CC_END_CARD_NUM)-4 FOR LENGTH(REF_EnvDBValue.CC_END_CARD_NUM));
+					
+				END IF;
+				
+				IF EXISTS(REF_Payment.NS_Dfns:Loan.NS_oa:Number[]) THEN
+					
+					SET REF_EnvDBValue.AccountId				= SUBSTRING(REF_Payment.NS_Dfns:Loan.NS_oa:Number FROM 1 FOR 6);
+					SET REF_EnvDBValue.CC_END_CARD_NUM			= SUBSTRING(REF_Payment.NS_Dfns:Loan.NS_oa:Number FROM LENGTH(REF_EnvDBValue.CC_END_CARD_NUM)-4 FOR LENGTH(REF_EnvDBValue.CC_END_CARD_NUM));
+									
+				END IF;
+				
+			END IF;
+		ELSEIF REF_EnvDBValue.CCCPTenderType = 'T' THEN
+			
+			IF EXISTS(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber[])THEN
+				SET REF_EnvDBValue.AccountId 					= SUBSTRING(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber FROM 1 FOR 6);
+				SET REF_EnvDBValue.CC_END_CARD_NUM 				= SUBSTRING(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber FROM LENGTH(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber)-3);
+			END IF;
+			
+		ELSE
+			
+			SET REF_EnvDBValue.CC_END_CARD_NUM					= '';
+			SET REF_EnvDBValue.AccountId						= '';
+			SET REF_EnvDBValue.CC_HASH_CC_REF 					= '';
+				    	
+		END IF;
+		--End of Mapping for CC_START and CC_END_CARD_NUM,CC_HASH_CC_REF
+		
+		
+		--Start of CRDT_NTE_REF
+		IF REF_Payment.(XMLNSC.Attribute)id = 'CreditNote' THEN
+			IF REF_Payment.NS_Dfns:CreditNote.NS_oa:SerialNumber <> '' THEN
+				SET REF_EnvDBValue.CRDT_NTE_REF 				= REF_Payment.NS_Dfns:CreditNote.NS_oa:SerialNumber;
+			ELSE
+				SET REF_EnvDBValue.CRDT_NTE_REF					= '';
+			END IF;
+			
+		ELSE
+			SET REF_EnvDBValue.CRDT_NTE_REF 					= '';
+		END IF;
+		--End of CRDT_NTE_REF
+		
+		--Start:Mapping for RECORD_TYPE
+		IF EXISTS(REF_SalesOrderHeader.NS_Dfns:Payment[]) THEN
+			SET CH_RecType 										= '01';
+			IF  UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:SuspendedTransactionIndicator) = 'TRUE' OR COALESCE(UPPER(REF_SalesOrderHeader.NS_Dfns:SalesTransaction.NS_Dfns:TrainingModeIndicator),'') = 'TRUE' THEN
+				SET CH_RecType 									= '05';
+			END IF;
+		END IF;	
+		SET REF_EnvDBValue.RECORD_TYPE 							= CH_RecType;
+		--End:Mapping for RECORD_TYPE
+		
+		--Start of Mapping for ITEM_AUTH_USER_ID
+		SET REF_EnvDBValue.ITEM_AUTH_USER_ID 					= NULL;
+		IF COALESCE(REF_Payment.NS_Dfns:AuthorizingUserID,'') <> '' THEN
+			SET CH_Uid 											= REF_Payment.NS_Dfns:AuthorizingUserID;
+			IF LENGTH(CH_Uid) > 6 THEN
+				SET CH_Uid 										= SUBSTRING(REF_Payment.NS_Dfns:AuthorizingUserID FROM 1 FOR 6);
+			END IF;
+		END IF;
+		--Code Change Start For Production Defect 25/09/2013 version 0.7
+		--SET CH_ZbAuthId 										= REF_SalesOrderHeader.NS_Dfns:ZeroBalAuthUser;
+		
+		--IF CH_ZbAuthId <> '' THEN
+		--	SET CH_Uid 											= CH_ZbAuthId;
+		--END IF;
+		--Code Change end For Production Defect 25/09/2013 version 0.7
+		SET REF_EnvDBValue.ITEM_AUTH_USER_ID 					= COALESCE(CH_Uid,'');
+		--End of Mapping for ITEM_AUTH_USER_ID
+		
+		--Start of Mapping for TEND_CN_ALREADY_REDEEMED
+		IF EXISTS(REF_SalesOrderHeader.NS_Dfns:Payment[]) THEN
+			IF UPPER(REF_Payment.NS_Dfns:CreditNote.NS_Dfns:RedeemedIndicator) = 'TRUE' THEN	
+
+				SET REF_EnvDBValue.TEND_CN_ALREADY_REDEEMED 	= 'Y';
+			ELSE
+				SET REF_EnvDBValue.TEND_CN_ALREADY_REDEEMED 	= 'N';
+			END IF;
+
+		ELSE
+			SET REF_EnvDBValue.TEND_CN_ALREADY_REDEEMED 		= '';
+		END IF; 
+		--End of Mapping for TEND_CN_ALREADY_REDEEMED
+		
+		
+		--Start of Mapping for TEND_CN_VALUE_OVERRIDDEN
+			
+		IF UPPER(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:ICCIndicator) = 'TRUE' THEN
+			SET REF_EnvDBValue.TEND_CN_VALUE_OVERRIDDEN 	= 'Y';
+		ELSE
+			IF UPPER(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:ICCIndicator) = 'FALSE' THEN
+				SET REF_EnvDBValue.TEND_CN_VALUE_OVERRIDDEN		= 'N';
+			ELSE
+				SET REF_EnvDBValue.TEND_CN_VALUE_OVERRIDDEN		= '';
+			END IF;
+		END IF;
+	--End of Mapping for TEND_CN_VALUE_OVERRIDDEN
+		
+		--Start of Mapping for TENDER_AUTH_CODE
+		IF REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:PaymentAuthorization.NS_oa:ResponseCode <> '' THEN
+			SET REF_EnvDBValue.TENDER_AUTH_CODE 				= REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:PaymentAuthorization.NS_oa:ResponseCode;
+		ELSEIF REF_Payment.NS_Dfns:Cheque.NS_oa:AuthorizationCode <> '' THEN
+			SET REF_EnvDBValue.TENDER_AUTH_CODE 				= REF_Payment.NS_Dfns:Cheque.NS_oa:AuthorizationCode;
+		ELSE
+			SET REF_EnvDBValue.TENDER_AUTH_CODE 				= '';
+		END IF;
+		--End of Mapping for TENDER_AUTH_CODE
+		
+		--Start of Mapping for TENDER_AUTH_CODE_ENTERED
+		IF EXISTS(REF_PaymentCard.NS_Dfns:Referral.NS_Dfns:ManualAuthCodeEntryIndicator[]) THEN
+			
+			IF REF_PaymentCard.NS_Dfns:Referral.NS_Dfns:ManualAuthCodeEntryIndicator <> '' THEN
+				SET CH_AuthCode 								= REF_PaymentCard.NS_Dfns:Referral.NS_Dfns:ManualAuthCodeEntryIndicator;
+			END IF;
+		END IF;
+		IF EXISTS(REF_Payment.NS_Dfns:Cheque.NS_Dfns:ManualKeyingIndicator[]) THEN
+			IF REF_Payment.NS_Dfns:Cheque.NS_Dfns:ManualKeyingIndicator  <> '' THEN
+				SET CH_AuthCode 								= REF_Payment.NS_Dfns:Cheque.NS_Dfns:ManualKeyingIndicator;
+			END IF;
+		END IF;	
+			IF CH_AuthCode = 'true' THEN
+				SET REF_EnvDBValue.TENDER_AUTH_CODE_ENTERED 	= 'Y';
+			ELSE
+				SET REF_EnvDBValue.TENDER_AUTH_CODE_ENTERED 	= 'N';
+			END IF;
+			
+		
+		--End of Mapping for TENDER_AUTH_CODE_ENTERED
+		
+		--Mapping for SC_TYPE_CARD_NUM
+		IF REF_EnvDBValue.CCCPTenderType IN('CC','SC','DC') AND STARTSWITH(Environment.OutVal[1].CCCPTENDERDESCRIPTION,'HFC')THEN
+			SET REF_EnvDBValue.SC_TYPE_CARD_NUM 				= 'RETAIL ACCOUNT CARD';
+		ELSEIF REF_EnvDBValue.CCCPTenderType = 'T' THEN
+			SET REF_EnvDBValue.SC_TYPE_CARD_NUM 				= 'TRADE ACCOUNT CARD';
+		ELSEIF REF_EnvDBValue.CCCPTenderType IN('E','V','W','R','D','SV','OV',' LV','BV','KV') THEN
+			SET REF_EnvDBValue.SC_TYPE_CARD_NUM 				= 'GIFT CARD';
+		ELSE
+			SET REF_EnvDBValue.SC_TYPE_CARD_NUM 				= '';
+		END IF;
+		
+		--Mapping end for SC_TYPE_CARD_NUM
+		
+		--SET REF_EnvDBValue.QryStr1 								= 'SELECT APPSTENDERTYPE,CCCPTENDERDESCRIPTION,CCCPTENDERTYPE FROM TENDERDATA 
+		--														WHERE TENDERID =''' ||REF_Payment.(XMLNSC.Attribute)id||'''';
+		--SET Environment.OutVal1[] 							= PASSTHRU(REF_EnvDBValue.QryStr1 TO Database.{DSN});
+		
+		
+		SET Environment.OutVal1[] 							= SELECT T.APPSTENDERTYPE,T.CCCPTENDERDESCRIPTION,T.CCCPTENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS T WHERE T.TENDERID = REF_Payment.(XMLNSC.Attribute)id;
+				
+		--Mapping for TENDER_TYPE
+		SET REF_EnvDBValue.CCCPTENDERTYPE					= Environment.OutVal1[1].CCCPTENDERTYPE;
+		
+		--Mapping for TENDER_DESC
+		SET REF_EnvDBValue.CCCPTENDERDESCRIPTION			= Environment.OutVal1[1].CCCPTENDERDESCRIPTION;
+		
+		--Start of STORE_CARD_CARD_NUM
+		--Code Change Start For Production Defect 25/09/2013 version 0.7
+        SET REF_EnvDBValue.AccID                                          = '';
+        --Code Change end For Production Defect 25/09/2013 version 0.7
+        IF EXISTS(REF_Payment.NS_Dfns:GiftCard.NS_oa:Number[])THEN
+              SET REF_EnvDBValue.AccID                                          = REF_Payment.NS_Dfns:GiftCard.NS_oa:Number;
+        ELSEIF EXISTS(REF_Payment.NS_Dfns:Loan.NS_oa:Number[])THEN
+              SET REF_EnvDBValue.AccID                                          = REF_Payment.NS_Dfns:Loan.NS_oa:Number;
+        ELSEIF EXISTS(REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber[])AND CONTAINS(REF_Payment.(XMLNSC.Attribute)id,'Tradecard')THEN
+              SET REF_EnvDBValue.AccID                                          = REF_Payment.NS_Dfns:PaymentCard.NS_Dfns:CleartextNumber;
+        END IF;
+
+
+        IF REF_EnvDBValue.CCCPTENDERTYPE IN('CC','SC','DC') AND STARTSWITH(REF_EnvDBValue.CCCPTENDERDESCRIPTION,'HFC') AND REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+              SET REF_EnvDBValue.STORE_CARD_CARD_NUM                      =  REF_EnvDBValue.AccID;
+        ELSEIF REF_EnvDBValue.CCCPTENDERTYPE IN('T','L','E','V','W','R','D','SV','OV',' LV','BV','KV') THEN
+              SET REF_EnvDBValue.STORE_CARD_CARD_NUM                      =  REF_EnvDBValue.AccID;
+        ELSE  
+              SET REF_EnvDBValue.STORE_CARD_CARD_NUM                      =  '';      
+        END IF;
+
+        --End of STORE_CARD_CARD_NUM
+		
+		
+		--Start of Mapping for CUST_NOT_PRESENT
+			IF COALESCE(UPPER(REF_Payment.NS_Dfns:CustomerPresentIndicator),'') = 'FALSE' THEN
+				SET REF_EnvDBValue.CUST_NOT_PRESENT 			= 'Y';
+			ELSE
+				SET REF_EnvDBValue.CUST_NOT_PRESENT 			= 'N';
+			END IF;
+		
+		--End of Mapping for CUST_NOT_PRESENT
+		
+		--Start of Mapping for CC_HASH_CC_REF_TOKEN
+		IF REF_EnvDBValue.CCCPTENDERTYPE IN('CC','SC','DC') THEN
+			
+			IF Environment.OutVal[1].CCCPTENDERDESCRIPTION <> 'HFC' THEN
+				
+				IF EXISTS(REF_PaymentCard.NS_Dfns:PaymentAuthorization.NS_Dfns:Token[]) THEN
+					SET REF_EnvDBValue.CC_HASH_CC_REF_TOKEN 	= REF_PaymentCard.NS_Dfns:PaymentAuthorization.NS_Dfns:Token;
+				END IF;
+				 
+			END IF;
+			
+		ELSE
+			SET REF_EnvDBValue.CC_HASH_CC_REF_TOKEN 			= '';
+		END IF;	
+		--End of Mapping for CC_HASH_CC_REF_TOKEN
+		
+		--Start of Mapping for REFUND_FLG
+		SET CH_RefundIndicator 								= 'N';
+		IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET CH_VoidFlag 									= 'TRUE';
+		ELSE
+			SET CH_VoidFlag 									= 'FALSE';
+		END IF;
+		
+		IF CH_VoidFlag = 'TRUE' THEN
+			SET CH_VBool 										= 'TRUE';
+		ELSE 
+			SET CH_VBool 										= 'FALSE';
+		END IF;
+		
+		IF COALESCE(REF_Payment.NS_oa:Amount,'') <> '' THEN
+			SET CH_Amount 										= REF_Payment.NS_oa:Amount;
+		ELSE
+			SET CH_Amount 										= '0';
+		END IF;
+		
+		IF COALESCE(REF_Payment.(XMLNSC.Attribute)id,'')<>'' THEN
+			SET CH_TenderId 									= REF_Payment.(XMLNSC.Attribute)id;
+		ELSE
+			SET CH_TenderId 									= '0';
+		END IF;
+		
+		IF CAST(CH_Amount AS DECIMAL)< 0 AND CH_VBool = 'FALSE'THEN
+			SET CH_RefundIndicator 								= 'Y';
+		ELSE
+			SET CH_RefundIndicator 								= 'N';	
+		END IF;
+		
+		IF UPPER(CH_TenderId) = 'CHANGENOTISSUED' THEN
+			SET CH_RefundIndicator 								= 'Y';
+		END IF;
+		
+		IF CAST(REF_EnvDBValue.TNDR_BALANCE AS DECIMAL) <0 THEN
+			SET CH_RefundIndicator 								= 'Y';
+		END IF; 
+		
+		SET REF_EnvDBValue.REFUND_FLG 							= CH_RefundIndicator;
+		--End of Mapping for REFUND_FLG
+		
+		--Mapping for LINE_VOID_DATE_TIME
+		SET REF_EnvDBValue.LINE_VOID_DATE_TIME 						= SUBSTRING(REPLACE(REF_Payment.NS_Dfns:VoidStatus.NS_oa:EffectiveDateTime, 'T' ,' ') FROM 1 FOR 19);
+		
+		IF REF_EnvDBValue.LINE_VOID_DATE_TIME <> '' THEN
+			SET REF_EnvDBValue.LINE_VOID_DATE_TIME 					= COALESCE('to_date('''|| REF_EnvDBValue.LINE_VOID_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.LINE_VOID_DATE_TIME 					= '''''';
+		END IF;		
+		
+		--Mapping for TEND_CN_NOT_FOUND
+		IF EXISTS(REF_SalesOrderHeader.NS_Dfns:Payment[]) THEN
+
+			IF UPPER(REF_Payment.NS_Dfns:CreditNote.NS_Dfns:DetailsNotFoundIndicator) = 'TRUE' THEN
+				SET REF_EnvDBValue.TEND_CN_NOT_FOUND 				= 'Y';
+			ELSE
+				SET REF_EnvDBValue.TEND_CN_NOT_FOUND 				= 'N';
+			END IF;
+
+		ELSE
+			SET REF_EnvDBValue.TEND_CN_NOT_FOUND 					= '';
+		END IF;
+		
+		--Mapping for ITM_VOID_FLG
+		IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET REF_EnvDBValue.ITM_VOID_FLG 						= 'Y';
+		ELSE
+			SET REF_EnvDBValue.ITM_VOID_FLG 						= 'N';
+		END IF;
+		
+		--Mapping for ITM_VOID_TYP
+		IF REF_Payment.NS_Dfns:VoidStatus.NS_oa:Code = 'VOID LINE' THEN
+			SET REF_EnvDBValue.ITM_VOID_TYP 						= 'V';
+		ELSE
+			SET REF_EnvDBValue.ITM_VOID_TYP 						= '';
+		END IF;
+		
+		--Code Change Start for Production Defect on 10/09/2013 version 0.4
+		SET REF_EnvDBValue.LINE_DATE_TIME 							= SUBSTRING(REPLACE(REF_Payment.NS_oa:StartDateTime, 'T' ,' ') FROM 1 FOR 19);
+		
+		IF COALESCE(REF_EnvDBValue.LINE_DATE_TIME,'') <> '' THEN
+			SET REF_EnvDBValue.LINE_DATE_TIME 						= COALESCE('to_date('''|| REF_EnvDBValue.LINE_DATE_TIME ||'''' || ',' || '''yyyy-mm-dd hh24:mi:ss''' || ')','');
+		ELSE
+			SET REF_EnvDBValue.LINE_DATE_TIME 						= '''''';
+		END IF;	
+		
+		--Code Change End for Production Defect on 10/09/2013 version 0.4
+		
+		
+	END;
+	
+	/*****************************************************************************************
+	* Function Name		: PROC_InsertPaymentMapping 										 *
+	* Input Parameters	: 						 											 *
+	*					  																	 *
+	* Output Parameters	: None																 *
+	* Description		: The function will insert the populated values for payment 		 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	07-MAY-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_InsertPaymentMapping( )
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;
+		
+		--Declaring variables
+		DECLARE CH_QryStr CHARACTER;
+		
+						--Insert Query string for RJTILLTXLD table
+						SET CH_QryStr = 'INSERT INTO RJTILLTXLD (
+								AMNT_TENDRD,
+								CC_KEYED_FLG,
+								CC_START,
+								CC_END_CARD_NUM,
+								CC_HASH_CC_REF,
+								STORE_CARD_CARD_NUM,
+								CRDT_NTE_REF,
+								RECORD_TYPE,
+								TEND_CN_ALREADY_REDEEMED,
+								TEND_CN_VALUE_OVERRIDDEN,
+								TENDER_AUTH_CODE,
+								TENDER_AUTH_CODE_ENTERED,
+								TENDER_DESC,
+								TENDER_TYPE,
+								CUST_NOT_PRESENT,
+								CC_HASH_CC_REF_TOKEN,
+								ITEM_AUTH_USER_ID,
+								REFUND_FLG,
+								CASH_FLG,
+								CC_HASH_CARD_NUM,
+								CHANGE_GIVEN,
+								CREATION_DTE,
+								CSTMR_REFRNC,
+								CSTMR_TYPE,
+								CUSTOMER_POSTCODE,
+								STC_DATE_TIME,
+								DURATION,
+								FNL_DISCOUNT,
+								FNL_ITM_MKDN,
+								FNL_ITM_RFND,
+								FNL_ITM_SLS,
+								FNL_ITM_VOID,
+								FNL_MARKDOWN,
+								FNL_STAFDISC,
+								FNL_TENDERNO,
+								FNL_TRN_DISC,
+								GIFTVCH_FLG,
+								MANFCTR_FLG,
+								NO_SALES_FLG,
+								NOSALE_DATE_TIME,
+								NOSALE_REASON_CODE,
+								NOSALE_REASON_DESC,
+								OPERATOR_ID,
+								SC_TYPE_CUST_REF,
+								SEGFIELD,
+								STORE_CARD_CUST_REF,
+								STRE_CPN_FLG,
+								TILL_NUMBER,
+								TNDR_BAL_EX_VAT,
+								TNDR_BAL_VAT,
+								TRANS_COMPLETE_DATE_TIME,
+								TRANS_COMPLETING_OP_ID,
+								TRANS_COMPLETING_TILL_ID,
+								TRANS_TRAINING_FLAG,
+								TRANS_VOID_DATE_TIME,
+								TRANS_VOID_REASON_CODE,
+								TRANS_VOID_REASON_DESC,
+								TRANSACTN_ID,
+								TRANSCTN_DTE,
+								TRANSCTN_NO,
+								TRANSCTN_TME,
+								TRNSCTN_VOID,
+								XCHNGNTE_FLG,
+								CC_HASH_CARD_NUM_TOKEN,
+								STORE_CODE,
+								STORE_NAME,
+								STORE_DIV_CD,
+								STORE_TYPE,
+								TNDR_BALANCE,
+								ITEM_BALANCE,
+								SEQ_NUMBER,
+								LINE_DATE_TIME,
+								LINE_VOID_DATE_TIME,
+								TEND_CN_NOT_FOUND,
+								SC_TYPE_CARD_NUM,
+								ITM_VOID_FLG,
+								ITM_VOID_TYP
+								)
+								VALUES('
+								 || REF_EnvDBValue.AMNT_TENDRD
+								 || ',''' 	|| COALESCE(REF_EnvDBValue.CC_KEYED_FLG,'') ||''''
+								 || ',''' 	|| COALESCE(REF_EnvDBValue.AccountId,'') ||'''' --REF_EnvDBValue.AccountId is for CC_START)
+								 || ','''	|| COALESCE(REF_EnvDBValue.CC_END_CARD_NUM,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.CC_HASH_CC_REF,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.STORE_CARD_CARD_NUM,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.CRDT_NTE_REF,'')||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.RECORD_TYPE,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.TEND_CN_ALREADY_REDEEMED,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.TEND_CN_VALUE_OVERRIDDEN,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.TENDER_AUTH_CODE,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.TENDER_AUTH_CODE_ENTERED,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.CCCPTENDERDESCRIPTION,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.CCCPTENDERTYPE,'')||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.CUST_NOT_PRESENT,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.CC_HASH_CC_REF_TOKEN,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.ITEM_AUTH_USER_ID,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.REFUND_FLG,'') ||'''' 
+								 ||',''' 	|| COALESCE(REF_EnvDBValue.CASH_FLG,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.CC_HASH_CARD_NUM,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.CHANGE_GIVEN,'null')
+								 ||', sysdate'
+								 ||','''	|| COALESCE(REF_EnvDBValue.CSTMR_REFRNC,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.CSTMR_TYPE,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.CUSTOMER_POSTCODE,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.STC_DATE_TIME,'''''')
+								 ||','  	|| COALESCE(REF_EnvDBValue.DURATION,'null') 
+								 ||',' 	 	|| COALESCE(REF_EnvDBValue.FNL_DISCOUNT,'null') 
+								 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_MKDN,'null')
+								 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_RFND,'null') 
+								 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_SLS,'null')
+								 ||','  	|| COALESCE(REF_EnvDBValue.FNL_ITM_VOID,'null') 
+								 ||','  	|| COALESCE(REF_EnvDBValue.FNL_MARKDOWN,'null') 
+								 ||','''	|| COALESCE(REF_EnvDBValue.FNL_STAFDIS,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.FNL_TENDERNO,'null') 
+								 ||','''	|| COALESCE(REF_EnvDBValue.FNL_TRN_DIS,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.GIFTVCH_FLG,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.MANFCTR_FLG,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.NO_SALES_FLG,'')||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.NOSALE_DATE_TIME,'''''')
+								 ||','''	|| COALESCE(REF_EnvDBValue.NOSALE_REASON_CODE,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.NOSALE_REASON_DESC,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.OPERATOR_ID,'null') 
+								 ||','''	|| COALESCE(REF_EnvDBValue.SC_TYPE_CUST_REF,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.SEGFIELD,'''''')
+								 ||','''	|| COALESCE(REF_EnvDBValue.STORE_CARD_CUST_REF,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.STRE_CPN_FLG,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.TILL_NUMBER,'null') 
+								 ||','  	|| COALESCE(REF_EnvDBValue.TNDR_BAL_EX_VAT,'null') 
+								 ||','  	|| COALESCE(REF_EnvDBValue.TNDR_BAL_VAT,'null')
+								 ||','  	|| COALESCE(REF_EnvDBValue.TRANS_COMPLETE_DATE_TIME,'''''')
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_COMPLETING_OP_ID,'')  ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_COMPLETING_TILL_ID,'')||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_TRAINING_FLAG,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.TRANS_VOID_DATE_TIME,'''''')
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_VOID_REASON_CODE,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANS_VOID_REASON_DESC,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANSACTN_ID,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.TRANSCTN_DTE,'''''')
+								 ||','  	|| COALESCE(REF_EnvDBValue.TRANSCTN_NO,'null')
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRANSCTN_TME,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.TRNSCTN_VOID,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.XCHNGNTE_FLG,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.CC_HASH_CARD_NUM_TOKEN,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.STORE_CODE,'') ||'''' 
+								 ||','''	|| COALESCE(REF_EnvDBValue.STORE_NAME,'') ||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.STORE_DIV_CD,'')||''''
+								 ||','''	|| COALESCE(REF_EnvDBValue.STORE_TYPE,'') ||''''
+								 ||','  	|| COALESCE(REF_EnvDBValue.TNDR_BALANCE,'null')
+								 ||','  	|| COALESCE(REF_EnvDBValue.ITEM_BALANCE,'null') 
+								 ||','  	|| COALESCE(REF_EnvDBValue.SeqNumber,'null')
+								 || ','		|| COALESCE(REF_EnvDBValue.LINE_DATE_TIME,'''''')
+								 || ','		|| COALESCE(REF_EnvDBValue.LINE_VOID_DATE_TIME,'''''')
+								 || ','''	|| COALESCE(REF_EnvDBValue.TEND_CN_NOT_FOUND,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.SC_TYPE_CARD_NUM,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.ITM_VOID_FLG,'') ||''''
+								 || ','''	|| COALESCE(REF_EnvDBValue.ITM_VOID_TYP,'') ||''''
+								 ||')'
+								 ||'';
+								 
+			DECLARE temp CHARACTER 	CH_QryStr;
+			PASSTHRU(CH_QryStr);	
+	
+	END;
+	
+	/*****************************************************************************************
+	* Function Name		: FUNC_DateDiffCalculation 											 *
+	* Input Parameters	: IN CH_date1, CH_date2 											 *
+	*					  REF_SalesOrder													 *
+	* Output Parameters	: None																 *
+	* Description		: The function will find the difference between two dates			 *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	19-APR-2013 	Asif Hossain 	The initial version. 						 *
+	*****************************************************************************************/
+	CREATE FUNCTION FUNC_DateDiffCalculation (IN CH_date1 CHARACTER ,IN CH_date2 CHARACTER) 
+		RETURNS CHARACTER 
+		LANGUAGE JAVA 
+		EXTERNAL NAME "packDate.classDate.dateDiffCalculation"; 			
+END MODULE;

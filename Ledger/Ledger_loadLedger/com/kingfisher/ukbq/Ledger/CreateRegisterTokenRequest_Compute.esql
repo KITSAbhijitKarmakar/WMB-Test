@@ -1,0 +1,198 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateRegisterTokenRequest											*
+* Interface Id 				:  																		*
+* Interface Name 			: Ledger_loadLedger 													*
+* Message Flow 				: RegisterToken															*
+* Message Flow Description 	: The primary function of this message flow is to create RegisterToken	*  						
+* 							  request structure to hit CommIdea to exchange decrypted AccountId		*
+* 							  with Token.														    *
+* Module Name 				: CreateRegisterTokenRequest_Compute						            *	
+* Description 				: The function of this Node is to create register token request 		*
+*							  structure to hit the CommIdea .										*
+*																									*
+* Version 	Date Author 	Author 				Description										    *
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		10-APR-2013 	Soutam Dutta 		The initial version. 								*
+* 0.2 		17-MAY-2013 	Asif Hossain 		Code fixed to handle multiple payment information	*
+*												and restrict calling CommIdea for TreadeCard		*
+* 0.3 		30-AUG-2013 	Asif Hossain 		Control register token call to commidea based on	*  
+*												mbconfig flag value									*
+* 0.4 		20-SEP-2013 	Asif Hossain 		Change expiry date formation in token reg request 	* 
+****************************************************************************************************/
+CREATE COMPUTE MODULE CreateRegisterTokenRequest_Compute
+	
+	DECLARE DSN EXTERNAL NAME 'MBODS';
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+			--Declare Input Reference
+			DECLARE REF_LoadLedger 						REFERENCE TO InputRoot.XMLNSC.NS_dfns:LoadLedger;
+			DECLARE REF_LedgerHeader 					REFERENCE TO REF_LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader;			
+			DECLARE REF_SalesOrderReference				REFERENCE TO REF_LedgerHeader.NS_dfns:SalesOrderReference;
+			DECLARE REF_SalesTransaction				REFERENCE TO REF_SalesOrderReference.NS_dfns:SalesTransaction;
+			DECLARE REF_PaymentCard						REFERENCE TO REF_SalesOrderReference.NS_dfns:Payment.NS_dfns:PaymentCard;
+						
+			DECLARE CH_Blank CHARACTER '';
+			DECLARE CH_QryStr CHARACTER;
+			
+			SET Environment.Variables.TransactionID 	= REF_SalesTransaction.NS_oa:ID;  
+			
+			--DataBaselookUp to read data from MBCONFIG table
+		    SET Environment.Variables.MBconfig[] 		= SELECT M.CANVAL ,M.CONFIGVALUE 
+		                                                  FROM Database.MBCONFIG AS M WHERE M.CANVAL LIKE 'PCI_COMMIDEA_%'; 
+				
+			-- Loop thorugh the 'MBCONFIG' tree structure to set some variables which will be used in request structure.
+	 		FOR REF_mbConfig AS Environment.Variables.MBconfig[]  DO
+	           	CASE REF_mbConfig.CANVAL
+	           	WHEN 'PCI_COMMIDEA_ WS_DESTINATION' THEN
+	           		SET Environment.Destination			= REF_mbConfig.CONFIGVALUE;
+	           	WHEN 'PCI_COMMIDEA_WS_SYSTEMID'	THEN
+	           		SET Environment.SystemID  			= REF_mbConfig.CONFIGVALUE;
+	           	WHEN 'PCI_COMMIDEA_WS_SYSTEMGUID' THEN		
+					SET Environment.SystemGUID 			= REF_mbConfig.CONFIGVALUE;
+	           	WHEN 'PCI_COMMIDEA_WS_PASSCODE'	THEN	
+	 				SET Environment.Passcode  			= REF_mbConfig.CONFIGVALUE; 
+	 			WHEN 'PCI_COMMIDEA_WS_DESTINATION_SAPCODIY'  THEN    
+                	SET Environment.SAPCOURL 			= REF_mbConfig.CONFIGVALUE;
+	 			END CASE;	 
+	 		END FOR;
+			
+			SET Environment.RegisterTokenFlag = THE(SELECT ITEM M.CONFIGVALUE 
+		                                                  FROM Database.MBCONFIG AS M WHERE M.CANVAL='PCI_SAPCO_TOKENS');
+			
+		    
+			SET Environment.CountRequest = 0;
+			
+			--Code change starts for verion 0.3 to implement register token call to commidea based on mbconfig flag value 
+			IF 	UPPER(Environment.RegisterTokenFlag) = 'FALSE' THEN	
+				RETURN FALSE;
+			ELSEIF UPPER(Environment.RegisterTokenFlag) = 'TRUE' THEN	
+			--Code change ends for verion 0.3 to implement register token call to commidea based on mbconfig flag value			
+				FOR REF_Payment AS REF_SalesOrderReference.NS_dfns:Payment[] DO
+					MOVE REF_PaymentCard TO REF_Payment.NS_dfns:PaymentCard;
+					
+					IF UPPER(REF_Payment.(XMLNSC.Attribute)type) = 'T' THEN
+						SET CH_QryStr = 'UPDATE SALES_TRANSACTIONS_ORDERS SET TOKEN =''' ||CH_Blank ||''''
+							|| ' WHERE TRANSACTION_ID = ''' || REF_SalesTransaction.NS_oa:ID || ''''
+							|| ' AND HASHED_ACCOUNT_ID = '''|| REF_PaymentCard.NS_dfns:HashedNumber || ''''
+							|| ''; 	
+						PASSTHRU CH_QryStr TO Database.{DSN};
+						PASSTHRU ('COMMIT');
+						
+					ELSEIF REF_Payment.(XMLNSC.Attribute)type <> 'T' AND EXISTS(REF_Payment.NS_dfns:PaymentCard.NS_dfns:IVData[])= TRUE THEN
+						
+						SET Environment.Variables.EncryptedNumber 		= REF_PaymentCard.NS_dfns:EncryptedNumber;
+						SET Environment.Variables.HashedAccountId		= REF_PaymentCard.NS_dfns:HashedNumber;
+						
+						SET Environment.Variables.EncryptDecrypt.Type 	= REF_Payment.(XMLNSC.Attribute)type;
+						
+						--counting number of request for token registration to CommIdea
+						SET Environment.CountRequest = Environment.CountRequest+1;
+						
+						CALL CreateRegisterTokenRequestStructure(REF_LedgerHeader,REF_PaymentCard,REF_SalesTransaction);
+						
+						--Setting WS url in the SOAP Request Node
+		    			SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.SAPCOURL;
+						
+						PROPAGATE TO TERMINAL 'out';
+						
+					END IF;
+				END FOR;
+			END IF;	
+		RETURN FALSE;
+	END;
+	
+	CREATE PROCEDURE CreateRegisterTokenRequestStructure (IN REF_LedgerHeader REFERENCE, IN REF_PaymentCard REFERENCE ,IN REF_SalesTransaction REFERENCE)
+	BEGIN
+			SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+			
+			--Declare variable
+			DECLARE CH_Flag 				CHARACTER;
+			
+			--Declaring refernece for Commidea Request structure
+		    DECLARE REF_Message 			REFERENCE TO OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message; 
+		    DECLARE REF_Header 				REFERENCE TO REF_Message.NS_comns:ClientHeader;
+		    DECLARE REF_MsgData 			REFERENCE TO REF_Message.NS_comns:MsgData;
+		    DECLARE REF_TokenRegRequest 	REFERENCE TO REF_MsgData.NS_tns:tokenregistrationrequest;
+			
+			SET CH_Flag						= 'true';
+			
+			IF COALESCE(REF_SalesTransaction.NS_dfns:BusinessDayID,'') <> '' THEN
+				SET Environment.Variables.EncryptDecrypt.BusinessDayID 		= REF_SalesTransaction.NS_dfns:BusinessDayID;
+			ELSE
+				SET CH_Flag					= 'false';
+			END IF;
+			 
+			IF COALESCE(REF_PaymentCard.NS_dfns:IVData,'') <> '' THEN
+				SET Environment.Variables.EncryptDecrypt.IVData 			= REF_PaymentCard.NS_dfns:IVData;
+			ELSE
+				SET CH_Flag					= 'false';
+			END IF;
+			
+			IF COALESCE(REF_PaymentCard.NS_dfns:EncryptedNumber,'') <> '' THEN
+				SET Environment.Variables.EncryptDecrypt.EncryptedNumber 	= REF_PaymentCard.NS_dfns:EncryptedNumber;
+			ELSE
+				SET CH_Flag					= 'false';
+			END IF;
+				
+			IF COALESCE(REF_LedgerHeader.NS_oa:GLEntityID,'') <> '' THEN
+				SET Environment.Variables.EncryptDecrypt.StoreCode 			= REF_LedgerHeader.NS_oa:GLEntityID;
+			ELSE
+				SET CH_Flag					= 'false';
+			END IF;	
+			
+			IF CH_Flag	=	'true' THEN
+				PROPAGATE TO TERMINAL 'out1';
+			END IF;
+			
+			SET OutputRoot 					= NULL;			
+			SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+			
+			CREATE FIELD OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message AS REF_Message;
+		    CREATE FIELD REF_Message.NS_comns:ClientHeader 						AS REF_Header;
+			CREATE FIELD REF_Message.NS_comns:MsgData 							AS REF_MsgData;		   	
+			
+			--Creating the request structure for CommIdea
+		    SET REF_Header.NS_comns:SystemID 						= Environment.SystemID;
+			SET REF_Header.NS_comns:SystemGUID						= Environment.SystemGUID;
+			SET REF_Header.NS_comns:Passcode 						= Environment.Passcode;
+			SET REF_Header.NS_comns:SendAttempt 					= '0';			
+			SET REF_Message.NS_comns:MsgType 						= 'TKI';
+			
+			CREATE FIELD REF_MsgData.NS_tns:tokenregistrationrequest AS REF_TokenRegRequest;	
+			
+			SET REF_TokenRegRequest.(XMLNSC.NamespaceDecl)xmlns:tns	= NS_tns;			
+			SET REF_TokenRegRequest.NS_tns:merchantreference		= 'BnQ';
+			SET REF_TokenRegRequest.NS_tns:pan						= Environment.PAN;
+			SET REF_TokenRegRequest.NS_tns:expirydate				= SUBSTRING(REF_PaymentCard.NS_oa:Expiration.NS_oa:Year FROM 3)	|| REF_PaymentCard.NS_oa:Expiration.NS_oa:Month;
+			SET REF_TokenRegRequest.NS_tns:startdate				= REF_PaymentCard.NS_oa:StartDate.NS_oa:Month  || SUBSTRING(REF_PaymentCard.NS_oa:StartDate.NS_oa:Year FROM 3)	;
+			SET REF_TokenRegRequest.NS_tns:purchase					= 'true';
+			SET REF_TokenRegRequest.NS_tns:refund					= 'true';
+			SET REF_TokenRegRequest.NS_tns:cashback					= 'true';
+			
+			--Code Change starts as part of PCI changes version 0.4
+			--SET REF_TokenRegRequest.NS_tns:tokenexpirationdate		= SUBSTRING (CAST((CAST (REF_PaymentCard.NS_oa:Expiration.NS_oa:Year AS DECIMAL)+ 2)AS CHARACTER) FROM 3);
+			DECLARE CH_MonthYear CHARACTER;
+			SET CH_MonthYear										= REF_PaymentCard.NS_oa:Expiration.NS_oa:Month||'.'||REF_PaymentCard.NS_oa:Expiration.NS_oa:Year;
+			SET Environment.Variables.MonthLastdate 				= FUNC_GetLastDayOfMonth(CH_MonthYear||'.01','MM.yyyy.dd');
+			SET REF_TokenRegRequest.NS_tns:tokenexpirationdate		= Environment.Variables.MonthLastdate||REF_PaymentCard.NS_oa:Expiration.NS_oa:Month ||REF_PaymentCard.NS_oa:Expiration.NS_oa:Year;
+			
+			--Code Change ends as part of PCI changes version 0.4
+			
+			--Calling to create CommIdea Request Structure
+			CALL CreateCDATAMessage(REF_MsgData,InputRoot);			
+			
+			--Delete the extra elements from MsgData
+			SET REF_MsgData.NS_tns:tokenregistrationrequest 		= NULL;
+
+	END;
+END MODULE;

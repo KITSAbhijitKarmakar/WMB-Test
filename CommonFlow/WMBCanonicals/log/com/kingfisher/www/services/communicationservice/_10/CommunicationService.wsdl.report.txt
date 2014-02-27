@@ -1,0 +1,8 @@
+
+
+Importing file: Y:\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\CommunicationService.wsdl
+
+Parsing wsdl binding {http://www.kingfisher.com/Services/CommunicationService/1.0}CommunicationBinding.
+Parsing wsdl binding input ProcessCommunication.
+Parsing wsdl binding output ProcessCommunication.
+Parsing wsdl binding fault ProcessCommunicationFault.

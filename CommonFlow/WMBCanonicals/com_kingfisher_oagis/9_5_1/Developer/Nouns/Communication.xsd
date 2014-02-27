@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         20 Feb 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element name="Communication" type="CommunicationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Identifies the Communication Party Master records.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="CommunicationType">
+		<xsd:sequence>
+			<xsd:element ref="CommunicationHeader"/>
+			<xsd:element maxOccurs="unbounded" ref="CommunicationItem"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="CommunicationHeader" type="CommunicationHeaderType"/>
+	<xsd:element name="CommunicationItem" type="CommunicationItemType"/>
+	<xsd:complexType name="CommunicationHeaderType">
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="oa:IDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:CountryCode"/>
+			<xsd:element minOccurs="0" ref="CustomerParty"/>
+			<xsd:element minOccurs="0" ref="oa:ReferenceID">
+				<xsd:annotation>
+					<xsd:documentation>Reference to a sales order number or any other reference</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="BrandChannel">
+				<xsd:annotation>
+					<xsd:documentation>The brand and channel the communication is applicable for </xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="CommunicationItemType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Attachment"/>
+			<xsd:element minOccurs="0" ref="oa:Subject"/>
+			<xsd:element minOccurs="0" ref="oa:Message"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:NameValue"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

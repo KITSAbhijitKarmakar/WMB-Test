@@ -1,0 +1,112 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: SOL_GiftVoucherSale													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherSale					*
+* Description 				: Populate details for GiftVoucherSale									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		24-JUN-2013 	Sourav Banu 		Validated against ProcessSalesOrder xsd.			*
+* 0.3 		11-JUL-2013 	Subir Bhaumik		Updated code for version 0.3 to populate Transaction*
+*												LineType in the ProcessSalesOrder message. 			*
+* 0.4 		02-AUG-2013 	Subir Bhaumik		Updated the code to generate Tax Amount only if 	*
+*												TaxAmount exists in input. Version 0.4				*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherSale
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader			REFERENCE TO REF_INRoot.Header;
+		DECLARE REF_Trailer				REFERENCE TO REF_INRoot.Trailer;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+
+		DECLARE REF_POLine				REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp			TIMESTAMP;
+		DECLARE CH_CurrencyID			CHARACTER REF_POHeader.BasketCurrencyID;
+		
+		DECLARE REF_GVSale				REFERENCE TO REF_INRoot.GiftVoucherSale;
+		
+		DECLARE CH_LineNumber 			CHARACTER;
+		
+		GVSOL:WHILE LASTMOVE(REF_GVSale) DO
+			SET CH_LineNumber = REF_GVSale.LineNumber;
+			IF REF_GVSale.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+				
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+					CREATE LASTCHILD OF REF_OUTSalesLine AS REF_POLine NAMESPACE NS_dfns NAME 'SalesOrderLine';
+					
+					SET REF_POLine.NS_oa:LineNumber		= REF_GVSale.LineNumber;
+					--Code change starts for version 0.3
+					SET REF_POLine.NS_oa:Description								= 'Other';
+					--Code change ends for version 0.3
+					SET REF_POLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type	= 'GIFT VOUCHER SALE';
+					
+					SET TS_TimeStamp	= CAST(REF_GVSale.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET REF_POLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime	= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET REF_POLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime		= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					
+					
+					SET REF_POLine.NS_dfns:ProductItem.NS_oa:UPCID = '0000000000215';
+					SET REF_POLine.NS_dfns:ProductItem.NS_oa:Name = REF_GVSale.Description.Description;
+					SET REF_POLine.NS_dfns:ProductItem.NS_oa:Type 	= 'Stock';
+					
+					SET REF_POLine.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:ID		= '0101';
+					SET REF_POLine.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:Type 	= 'Department';
+								
+					SET REF_POLine.NS_oa:Quantity						= REF_GVSale.Quantity;
+					SET REF_POLine.NS_oa:UnitPrice.NS_oa:Amount		= FUNC_ConvertPennytoPound(REF_GVSale.UnitPrice,1,2,NULL);
+					SET REF_POLine.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID		= CH_CurrencyID;
+					SET REF_POLine.NS_oa:ExtendedAmount	= FUNC_ConvertPennytoPound(REF_GVSale.ExtendedValue,1,2,NULL);
+					SET REF_POLine.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID		= CH_CurrencyID;
+					
+					--Code change starts for TaxableTotal
+					SET REF_POLine.NS_dfns:TotalTaxableAmount      = '0';
+					SET REF_POLine.NS_dfns:TotalTaxableAmount.(XMLNSC.Attribute)currencyID				= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+					--Code change ends for TaxableTotal
+					
+					SET REF_POLine.NS_oa:TotalAmount	= FUNC_ConvertPennytoPound(REF_GVSale.EffectiveNetValue,1,2,NULL);
+					SET REF_POLine.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID		= CH_CurrencyID;
+					SET REF_POLine.NS_dfns:LineFilterIndicator = 'false';
+					--SET REF_POLine.NS_dfns:Tax.NS_oa:Amount	= FUNC_ConvertPennytoPound(REF_GVSale.TaxAmount,2,1,NULL);
+					--Code change starts for version 0.4
+					--SET REF_POLine.NS_dfns:Tax.NS_oa:Amount	= FUNC_ConvertPennytoPound(REF_GVSale.TaxAmount,1,2,NULL);
+					--SET REF_POLine.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID		= CH_CurrencyID;
+					IF COALESCE(REF_GVSale.TaxAmount, '') <> '' THEN
+						SET REF_POLine.NS_dfns:Tax.NS_oa:Amount	= FUNC_ConvertPennytoPound(REF_GVSale.TaxAmount,1,2,NULL);
+						SET REF_POLine.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+					END IF;
+					--Code change ends for version 0.4
+					
+					SET REF_POLine.NS_dfns:Tax.NS_oa:Code 		= 'UKVATEXEMPT';
+					
+					IF COALESCE(REF_GVSale.VoidValue,'') = '' THEN
+						SET REF_POLine.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY';
+					END IF;
+					IF COALESCE(REF_GVSale.VoidDateTime,'') = '' THEN
+						SET TS_TimeStamp	= CAST(REF_GVSale.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+						SET REF_POLine.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime	= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					END IF;
+					
+					LEAVE GVSOL;
+				END IF;	
+				MOVE REF_GVSale NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;
+		RETURN FALSE;
+	END;
+END MODULE;

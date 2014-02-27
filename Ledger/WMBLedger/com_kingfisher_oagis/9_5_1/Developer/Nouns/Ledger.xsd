@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../WMBOAGISCanonicals/org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../../WMBOAGISCanonicals/com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../../WMBOAGISCanonicals/com_kingfisher_platform/1_2_1/Common/OAGi/Components/FinancialComponents.xsd"/>
+	<xsd:element name="Ledger" type="LedgerType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9"> A Ledger is an open (unpaid) item in the ledger.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="LedgerHeader" type="LedgerHeaderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Information that applies to the entire Ledger document, including totals, invoice identifier, and description.  </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="LedgerLine" type="LedgerLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Line associated with the Ledger document.  Can be an invoice line.  </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="LedgerType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="LedgerHeader"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="LedgerLine"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="LedgerHeaderType">
+		<xsd:complexContent>
+			<xsd:extension base="LedgerEntryHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="CustomerParty"/>
+					<xsd:element minOccurs="0" ref="BillToParty"/>
+					<xsd:element minOccurs="0" ref="ShipToParty"/>
+					<xsd:group minOccurs="0" ref="oa:TaxesGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Payment"/>
+					<xsd:element minOccurs="0" ref="oa:SourceID"/>
+					<xsd:element minOccurs="0" ref="WorkstationID"/>
+					<xsd:element minOccurs="0" ref="TillID"/>
+					<xsd:element minOccurs="0" ref="OperatorID"/>
+					<xsd:element minOccurs="0" ref="TrainingModeIndicator"/>
+					<xsd:element minOccurs="0" ref="oa:StartDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:EndDateTime"/>
+					<xsd:element minOccurs="0" ref="BusinessDayID"/>
+					<xsd:element minOccurs="0" ref="oa:CountryCode"/>
+					<xsd:element minOccurs="0" ref="oa:CurrencyCode"/>
+					<xsd:element minOccurs="0" ref="oa:Type"/>
+					<xsd:element minOccurs="0" ref="oa:ActionCodes"/>
+					<xsd:element minOccurs="0" ref="oa:ReasonCode"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Session"/>
+					<xsd:element minOccurs="0" ref="SafeID"/>
+					<xsd:element minOccurs="0" ref="oa:Sequence"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="LedgerLineType">
+		<xsd:complexContent>
+			<xsd:extension base="LedgerEntryLineType"/>
+		</xsd:complexContent>
+	</xsd:complexType>
+</xsd:schema>

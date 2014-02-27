@@ -1,0 +1,152 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: MapGetTokenResponseToCanonical										*
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_getToken 														*
+* Message Flow 				: ProcessPaymentToken													*
+* Message Flow Description 	: The primary function of this message flow is to receieve SOAP input	*
+* 							  from the calling service and use that input to create request 		*
+*							  structure for Vanguard to exchange offline token with the Online		* 
+*  							  token and send back the response to the calling service				*
+* Module Name 				: MapGetTokenResponseToCanonical_Compute								*
+* Description 				: The primary function of this Node is to store the CommIdea response	* 
+*							  into environemt for generation of actual SOAP reply message			*
+*																									*
+* Version 	Date Author 	  Author 				Description										*
+* ======= 	========= 		  ================ 		=================== 							*
+* 0.1		11-MAR-2013 	  Asif Hossain 		    The initial version. 							*
+****************************************************************************************************/
+CREATE COMPUTE MODULE MapGetTokenResponseToCanonical_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Declaring reference for input
+		DECLARE REF_MsgResult 		REFERENCE TO InputRoot.XMLNSC.NS_comns:ProcessMsgResponse.NS_comns:ProcessMsgResult;
+		DECLARE REF_EnvResponse		REFERENCE TO Environment; 
+		
+		-- Declaring refernces for output
+		DECLARE REF_Env				REFERENCE TO Environment.Variables;
+		DECLARE REF_ShowToken 		REFERENCE TO REF_Env.NS_dfns:ShowPayment;
+		DECLARE REF_AppArea			REFERENCE TO REF_ShowToken.NS_oa:ApplicationArea;
+		DECLARE REF_DataArea		REFERENCE TO REF_ShowToken.NS_dfns:DataArea;
+		DECLARE REF_RespExp			REFERENCE TO REF_DataArea.NS_oa:Show.NS_oa:ResponseCriteria.NS_oa:ResponseExpression;
+		DECLARE REF_Payment			REFERENCE TO REF_DataArea.NS_dfns:Payment;
+		DECLARE REF_PaymentStatus 	REFERENCE TO REF_DataArea.NS_dfns:Payment.NS_oa:Status;
+		DECLARE REF_PaymentAuth		REFERENCE TO REF_DataArea.NS_dfns:Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		--Creating the root element only for the first time
+		IF EXISTS(Environment.Variables.NS_dfns:ShowToken[])=FALSE THEN
+			CREATE LASTCHILD OF Environment.Variables												AS REF_ShowToken DOMAIN('XMLNSC') NAMESPACE (NS_dfns) NAME 'ShowPayment';
+			CREATE FIELD REF_ShowToken.NS_oa:ApplicationArea										AS REF_AppArea;
+			CREATE FIELD REF_ShowToken.NS_dfns:DataArea												AS REF_DataArea;
+			CREATE FIELD REF_DataArea.NS_oa:Show.NS_oa:ResponseCriteria.NS_oa:ResponseExpression	AS REF_RespExp;
+			
+			SET REF_ShowToken.(XMLNSC.NamespaceDecl)xmlns    	= NS_dfns;
+			SET REF_ShowToken.(XMLNSC.NamespaceDecl)xmlns:oa 	= NS_oa;
+			SET REF_ShowToken.(XMLNSC.Attribute)releaseID		= '1.0';
+			SET REF_ShowToken.(XMLNSC.Attribute)languageCode	= 'EN';
+			
+		END IF;
+		
+		CREATE LASTCHILD OF REF_DataArea				AS REF_Payment	NAMESPACE (NS_dfns) NAME 'Payment';
+		CREATE FIELD  		REF_Payment.NS_oa:Status	AS REF_PaymentStatus;
+		
+	    --Mapping Common Fileds for both success and error scenario
+	    CALL PROC_MapCommonFields(REF_ShowToken,REF_AppArea,REF_RespExp);
+	    
+	    CREATE LASTCHILD OF Environment.Response AS REF_EnvResponse DOMAIN('XMLNSC') PARSE(REF_MsgResult.NS_comns:MsgData 
+				CCSID InputRoot.Properties.CodedCharSetId);
+		
+		IF REF_MsgResult.NS_comns:MsgType = 'ERROR' OR (LENGTH(REF_EnvResponse.NS_token:offlinetoonlineresponse.NS_token:errorcode)>0 OR LENGTH(REF_EnvResponse.NS_token:offlinetoonlineresponse.NS_token:errormessage)>0 ) THEN
+
+			--Creating Error output message
+			CALL PROC_MapErrorMessage(REF_PaymentStatus,REF_EnvResponse);
+			SET Environment.Response = NULL;	
+			
+		ELSE
+			
+			--Creating fields to for response Mapping only
+			CREATE FIELD REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization	AS REF_PaymentAuth;	
+			
+			--Creating Success output Messsage
+			CALL PROC_MapSuccessMessage(REF_PaymentAuth,REF_PaymentStatus,REF_EnvResponse);
+			SET Environment.Response = NULL;
+		END IF;
+		
+		--RETURN FALSE;
+		RETURN TRUE;
+	END;
+	
+	/****************************************************************************************
+	* Procedure Name	: PROC_MapCommonFields 												*
+	* Input Parameters	: REF_ShowToken,REF_AppArea,REF_RespExp								*
+	* Output Parameters	: REF_ShowToken,REF_AppArea,REF_RespExp								* 							
+	* Description		: Procedure to Map Common elements for Response				    	*
+	*					  																	*
+	* Version 	Date 			Author 				Description                         	*
+	* ======= 	=========== 	=============== 	============================ 			*
+	*  0.1   	11-MAR-2013 	Asif Hossain 		The initial version. 				 	*
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_MapCommonFields( INOUT REF_ShowToken REFERENCE,INOUT REF_AppArea REFERENCE,INOUT REF_RespExp REFERENCE)
+	BEGIN
+	    SET REF_ShowToken.(XMLNSC.Attribute)releaseID    		= Environment.Common.releaseID;
+	    SET REF_ShowToken.(XMLNSC.Attribute)languageCode    	= Environment.Common.languageCode;
+		SET REF_AppArea.NS_oa:CreationDateTime					= Environment.Common.CreationDateTime;
+		SET REF_AppArea.NS_oa:Sender.NS_oa:LogicalID			= Environment.Common.LogicalID;
+		SET REF_RespExp.(XMLNSC.Attribute)actionCode			= 'ShowToken';
+		SET REF_RespExp.(XMLNSC.Attribute)expressionLanguage	= Environment.Common.ExpressionLanguage; 
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_MapErrorMessage 												 *
+	* Input Parameters	: REF_PaymentStatus, REF_EnvError									 *
+	* Output Parameters	: REF_PaymentStatus, REF_EnvError									 *
+	* Description		: Procedure to Map Error Response							    	 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description                          	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	*  0.1   	11-MAR-2013 	Asif Hossain 		The initial version. 				 	 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_MapErrorMessage( INOUT REF_PaymentStatus REFERENCE ,INOUT REF_EnvError REFERENCE)
+	BEGIN
+		
+		SET REF_PaymentStatus.NS_oa:ReasonCode						= COALESCE(REF_EnvError.NS_token:offlinetoonlineresponse.NS_token:errorcode,REF_EnvError.ERROR.CODE);
+		SET REF_PaymentStatus.NS_oa:Reason							= COALESCE(REF_EnvError.NS_token:offlinetoonlineresponse.NS_token:errormessage,REF_EnvError.ERROR.MSGTXT);
+		
+		SET REF_PaymentStatus.NS_oa:Type							= 'FAILURE';
+		SET REF_PaymentStatus.NS_oa:Type.(XMLNSC.Attribute)listName	= 'GetToken';
+		SET REF_PaymentStatus.NS_oa:Type.(XMLNSC.Attribute)name		= 'TECHNICAL';
+	END;
+	
+	/****************************************************************************************
+	* Procedure Name	: PROC_MapSuccessMessage											*
+	* Input Parameters	: REF_EnvSuccess,REF_PaymentAuth,REF_PaymentStatus					*
+	* Output Parameters	: REF_EnvSuccess,REF_PaymentAuth,REF_PaymentStatus					*
+	* Description		: Procedure to Map Success Response							    	*
+	*					  																	*
+	* Version 	Date 			Author 				Description                         	*
+	* ======= 	=========== 	=============== 	============================ 			*
+	*  0.1   	11-MAR-2013 	Asif Hossain 		The initial version. 				 	*
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_MapSuccessMessage(INOUT REF_PaymentAuth REFERENCE,INOUT REF_PaymentStatus REFERENCE,INOUT REF_EnvSuccess REFERENCE )
+	BEGIN
+		
+		SET REF_PaymentAuth.NS_dfns:Token 								= REF_EnvSuccess.NS_token:offlinetoonlineresponse.NS_token:mktokenid;
+		SET REF_PaymentAuth.NS_dfns:Token.(XMLNSC.Attribute)schemeName 	= 'ONLINE';
+		SET REF_PaymentStatus.NS_oa:Code								= '0000';
+		SET REF_PaymentStatus.NS_oa:Description							= 'Token successfully exchanged';
+		SET REF_PaymentStatus.NS_oa:Type								= 'SUCCESS';
+		SET REF_PaymentStatus.NS_oa:Type.(XMLNSC.Attribute)listName		= 'TECHNICAL';
+		SET REF_PaymentStatus.NS_oa:Type.(XMLNSC.Attribute)name			= 'GetToken';
+	END;
+	
+END MODULE;

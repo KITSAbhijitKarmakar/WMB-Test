@@ -1,0 +1,744 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateVanguardVGISRequest												*
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_processPayment-VGISRequest									*
+* Message Flow 				: ProcessPayment_VGISRequest											*
+* Message Flow Description  : The primary function of this message flow is to receive input from 	*
+* 							  Charge/Release flow and create Vanguard Webservice request Structure	*
+* 							  map the into environment to update ODS with Settlement Status.		*
+* Module Name 				: CreateVanguardVGISRequest_Compute				 						*
+* Description 				: The primary function of this node is to receive input from 			*
+* 							  Charge/release flow and translates it into Vanguard Webservice request*
+*							  Structure for VGIS request											*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		14-MAR-2013 	Asif Hossain 		The initial version. 								*
+* 0.2 		28-JUN-2013 	Asif Hossain 		Code commented for issue #21 and #25 as per VGIS 	*
+*												status log.											*
+* 0.3		01-Aug-2013		Debraj Sengupta		SQL query for populating taxpercent is	            *
+*												changed for SAPCO as per IB code.					*
+* 0.4       16-Aug-2013     Debraj Sengupta     Assign PO number to the field vgis:text where 		*
+*												vgis:value is AWE as suggested by Ollie				*
+****************************************************************************************************/
+CREATE COMPUTE MODULE CreateVanguardVGISRequest_Compute
+	
+	DECLARE IBODS EXTERNAL NAME 'MBODS';
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Declaring input refernece
+		DECLARE REF_Inroot	 			REFERENCE TO InputRoot.XMLNSC;
+		DECLARE REF_ProcPayment			REFERENCE TO REF_Inroot.NS_dfns:ProcessPayment;
+		DECLARE REF_AppArea				REFERENCE TO REF_ProcPayment.NS_oa:ApplicationArea;
+		DECLARE REF_DataArea			REFERENCE TO REF_ProcPayment.NS_dfns:DataArea;
+		DECLARE REF_Payment				REFERENCE TO REF_DataArea.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth			REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE REF_SalesOrder			REFERENCE TO REF_DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_SalesOrderHeader 	REFERENCE TO REF_SalesOrder.NS_dfns:SalesOrderHeader;
+		DECLARE REF_SalesOrderLine		REFERENCE TO REF_SalesOrder.NS_dfns:SalesOrderLine;
+		
+		--Declaring variable
+		DECLARE CH_qryStr CHARACTER;
+		
+		--Storing the input canonical to Environment		
+		DECLARE REF_Canonical 			REFERENCE TO Environment.InputCanonical;
+		CREATE LASTCHILD OF Environment AS REF_Canonical DOMAIN('XMLNSC') NAME 'InputCanonical';
+			
+		SET REF_Canonical 				= InputRoot.XMLNSC;
+
+		--Storing values in Environment for future use
+		SET Environment.Common.releaseID 			= REF_ProcPayment.(XMLNSC.Attribute)releaseID;
+		SET Environment.Common.languageCode 		= REF_ProcPayment.(XMLNSC.Attribute)languageCode;
+		SET Environment.Common.CreationDateTime 	= REF_AppArea.NS_oa:CreationDateTime;
+		SET Environment.Common.LogicalID 			= REF_AppArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET Environment.Common.ComponentID 			= REF_AppArea.NS_oa:Sender.NS_oa:ComponentID; 
+		
+		--Update SALES_TRANSACTIONS_COUNT table to set SETTLEMET to 'Y'.
+		SET CH_qryStr 					= 'UPDATE SALES_TRANSACTIONS_COUNT SET SETTLEMENT = ''Y'' WHERE TRANSACTION_ID = '''||REF_SalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID||'''';
+		SET Environment.StatusFlag[] 	= PASSTHRU (CH_qryStr TO Database.{IBODS});
+		
+		--DataBaselookUp to read data from MBCONFIG table
+	    SET Environment.Variables.MBconfig[] 	= SELECT M.CANVAL ,M.CONFIGVALUE 
+	    										FROM Database.MBCONFIG AS M WHERE M.CANVAL LIKE 'PCI_COMMIDEA_%'; 
+			
+		--Loop thorugh the 'MBCONFIG' tree structure to set some variables which will be used in request structure.
+	 	FOR REF_mbConfig AS Environment.Variables.MBconfig[]  DO
+	       	CASE REF_mbConfig.CANVAL
+	       	WHEN 'PCI_COMMIDEA_WS_SYSTEMID'		THEN
+	       		SET Environment.Variable.SystemID		= REF_mbConfig.CONFIGVALUE;
+	       	WHEN 'PCI_COMMIDEA_WS_SYSTEMGUID'	THEN		
+				SET Environment.Variable.SystemGUID		= REF_mbConfig.CONFIGVALUE;
+	       	WHEN 'PCI_COMMIDEA_WS_PASSCODE'		THEN	
+				SET Environment.Variable.Passcode		= REF_mbConfig.CONFIGVALUE;
+			WHEN 'PCI_COMMIDEA_WS_INV_STATUS'	THEN	
+				SET Environment.Variable.Status			= REF_mbConfig.CONFIGVALUE;	 
+	       	WHEN 'PCI_COMMIDEA_WS_DESTINATION_SAPCODIY' THEN    
+                SET Environment.SAPCOURL 				= REF_mbConfig.CONFIGVALUE;
+	       	WHEN 'PCI_COMMIDEA_WS_DESTINATION_EPOS'  	THEN    
+                SET Environment.EPOSURL 				= REF_mbConfig.CONFIGVALUE;
+			END CASE;
+		END FOR;
+		    
+	    --Setting WS url in the SOAP Request Node
+	    IF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+	    	SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.SAPCOURL;
+	    ELSEIF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'EPOS' THEN
+	    	SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.EPOSURL;
+	    END IF;
+		
+		--Calling to create Vanguard Request Structure
+		CALL PROC_CreateVGISRequestStructure(REF_AppArea,REF_Payment,REF_PaymentAuth,REF_SalesOrderHeader,REF_SalesOrderLine,REF_SalesOrder);
+				
+		RETURN TRUE;
+	END;
+
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateVGISRequestStructure									 *
+	* Input Parameters	: REF_Payment,REF_PaymentAuth,REF_SalesOrderHeader					 *	
+	*					  REF_SalesOrderLine												 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to Create Request Structure for CommIdea webservice    	 *
+	*					  call																 *
+	* Version 	Date 			Author 				Description                  		     *
+	* ======= 	=========== 	=============== 	=====================		 			 *
+	* 0.1   	14-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/	
+	CREATE PROCEDURE PROC_CreateVGISRequestStructure (IN REF_AppArea REFERENCE,IN REF_Payment REFERENCE,IN REF_PaymentAuth REFERENCE,IN REF_SalesOrderHeader REFERENCE,IN REF_SalesOrderLine REFERENCE,IN REF_SalesOrder REFERENCE )
+	BEGIN
+
+		DECLARE CH_CurTimeStamp CHARACTER;
+		
+		--Declaring refernece for Vangurd Request structure
+	    DECLARE REF_Message 			REFERENCE TO OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message; 
+	    DECLARE REF_Header 				REFERENCE TO REF_Message.NS_comns:ClientHeader;
+	    DECLARE REF_MsgData 			REFERENCE TO REF_Message.NS_comns:MsgData;
+	    DECLARE REF_VGISRequest			REFERENCE TO REF_MsgData.ROOT.Request.VGISRequest;
+	    DECLARE REF_Invoice				REFERENCE TO REF_VGISRequest.NS_vgis:commideainvoice;
+	    DECLARE REF_CommideaDetails		REFERENCE TO REF_Invoice.NS_vgis:commideainvoicedetails;
+	    DECLARE REF_InvoiceDetails	 	REFERENCE TO REF_CommideaDetails.NS_vgis:commideainvoicedetail;
+		DECLARE REF_PartNumDetails 		REFERENCE TO REF_InvoiceDetails.NS_vgis:partnumdetails.NS_vgis:commideapartnumdetail;
+		DECLARE REF_CommIdeaTax			REFERENCE TO REF_InvoiceDetails.NS_vgis:tax.NS_vgis:commideatax;
+	    DECLARE REF_InvoiceSummary		REFERENCE TO REF_Invoice.NS_vgis:commideainvoicesummary;
+	    DECLARE REF_TaxSummary			REFERENCE TO REF_InvoiceSummary.NS_vgis:taxsummary;	    
+	    DECLARE REF_EnvVar				REFERENCE TO Environment.Variables.Detail;				
+	   
+	    --Setting NameSpace to CommIdea Request Structure
+		SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+	    
+	    --Creating fileds for request structure
+	    CREATE FIELD OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message 	AS REF_Message;
+	    CREATE FIELD REF_Message.NS_comns:ClientHeader 							AS REF_Header;
+		
+		SET REF_Message.NS_comns:MsgType 		= 'VGISREQUEST';
+		
+		CREATE FIELD REF_Message.NS_comns:MsgData 								AS REF_MsgData;
+		CREATE FIELD REF_MsgData.NS_vgis:vgisrequest			 				AS REF_VGISRequest;
+		
+		--Creating the request structure for Vanguard
+	    SET REF_Header.NS_comns:SystemID 		= Environment.Variable.SystemID;
+		SET REF_Header.NS_comns:SystemGUID		= Environment.Variable.SystemGUID;
+		SET REF_Header.NS_comns:Passcode 		= Environment.Variable.Passcode;
+		SET REF_Header.NS_comns:SendAttempt 	= '0';
+		
+		
+		SET REF_VGISRequest.(XMLNSC.NamespaceDecl)xmlns:vgis	= NS_vgis;
+		SET CH_CurTimeStamp 									= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ddMMyyyyHHmmss');
+		
+		--Calling to create InvoiceHeader 
+		CREATE FIELD REF_VGISRequest.NS_vgis:commideainvoice 					AS REF_Invoice;
+		CALL PROC_CreateCommIdeaInvoiceHeader(REF_Payment,REF_PaymentAuth,REF_SalesOrderHeader,REF_SalesOrderLine,REF_Invoice);
+		
+		CREATE FIELD REF_Invoice.NS_vgis:commideainvoicedetails					AS REF_CommideaDetails;
+		
+		--Loop through each SalesOrderLine to populate InvoiceDetails
+		FOR REF_SalesOrderLine AS REF_SalesOrder.NS_dfns:SalesOrderLine[] DO
+			
+			--Calling to create InvoiceDetails
+			CALL PROC_CreateCommideaInvoiceDetails(REF_AppArea,REF_SalesOrderLine,REF_CommideaDetails,REF_InvoiceDetails,REF_PartNumDetails,REF_CommIdeaTax);
+			
+		END FOR;
+		
+		--Checking if commideainvoicedetail segment created or not.If true the loop through commideainvoicedetail to populate TaxSummary
+		IF EXISTS(REF_Invoice.NS_vgis:commideainvoicedetails.NS_vgis:commideainvoicedetail[]) THEN
+			CREATE FIELD REF_Invoice.NS_vgis:commideainvoicesummary AS REF_InvoiceSummary;			
+			
+			FOR REF_InvoiceDetails AS REF_Invoice.NS_vgis:commideainvoicedetails.NS_vgis:commideainvoicedetail[] DO
+				CALL PROC_SaveTaxSummaryInEnvironment(REF_InvoiceDetails,REF_InvoiceSummary,REF_TaxSummary);
+			END FOR;
+			
+		END IF;
+		
+		MOVE REF_Invoice		TO REF_VGISRequest.NS_vgis:commideainvoice;
+		MOVE REF_InvoiceDetails TO REF_CommideaDetails.NS_vgis:commideainvoicedetail;
+		
+		--Mapping for TaxSummary
+		IF EXISTS(Environment.Variables.Detail[])THEN
+			CREATE LASTCHILD OF REF_InvoiceSummary AS REF_TaxSummary NAMESPACE NS_vgis NAME 'taxsummary';
+			SET REF_TaxSummary.NS_vgis:lineitemtotals 		= ROUND(Environment.Variables.Detail.TotalLineItemSubTotal,2 MODE ROUND_HALF_UP);
+			
+			CREATE LASTCHILD OF REF_TaxSummary AS REF_TaxSummary NAMESPACE NS_vgis NAME 'taxes';
+			
+			FOR REF_EnvVar AS Environment.Variables.Detail.*[]DO
+				
+				DECLARE REF_ComTax REFERENCE TO REF_TaxSummary;
+				CREATE LASTCHILD OF REF_TaxSummary AS REF_ComTax NAMESPACE NS_vgis NAME 'commideatax';
+				
+				SET REF_ComTax	 							= REF_EnvVar.Tax.Taxsegment;
+				SET REF_ComTax.NS_vgis:taxcategoryvalue		= REF_EnvVar.taxcategoryvalue;
+				SET REF_ComTax.NS_vgis:taxableamount		= ROUND(REF_EnvVar.TaxableAmount,2 MODE ROUND_HALF_UP);
+				SET REF_ComTax.NS_vgis:taxamount			= ROUND(REF_EnvVar.TaxAmount,2 MODE ROUND_HALF_UP);
+				
+			END FOR; 
+		END IF;
+		
+		--Creating InvoiceTotals
+		IF EXISTS(REF_CommideaDetails.NS_vgis:commideainvoicedetail[]) THEN
+			CALL PROC_CreateInvoiceTotals(REF_InvoiceSummary,REF_CommideaDetails,REF_InvoiceDetails,REF_Invoice);
+		END IF;
+		
+		CALL PROC_CreateActualPayment(REF_InvoiceSummary,REF_Payment,REF_PaymentAuth);
+		
+		
+		SET REF_Invoice.NS_vgis:vgisreference 		= REF_PaymentAuth.NS_dfns:VGISReferenceID;
+		SET REF_Invoice.NS_vgis:sectorUsageVersion 	= '1'; 
+		
+		--Calling to create Vanguard Request Structure
+		CALL CreateCDATAMessage(REF_MsgData,InputRoot);
+			
+		--To delete the extra elements from MsgData
+		SET REF_MsgData.NS_vgis:vgisrequest = NULL;
+		
+	END;
+
+	/************************************************************************************************
+	* Procedure Name	: PROC_CreateCommIdeaInvoiceHeader									 		*
+	* Input Parameters	: REF_Payment,REF_PaymentAuth,REF_SalesOrderHeader					 		*	
+	*					  REF_SalesOrderLine												 		*
+	* Output Parameters	: REF_Invoice														 		*
+	* Description		: Procedure to Create InvoiceHeader of CDATA section.				 		*
+	*					  																	 		*
+	* Version 	Date 			Author 				Description                         	 		*
+	* ======= 	=========== 	=============== 	============================ 			 		*
+	* 0.1   	14-MAR-2013 	Asif Hossain 		The initial version.					 		*	
+	* 0.2		23-JUL-2013		Debraj Sengupta		Change in populating Invoice Number		 		*
+	*  0.4      16-Aug-2013    Debraj Sengupta      Assign PO number to the field vgis:text 		*
+	*												where vgis:value is AWE as suggested by Ollie	*
+	************************************************************************************************/
+		
+	CREATE PROCEDURE PROC_CreateCommIdeaInvoiceHeader (IN REF_Payment REFERENCE,IN REF_PaymentAuth REFERENCE,IN REF_SalesOrderHeader REFERENCE,IN REF_SalesOrderLine REFERENCE,INOUT REF_Invoice REFERENCE)
+	BEGIN
+		
+		DECLARE REF_InvoiceHeader 		REFERENCE TO REF_Invoice.NS_vgis:commideainvoiceheader;
+		DECLARE REF_CommIdeaDate		REFERENCE TO REF_InvoiceHeader.NS_vgis:dates.NS_vgis:commideadate;
+		DECLARE REF_CommIdeaRef			REFERENCE TO REF_InvoiceHeader.NS_vgis:ref;	
+		DECLARE REF_Partys				REFERENCE TO REF_InvoiceHeader.NS_vgis:partys;
+		DECLARE CH_InvoiceNumber        CHARACTER;
+		DECLARE IN_Position             INTEGER;
+
+		
+		
+		CREATE FIELD REF_Invoice.NS_vgis:commideainvoiceheader 	AS REF_InvoiceHeader;
+		
+		IF REF_SalesOrderHeader.NS_oa:Type = 'RETURN' THEN
+			SET REF_InvoiceHeader.NS_vgis:invoicetypevalue = '381';
+		ELSE
+			SET REF_InvoiceHeader.NS_vgis:invoicetypevalue = '380';
+		END IF;
+		
+		--Mapping for Header
+		SET REF_InvoiceHeader.NS_vgis:invoicetypename				= 'UNTDID:1001';
+		SET REF_InvoiceHeader.NS_vgis:invoicestatusvalue			= Environment.Variable.Status;
+		SET REF_InvoiceHeader.NS_vgis:invoicestatusname				= 'UNTDID:1225';
+		SET REF_InvoiceHeader.NS_vgis:taxtreatmentvalue				= 'GLL';
+		SET REF_InvoiceHeader.NS_vgis:taxtreatmentname				= 'VISA:TAXT';
+		SET REF_InvoiceHeader.NS_vgis:invoicetreatmentvalue			= 'E';
+		SET REF_InvoiceHeader.NS_vgis:invoicetreatmentname			= 'VISA:INVT';
+		
+		-- Code change for Ver 0.2 Starts
+		SET CH_InvoiceNumber 								  = REF_SalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID;
+		
+		IF(STARTSWITH(CH_InvoiceNumber,'Z')) THEN       
+        	SET REF_InvoiceHeader.NS_vgis:invoicenumber       = SUBSTRING(CH_InvoiceNumber FROM 12 FOR 8);      
+        ELSE
+             SET IN_Position 								  = POSITION('-' IN CH_InvoiceNumber REPEAT -1); 
+             SET REF_InvoiceHeader.NS_vgis:invoicenumber      = SUBSTRING(CH_InvoiceNumber FROM 1 FOR 4) || SUBSTRING(CH_InvoiceNumber FROM 15 FOR 3) || SUBSTRING(CH_InvoiceNumber FROM 19 FOR (IN_Position - 19));
+        END IF;
+		-- Code change for Ver 0.2 Ends
+		
+		DECLARE TS_TimeStamp TIMESTAMP;
+		
+		SET TS_TimeStamp											= CAST(REF_PaymentAuth.NS_dfns:AuthorizationDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ' );
+		SET REF_InvoiceHeader.NS_vgis:invoicedate					= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd');
+		SET REF_InvoiceHeader.NS_vgis:taxpointdate					= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd');
+		SET REF_InvoiceHeader.NS_vgis:currencyvalue					= FIELDVALUE(REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID);
+		SET REF_InvoiceHeader.NS_vgis:currencyname					= 'ISO:4217';
+		SET REF_InvoiceHeader.NS_vgis:ponum							= FIELDVALUE(REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID);
+		
+		CREATE FIELD REF_InvoiceHeader.NS_vgis:ref	AS REF_CommIdeaRef;
+		
+		--Mapping for CommIdearef inside Header
+		-- Code change for Ver 0.4 starts
+		SET REF_CommIdeaRef.NS_vgis:commidearef[1].NS_vgis:text		= FIELDVALUE(REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID);
+		-- Code change for Ver 0.4 ends
+		SET REF_CommIdeaRef.NS_vgis:commidearef[1].NS_vgis:value	= 'AWE';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[1].NS_vgis:name		= 'UNTDID:1153';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[2].NS_vgis:text		= 'ABC001';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[2].NS_vgis:value	= 'ACD';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[2].NS_vgis:name		= 'UNTDID:1153';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[3].NS_vgis:text		= 'MM';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[3].NS_vgis:value	= 'ADQ';
+		SET REF_CommIdeaRef.NS_vgis:commidearef[3].NS_vgis:name		= 'UNTDID:1153';
+		
+		CREATE FIELD REF_InvoiceHeader.NS_vgis:dates.NS_vgis:commideadate 	AS REF_CommIdeaDate;
+		
+		--Mapping for CommIdeaDate inside Header 
+		SET REF_CommIdeaDate.value									= 'END';
+		SET REF_CommIdeaDate.name									= 'UNTDID:2005';
+		SET REF_CommIdeaDate.text									= CAST(SUBSTRING(REF_PaymentAuth.NS_dfns:AuthorizationDateTime FROM 1 FOR 10) AS CHARACTER FORMAT 'yyyy-MM-dd');
+	
+		CREATE FIELD REF_InvoiceHeader.NS_vgis:partys				AS REF_Partys;
+		
+		--Calling to create InvoiceHeaderPartys from ODS table data
+		CALL PROC_CreateInvoiceHeaderPartys(REF_SalesOrderHeader,REF_Partys);
+		
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateInvoiceHeaderPartys									 *
+	* Input Parameters	: REF_SalesOrderHeader,REF_Partys									 *
+	* Output Parameters	: REF_Partys 														 *
+	* Description		: Procedure to Create InvoiceHeaderPartys of CDATA section.			 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description                   		     *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	14-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/
+	CREATE PROCEDURE  PROC_CreateInvoiceHeaderPartys(IN REF_SalesOrderHeader REFERENCE,INOUT REF_Partys REFERENCE)
+	BEGIN
+		
+		DECLARE CH_QryStr	CHARACTER;
+		DECLARE IN_Index	INTEGER 1;
+		
+		DECLARE REF_commideaparty REFERENCE TO REF_Partys;
+		
+		SET CH_QryStr 				= 'SELECT * FROM PARTYDETAILS WHERE GENERICSTORECODE = ''' ||REF_SalesOrderHeader.NS_oa:SourceID ||'''';
+		SET Environment.Output[] 	= PASSTHRU(CH_QryStr);
+		
+		WHILE(IN_Index<=2) DO
+			IF Environment.Output[IN_Index].PARTYID = 'SU' THEN
+				SET Environment.SU 	= Environment.Output[IN_Index];
+			ELSEIF Environment.Output[IN_Index].PARTYID = 'PI' THEN
+				SET Environment.PI 	= Environment.Output[IN_Index];
+			END IF;
+			SET IN_Index 			= IN_Index+1;
+		END WHILE;
+		
+		SET IN_Index = 1;
+		
+		CREATE LASTCHILD OF REF_Partys AS REF_commideaparty NAMESPACE(NS_vgis) NAME 'commideaparty';
+		
+		--Mapping for SU
+		
+		--Code change starts for version 0.2 issue #25(VGIS status log)
+		--SET REF_commideaparty.NS_vgis:partyid 												= Environment.SU[IN_Index].PARTYUNIQUEID;
+		--Code change ends for version 0.2 issue #25(VGIS status log)
+		
+		SET REF_commideaparty.NS_vgis:partyvalue 											= Environment.SU[IN_Index].PARTYID;
+		SET REF_commideaparty.NS_vgis:name1 												= Environment.SU[IN_Index].COMPANY;
+		SET REF_commideaparty.NS_vgis:name2 												= '';
+		SET REF_commideaparty.NS_vgis:name3 												= '';
+		SET REF_commideaparty.NS_vgis:street1												= Environment.SU[IN_Index].ADDRESSLINE1;
+		SET REF_commideaparty.NS_vgis:street2												= Environment.SU[IN_Index].ADDRESSLINE2;
+		SET REF_commideaparty.NS_vgis:street3												= Environment.SU[IN_Index].ADDRESSLINE3;
+		SET REF_commideaparty.NS_vgis:city													= Environment.SU[IN_Index].CITY;
+		SET REF_commideaparty.NS_vgis:countrysubentity										= Environment.SU[IN_Index].REGION;
+		SET REF_commideaparty.NS_vgis:postalcode											= Environment.SU[IN_Index].POSTCODE;
+		SET REF_commideaparty.NS_vgis:country												= Environment.SU[IN_Index].COUNTRY;
+		SET REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:contact		= Environment.SU[IN_Index].CONTACTNAME;
+		
+		IF Environment.SU[IN_Index].TELEPHONE <> '' THEN
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:telnum VALUE Environment.SU[IN_Index].TELEPHONE;
+			ELSE
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:telnum; 
+		END IF;
+			
+		IF Environment.SU[IN_Index].EMAIL <> '' THEN
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:email VALUE Environment.SU[IN_Index].EMAIL;
+		ELSE
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:email; 
+		END IF;
+			
+		IF Environment.SU[IN_Index].FUNCTION <> '' THEN
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:function VALUE Environment.SU[IN_Index].FUNCTION;
+		ELSE
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:function; 
+		END IF;
+		
+		SET REF_commideaparty.NS_vgis:ref.NS_vgis:commidearef.NS_vgis:text			= Environment.SU[IN_Index].VATNUMBER;
+		SET REF_commideaparty.NS_vgis:ref.NS_vgis:commidearef.NS_vgis:value			= 'VA';
+		SET REF_commideaparty.NS_vgis:ref.NS_vgis:commidearef.NS_vgis:name			= 'UNTDID:1153';
+		
+		--Mapping for PI
+		CREATE LASTCHILD OF REF_Partys AS REF_commideaparty NAMESPACE(NS_vgis) NAME 'commideaparty';
+		
+		SET REF_commideaparty.NS_vgis:partyid 											= Environment.PI[IN_Index].PARTYUNIQUEID;
+		SET REF_commideaparty.NS_vgis:partyvalue 										= Environment.PI[IN_Index].PARTYID;
+		SET REF_commideaparty.NS_vgis:name1 											= Environment.PI[IN_Index].COMPANY;
+		SET REF_commideaparty.NS_vgis:name2 											= '';
+		SET REF_commideaparty.NS_vgis:name3 											= '';
+		
+		--Code change starts for version 0.2 issue#21(VGIS status log)
+		/*
+		SET REF_commideaparty.NS_vgis:street1											= Environment.PI[IN_Index].ADDRESSLINE1;
+		SET REF_commideaparty.NS_vgis:street2											= Environment.PI[IN_Index].ADDRESSLINE2;
+		SET REF_commideaparty.NS_vgis:street3											= Environment.PI[IN_Index].ADDRESSLINE3;
+		*/
+		--Code change ends for version 0.2 issue#21(VGIS status log)
+		
+		SET REF_commideaparty.NS_vgis:city												= Environment.PI[IN_Index].CITY;
+		SET REF_commideaparty.NS_vgis:postalcode										= Environment.PI[IN_Index].POSTCODE;
+		SET REF_commideaparty.NS_vgis:country											= Environment.PI[IN_Index].COUNTRY;
+			
+		IF Environment.PI[IN_Index].TELEPHONE <> '' THEN
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:telnum VALUE Environment.PI[IN_Index].TELEPHONE;
+		ELSE
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:telnum; 
+		END IF;
+			
+		IF Environment.PI[IN_Index].EMAIL <> '' THEN
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:email VALUE Environment.PI[IN_Index].EMAIL;
+		ELSE
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:email; 
+		END IF;
+			
+		IF Environment.PI[IN_Index].FUNCTION <> '' THEN
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:function VALUE Environment.PI[IN_Index].FUNCTION;
+		ELSE
+			CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:function; 
+		END IF;
+		
+		SET REF_commideaparty.NS_vgis:ref.NS_vgis:commidearef.NS_vgis:text			= Environment.PI[IN_Index].PARTYREFNUMBER;
+		SET REF_commideaparty.NS_vgis:ref.NS_vgis:commidearef.NS_vgis:value			= 'ADQ';
+		SET REF_commideaparty.NS_vgis:ref.NS_vgis:commidearef.NS_vgis:name			= 'UNTDID:1153';
+		SET CH_QryStr 																= 'SELECT * FROM PARTYDETAILS WHERE GENERICSTORECODE = ''BnQ''';
+		SET Environment.Output[] 													= PASSTHRU(CH_QryStr);
+		
+		IF EXISTS(Environment.Output[]) THEN 
+			CREATE NEXTSIBLING OF REF_commideaparty AS REF_commideaparty NAMESPACE(NS_vgis) NAME 'commideaparty' ;
+			
+			SET REF_commideaparty.NS_vgis:partyid 									= Environment.Output[1].PARTYUNIQUEID;
+			
+			--To populate blank PartyId tag
+			IF Environment.Output[1].PARTYUNIQUEID<> '' THEN
+				CREATE FIELD REF_commideaparty.NS_vgis:partyvalue VALUE Environment.Output[1].PARTYUNIQUEID;
+			ELSE
+				CREATE FIELD REF_commideaparty.NS_vgis:partyvalue;
+			END IF;
+			
+			SET REF_commideaparty.NS_vgis:partyvalue 								= Environment.Output[1].PARTYID;
+			SET REF_commideaparty.NS_vgis:name1 									= Environment.Output[1].COMPANY;
+			SET REF_commideaparty.NS_vgis:name2 									= '';
+			SET REF_commideaparty.NS_vgis:name3 									= '';
+			SET REF_commideaparty.NS_vgis:street1									= Environment.Output[1].ADDRESSLINE1;
+			SET REF_commideaparty.NS_vgis:street2									= Environment.Output[1].ADDRESSLINE2;
+			SET REF_commideaparty.NS_vgis:street3									= Environment.Output[1].ADDRESSLINE3;
+			SET REF_commideaparty.NS_vgis:city										= Environment.Output[1].CITY;
+			SET REF_commideaparty.NS_vgis:postalcode								= Environment.Output[1].POSTCODE;
+			SET REF_commideaparty.NS_vgis:country									= Environment.Output[1].COUNTRY;	
+			
+			IF Environment.Output[1].TELEPHONE <> '' THEN
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:telnum VALUE Environment.Output[1].TELEPHONE;
+			ELSE
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:telnum; 
+			END IF;
+			
+			IF Environment.Output[1].EMAIL <> '' THEN
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:email VALUE Environment.Output[1].EMAIL;
+			ELSE
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:email; 
+			END IF;
+			
+			IF Environment.Output[1].FUNCTION <> '' THEN
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:function VALUE Environment.Output[1].FUNCTION;
+			ELSE
+				CREATE FIELD REF_commideaparty.NS_vgis:contacts.NS_vgis:commideacontact.NS_vgis:function; 
+			END IF;
+			
+		END IF;
+	END;
+		
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateCommideaInvoiceDetails									 *
+	* Input Parameters	: REF_AppArea,REF_SalesOrderLine,REF_CommideaDetails,				 *
+	*					  REF_InvoiceDetails,REF_PartNumDetails,REF_CommIdeaTax				 *
+	* Output Parameters	: REF_CommideaDetails,REF_InvoiceDetails,REF_PartNumDetails,		 *
+	*					  REF_CommIdeaTax				 									 *
+	* Description		: Procedure to Create InvoiceDetails of CDATA section.				 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description                   		     *
+	* ======= 	=========== 	=============== 	====================================== 	 *
+	* 0.1   	14-MAR-2013 	Asif Hossain 		The initial version. 					 *	
+	* 0.3		01-Aug-2013		Debraj Sengupta		SQL query for populating taxpercent is	 *
+	*												changed for SAPCO as per IB code.		 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CreateCommideaInvoiceDetails(IN REF_AppArea REFERENCE,IN REF_SalesOrderLine REFERENCE,INOUT REF_CommideaDetails REFERENCE, INOUT REF_InvoiceDetails REFERENCE,INOUT REF_PartNumDetails REFERENCE,INOUT REF_CommIdeaTax REFERENCE)
+	BEGIN
+		
+		DECLARE CH_QryStr			CHARACTER;
+		DECLARE DC_TaxableAmount	DECIMAL;
+		DECLARE DC_TaxParcent 		DECIMAL;
+		DECLARE DC_ExtAmount		DECIMAL;
+		
+		CREATE LASTCHILD OF REF_CommideaDetails 						AS REF_InvoiceDetails 	NAMESPACE NS_vgis	NAME 'commideainvoicedetail';
+		
+		SET REF_InvoiceDetails.NS_vgis:lineitemnum				= REF_SalesOrderLine.NS_oa:LineNumber;
+		
+		CREATE LASTCHILD OF REF_InvoiceDetails.NS_vgis:partnumdetails	AS REF_PartNumDetails 	NAMESPACE NS_vgis	NAME 'commideapartnumdetail';
+		
+		SET REF_PartNumDetails.NS_vgis:value					= 'VP';
+		SET REF_PartNumDetails.NS_vgis:name						= 'UNTDID:7143';
+		
+		IF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+			SET REF_PartNumDetails.NS_vgis:partnum				= 'SAPCO';	
+		ELSE
+			SET REF_PartNumDetails.NS_vgis:partnum				= TRIM(LEADING '0' FROM REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:ItemID.NS_oa:ID);	
+		END IF;
+		
+		IF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+			SET REF_PartNumDetails.NS_vgis:partdesc				= 'Reference ' || TRIM(LEADING '0' FROM REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:ItemID.NS_oa:ID) || 'for item breakdown';	
+		ELSEIF TRIM(LEADING '0' FROM REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:ItemID.NS_oa:ID) = '215' THEN
+			SET REF_PartNumDetails.NS_vgis:partdesc				= 'GIFT VOUCHER';
+		ELSE
+			SET REF_PartNumDetails.NS_vgis:partdesc				= REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:Description;
+				
+		END IF;
+		
+		IF STARTSWITH(FIELDVALUE(REF_SalesOrderLine.NS_oa:Quantity),'-') THEN
+			SET REF_InvoiceDetails.NS_vgis:qty						= CAST(FIELDVALUE(REF_SalesOrderLine.NS_oa:Quantity) AS DECIMAL)*-1;
+		ELSE
+			SET REF_InvoiceDetails.NS_vgis:qty						= FIELDVALUE(REF_SalesOrderLine.NS_oa:Quantity);
+		END IF;
+		
+		SET REF_InvoiceDetails.NS_vgis:unitofmeasurevalue		= REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UOMCode;				
+		SET REF_InvoiceDetails.NS_vgis:unitofmeasurename		= 'UNECE:20';
+		
+		IF STARTSWITH(FIELDVALUE(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount),'-') THEN
+			SET REF_InvoiceDetails.NS_vgis:unitprice				= CAST(FIELDVALUE(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount)AS DECIMAL)*-1;
+		ELSE
+			SET REF_InvoiceDetails.NS_vgis:unitprice				= FIELDVALUE(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount);
+		END IF;
+		
+		
+		SET REF_InvoiceDetails.NS_vgis:polinenum				= '0';
+		
+		DECLARE FL_lineItemSubTotal FLOAT;
+		SET FL_lineItemSubTotal = CAST(REF_SalesOrderLine.NS_oa:Quantity AS FLOAT)* CAST(REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount AS FLOAT);
+		
+		IF FL_lineItemSubTotal<0 THEN
+			SET REF_InvoiceDetails.NS_vgis:lineitemsubtotal			= ROUND(CAST(FL_lineItemSubTotal *(-1) AS DECIMAL), 2 MODE ROUND_HALF_UP);
+		ELSE
+			SET REF_InvoiceDetails.NS_vgis:lineitemsubtotal			= ROUND(CAST(FL_lineItemSubTotal AS DECIMAL),2 MODE ROUND_HALF_UP);
+		END IF;
+		--Mapping for Tax Segment
+		CREATE LASTCHILD OF REF_InvoiceDetails.NS_vgis:tax				AS REF_CommIdeaTax		NAMESPACE NS_vgis	NAME 'commideatax';
+		
+		SET REF_CommIdeaTax.NS_vgis:taxfunctionvalue			= '7';
+		SET REF_CommIdeaTax.NS_vgis:taxfunctionname				= 'UNTDID:5283';
+		SET REF_CommIdeaTax.NS_vgis:taxtypevalue				= 'VAT';
+		SET REF_CommIdeaTax.NS_vgis:taxtypename					= 'UNTDID:5153';
+		
+		IF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'EPOS' THEN
+			SET CH_QryStr = 'SELECT DISTINCT VERIFONEVATCODE FROM VATDATA WHERE GENERICVATCODE = '''||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code||'''';
+			SET Environment.OutVal[] = PASSTHRU(CH_QryStr);
+			
+			IF CARDINALITY(Environment.OutVal[])>1 THEN
+				THROW USER EXCEPTION VALUES('Found multiple entries for GENERICVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' on VATDATA table');
+			ELSEIF CARDINALITY(Environment.OutVal[])= 0 THEN
+				THROW USER EXCEPTION VALUES('No entry found for VERIFONEVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' against GENERICVATCODE on VATDATA table ');
+			END IF;
+			
+			SET REF_CommIdeaTax.NS_vgis:taxcategoryvalue		= Environment.OutVal[1].VERIFONEVATCODE;
+		ELSEIF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+			SET CH_QryStr = 'SELECT DISTINCT VERIFONEVATCODE FROM VATDATA WHERE GENERICVATCODE = '''||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code||'''';
+			
+			SET Environment.OutVal[] = PASSTHRU(CH_QryStr);
+			
+			IF CARDINALITY(Environment.OutVal[])>1 THEN
+				THROW USER EXCEPTION VALUES('Found multiple entries for GENERICVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' on VATDATA table');
+			ELSEIF CARDINALITY(Environment.OutVal[])= 0 THEN
+				THROW USER EXCEPTION VALUES('No entry found for VERIFONEVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' against GENERICVATCODE on VATDATA table ');	
+			END IF;
+			SET REF_CommIdeaTax.NS_vgis:taxcategoryvalue		= Environment.OutVal[1].VERIFONEVATCODE;
+		END IF;
+		
+		SET REF_CommIdeaTax.NS_vgis:taxcategoryname				= 'UNTDID:5305';
+		
+		--Mapping for CommIdeaTax segment
+		IF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'EPOS' THEN
+			SET CH_QryStr = 'SELECT DISTINCT TRFVATCODE FROM VATDATA WHERE GENERICVATCODE = '''||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code||'''';
+			SET Environment.OutVal[] 							= PASSTHRU(CH_QryStr);
+			
+			IF CARDINALITY(Environment.OutVal[])>1 THEN
+				THROW USER EXCEPTION VALUES('Found multiple entries for TRFVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' on VATDATA table');
+			ELSEIF CARDINALITY(Environment.OutVal[])= 0 THEN
+				THROW USER EXCEPTION VALUES('No entry found for TRFVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' against GENERICVATCODE on VATDATA table ');
+			END IF;
+			
+			--COALESCE is used if no value for TRFVATCODE is present is table 
+			SET DC_TaxParcent 									= COALESCE(CAST(Environment.OutVal[1].TRFVATCODE AS DECIMAL),0);
+			SET REF_CommIdeaTax.NS_vgis:taxpercent				= DC_TaxParcent;
+			
+			--Code change starts for version 0.2 to support validation
+			IF CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL)<0 THEN
+			
+				--SET DC_TaxableAmount 								= CAST(REF_SalesOrderLine.NS_oa:NetAmount AS DECIMAL) - CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL);
+			
+				SET DC_TaxableAmount 								= CAST(REF_SalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount AS DECIMAL) - (CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL)*-1);
+			ELSE
+				SET DC_TaxableAmount 								= CAST(REF_SalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount AS DECIMAL) - CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL);
+			END IF;
+			--Code change ends for version 0.2 to support validation
+			
+			SET REF_CommIdeaTax.NS_vgis:taxableamount			= ROUND(DC_TaxableAmount,2 MODE ROUND_HALF_UP);
+			
+			IF CAST(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount AS DECIMAL)<0 THEN
+				SET REF_CommIdeaTax.NS_vgis:taxamount			= ROUND(CAST(FIELDVALUE(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount)AS DECIMAL)*-1,2 MODE ROUND_HALF_UP);
+--			ELSEIF REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount = '0' THEN
+--				SET REF_CommIdeaTax.NS_vgis:taxamount			= TRUNCATE(FIELDVALUE(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount),2);
+			ELSE
+				SET REF_CommIdeaTax.NS_vgis:taxamount			= ROUND(CAST(FIELDVALUE(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount)AS DECIMAL),2 MODE ROUND_HALF_UP);
+			END IF;
+			
+		ELSEIF REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+			-- Code change for ver 0.3 starts
+			SET CH_QryStr = 'SELECT DISTINCT TRFVATCODE FROM VATDATA WHERE GENERICVATCODE = '''||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code||'''';
+			-- Code change for ver 0.3 ends
+			SET Environment.OutVal[] 							= PASSTHRU(CH_QryStr);
+			
+			IF CARDINALITY(Environment.OutVal[])>1 THEN
+				THROW USER EXCEPTION VALUES('Found multiple entries for TRFVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' on VATDATA table');
+			ELSEIF CARDINALITY(Environment.OutVal[])= 0 THEN
+				THROW USER EXCEPTION VALUES('No entry found for TRFVATCODE :'||REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code|| ' against GENERICVATCODE on VATDATA table ');	
+			END IF;
+			
+			SET DC_TaxParcent 									= CAST(Environment.OutVal[1].TRFVATCODE AS DECIMAL);
+			SET REF_CommIdeaTax.NS_vgis:taxpercent				= DC_TaxParcent;
+			SET DC_ExtAmount									= CAST(REF_SalesOrderLine.NS_oa:ExtendedAmount AS DECIMAL) * 100.00;
+			SET REF_CommIdeaTax.NS_vgis:taxableamount			= ROUND(DC_ExtAmount/(DC_TaxParcent+100.00),2 MODE ROUND_HALF_UP);
+			SET REF_CommIdeaTax.NS_vgis:taxamount				= COALESCE(DC_ExtAmount - (ROUND(DC_ExtAmount/(DC_TaxParcent+100.00),2 MODE ROUND_HALF_UP)),'0.00'); 
+			
+		END IF;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_SaveTaxSummaryInEnvironment									 *
+	* Input Parameters	: REF_Detail														 *
+	* Output Parameters	: REF_InvoiceSummary,REF_TaxSummary									 *
+	* Description		: Procedure to Save TaxSummary in Environemt to use further.		 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description                  	         *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	19-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_SaveTaxSummaryInEnvironment(IN REF_Detail REFERENCE,INOUT REF_InvoiceSummary REFERENCE,INOUT REF_TaxSummary REFERENCE)
+	BEGIN
+		DECLARE CH_Category 		CHARACTER 		REF_Detail.NS_vgis:tax.NS_vgis:commideatax.NS_vgis:taxcategoryvalue;
+		DECLARE DC_LineItemSubTotal DECIMAL 		CAST(REF_Detail.NS_vgis:lineitemsubtotal AS DECIMAL);
+		DECLARE DC_Tax				DECIMAL 		CAST(REF_Detail.NS_vgis:tax.NS_vgis:commideatax.NS_vgis:taxableamount AS DECIMAL);
+		DECLARE DC_TaxAmount		DECIMAL			CAST(REF_Detail.NS_vgis:tax.NS_vgis:commideatax.NS_vgis:taxamount AS DECIMAL);
+		DECLARE REF_TaxAmount		REFERENCE TO 	Environment.Variables.Detail.{CH_Category};
+		DECLARE REF_TaxCatVal		REFERENCE TO 	Environment;
+		DECLARE REF_TaxSegment		REFERENCE TO 	Environment;
+		
+		SET Environment.Variables.Detail.{CH_Category}.Total 			= CAST(COALESCE(REF_TaxAmount.Total,'0.00') AS DECIMAL) + DC_LineItemSubTotal;
+		SET Environment.Variables.Detail.{CH_Category}.TaxableAmount 	= CAST(COALESCE(REF_TaxAmount.TaxableAmount,'0.00') AS DECIMAL) + DC_Tax;
+		SET Environment.Variables.Detail.{CH_Category}.TaxAmount 		= CAST(COALESCE(REF_TaxAmount.TaxAmount,'0') AS DECIMAL) + DC_TaxAmount;
+		
+		CREATE LASTCHILD OF Environment.Variables.Detail.{CH_Category} AS REF_TaxAmount NAME 'Amount' VALUE REF_Detail.NS_vgis:tax.NS_vgis:commideatax.NS_vgis:taxableamount;
+		CREATE LASTCHILD OF Environment.Variables.Detail.{CH_Category} AS REF_TaxSegment NAME 'Tax';
+		
+		SET REF_TaxSegment.Taxsegment = REF_Detail.NS_vgis:tax.NS_vgis:commideatax;
+		
+		CREATE LASTCHILD OF Environment.Variables.Detail.{CH_Category} AS REF_TaxCatVal NAME 'taxcategoryvalue' VALUE CH_Category;
+		
+		SET Environment.Variables.Detail.TotalLineItemSubTotal = CAST(COALESCE(Environment.Variables.Detail.TotalLineItemSubTotal,'0.00') AS DECIMAL) + DC_LineItemSubTotal;
+		
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateInvoiceTotals											 *
+	* Input Parameters	: REF_InvoiceSummary,REF_InvoiceDetails								 *
+	* Output Parameters	: REF_InvoiceSummary,REF_InvoiceDetails 							 *
+	* Description		: Procedure to Create InvoiceDetails of CDATA section.				 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description             	             *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	14-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CreateInvoiceTotals (INOUT REF_InvoiceSummary REFERENCE,IN REF_CommideaDetails REFERENCE,INOUT REF_InvoiceDetails REFERENCE,INOUT REF_Invoice REFERENCE )
+	BEGIN
+		
+		DECLARE DC_LineItemsSubtotal 	DECIMAL 0.0;
+		DECLARE DC_TaxAmount			DECIMAL 0.0;
+		DECLARE DC_TaxableAount			DECIMAL 0.0;
+		
+		DECLARE REF_InvoiceTotals		REFERENCE TO REF_InvoiceSummary.NS_vgis:invoicetotals;
+		DECLARE REF_Tax 				REFERENCE TO REF_InvoiceDetails.NS_vgis:tax;
+		
+		FOR REF_InvoiceDetails AS REF_CommideaDetails.NS_vgis:commideainvoicedetail[] DO
+			SET DC_LineItemsSubtotal	= ROUND(CAST(REF_InvoiceDetails.NS_vgis:lineitemsubtotal AS DECIMAL)+ DC_LineItemsSubtotal,2 MODE ROUND_HALF_UP);
+			SET DC_TaxAmount 			= ROUND(CAST(REF_InvoiceDetails.NS_vgis:tax.NS_vgis:commideatax.NS_vgis:taxamount AS DECIMAL)+DC_TaxAmount,2 MODE ROUND_HALF_UP);
+			SET DC_TaxableAount 		= ROUND(CAST(REF_InvoiceDetails.NS_vgis:tax.NS_vgis:commideatax.NS_vgis:taxableamount AS DECIMAL)+DC_TaxableAount,2 MODE ROUND_HALF_UP);	
+		
+		END FOR;
+		--Creating fields for InvoiceTotals
+		CREATE FIELD REF_InvoiceSummary.NS_vgis:invoicetotals AS REF_InvoiceTotals;
+		
+		SET REF_InvoiceTotals.NS_vgis:netvalue 						= DC_TaxableAount;
+		SET REF_InvoiceTotals.NS_vgis:taxvalue 						= DC_TaxAmount;
+		SET REF_InvoiceTotals.NS_vgis:grossvalue					= ROUND(DC_TaxableAount+DC_TaxAmount,2 MODE ROUND_HALF_UP);
+		SET REF_InvoiceTotals.NS_vgis:lineitemtotals				= ROUND(Environment.Variables.Detail.TotalLineItemSubTotal,2 MODE ROUND_HALF_UP);
+		SET REF_InvoiceTotals.NS_vgis:subtotalafterqtyvaluediscount	= '0';
+		
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateActualPayment											 *
+	* Input Parameters	: REF_Payment,REF_PaymentAuth										 *
+	* Output Parameters	: REF_InvoiceSummary												 *
+	* Description		: Procedure to Create actualpayment.								 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description           		             *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	14-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CreateActualPayment (INOUT REF_InvoiceSummary REFERENCE,IN REF_Payment REFERENCE,IN REF_PaymentAuth REFERENCE )
+	BEGIN
+		
+		DECLARE REF_ActualPayment REFERENCE TO REF_InvoiceSummary.NS_vgis:actualpayment;
+		CREATE FIELD REF_InvoiceSummary.NS_vgis:actualpayment AS REF_ActualPayment;
+		
+		IF STARTSWITH(FIELDVALUE(REF_Payment.NS_oa:Amount),'-') THEN
+			SET REF_ActualPayment.NS_vgis:localcurrencyamt 	= CAST(FIELDVALUE(REF_Payment.NS_oa:Amount)AS DECIMAL)*(-1);
+		ELSE
+			SET REF_ActualPayment.NS_vgis:localcurrencyamt 	= FIELDVALUE(REF_Payment.NS_oa:Amount);
+		END IF;
+		SET REF_ActualPayment.NS_vgis:paymentmeanvalue 	= 'ZZZ';		
+		SET REF_ActualPayment.NS_vgis:paymentmeanname	= 'UNTDID:4461';
+		SET REF_ActualPayment.NS_vgis:paymentdate		= CAST(SUBSTRING(REF_PaymentAuth.NS_dfns:AuthorizationDateTime FROM 1 FOR 10) AS CHARACTER FORMAT 'yyyy-MM-dd');
+		
+	END;
+	
+END MODULE;

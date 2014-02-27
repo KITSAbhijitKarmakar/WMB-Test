@@ -1,0 +1,40 @@
+**************************************************************
+**   Script	:  MQSC_PRODUCT_NOTIFYPRODUCT_v1.1.MQSC		
+**   Created By	:  Ipsita Sahoo
+**   Environment:  X-tier	
+**************************************************************
+
+
+DEFINE QLOCAL ('ZARTMASCP.SAP.INBOUND.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Inbound queue for ZARTMAS_CP Idoc from SAP to Product Service') +
+       REPLACE
+
+
+DEFINE QALIAS ('ZARTMAS_CP') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('WMB alias used to put ZARTMAS_CP IDOC messages from SAP') +
+       TARGQ('ZARTMASCP.SAP.INBOUND.LOCAL') +
+       REPLACE
+
+	   
+DEFINE QALIAS ('ZARTMASCP.SAP.INBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       DESCR('WMB alias queue for Product Service') +
+       TARGQ('ZARTMASCP.SAP.INBOUND.LOCAL') +
+       REPLACE
+
+  
+DEFINE TOPIC ('MASTERDATA.PRODUCT.WMSINDC') +
+       TOPICSTR('/MASTERDATA/PRODUCT/WMSINDC/DETAILS') +
+       DEFPRTY(5) +
+       DEFPSIST(YES) +
+       MDURMDL('SYSTEM.DURABLE.MODEL.QUEUE') +
+       DURSUB(YES) +
+       PUB(ENABLED) +
+       SUB(ENABLED) +
+       MNDURMDL('SYSTEM.NDURABLE.MODEL.QUEUE') +
+       REPLACE
+
+
+**************************EndScript***************************

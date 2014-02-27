@@ -1,0 +1,684 @@
+BROKER SCHEMA com.kingfisher.ukbq.Product
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+/****************************************************************************************************
+* Node Name      			: Product NotifyMapping_Compute 										*
+* Interface Id   			:  																		*
+* Interface Name 			: Product_notifyProduct 												*
+* Message Flow   			: Product_notifyProduct_SAP_Pub											*
+* Message Flow Description 	: Publisher flow will transform the SAP IDOC ZARTMAS_CP to the          *
+*                             Product canonical and publish it to a topic ProductWMSinDCTopic		*
+* Module Name              	: Product_notifyProduct_SAP_Pub_Compute									*
+* Description 			   	: This module translates the data recieved from SAP as IDOC and 		*
+* 							  translates it to Product canonical									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		20-MAR-2013 	Ipsita Sahoo 		The initial version. 								*
+*																									*
+****************************************************************************************************/
+
+
+CREATE COMPUTE MODULE Product_notifyProduct_SAP_Pub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- Call the procedure NotifyProductMapping()
+		CALL NotifyProductMapping();
+		RETURN TRUE;
+	END;
+	
+	/***********************************************************************************************************************
+	* Procedure Name	: NotifyProductMapping() 										 								   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: Transforms the SAP Idoc message into the Product canonicals and publish it to the 		   	   *
+	*					  topic string      	                                                                           *
+	* Version 	Date 			Author 					Description                                                    	   *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	20-MAR-2013 	Ipsita Sahoo 			The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE NotifyProductMapping ( )
+	BEGIN
+		--Declaring Variables
+		DECLARE CH_TableName 			CHARACTER;  
+		DECLARE CH_Input 				CHARACTER;   
+		DECLARE CH_OutCol 				CHARACTER;  
+		DECLARE CH_OutValue 			CHARACTER; 
+		DECLARE DT_Date					DATE;
+		DECLARE TM_Time					TIME; 
+		DECLARE DT_MSTDE				DATE;
+		DECLARE DT_LIQDT				DATE;	
+		DECLARE DT_DISCDATE				DATE;
+		DECLARE DT_LIFAB				DATE;
+		DECLARE DT_LIFBI  				DATE;
+		DECLARE DT_CEDAT  				DATE;
+		DECLARE DT_CEDATEND  			DATE;
+		DECLARE DT_VDVFL  				DATE;
+		DECLARE DT_VDBFL  				DATE;	
+							
+		--Declaring Namespaces
+		DECLARE NS_Dfns 				NAMESPACE 'http://www.kingfisher.com/oagis/9';
+		DECLARE NS_oa 					NAMESPACE 'http://www.openapplications.org/oagis/9';
+		DECLARE NS_SapZartmasCp 		NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/ZARTMASCP/sapzartmascp';
+		
+		--Declaring input References
+		DECLARE REF_ZARTMASCP			REFERENCE TO InputRoot.DataObject.NS_SapZartmasCp:SapZartmasCp.SapZartmasCpIDocBO;
+		DECLARE REF_DataRecord 			REFERENCE TO REF_ZARTMASCP.SapZartmasCpDataRecord;
+		DECLARE REF_ControlRecord 		REFERENCE TO REF_ZARTMASCP.SapIDocControlRecord;
+		DECLARE REF_Z2mara				REFERENCE TO REF_DataRecord.SapZartmasCpZ2mara001;
+		DECLARE REF_Z2marazzcp			REFERENCE TO REF_DataRecord.SapZartmasCpZ2marazzcp000;
+		DECLARE REF_Z2maraz1			REFERENCE TO REF_DataRecord.SapZartmasCpZ2maraz1001;
+		DECLARE REF_Z2maw1				REFERENCE TO REF_DataRecord.SapZartmasCpZ2maw1000;
+		DECLARE REF_Z2mlan				REFERENCE TO REF_DataRecord.SapZartmasCpZ2mlan000;
+		DECLARE REF_Zartclf				REFERENCE TO REF_DataRecord.SapZartmasCpZartclf000;
+		DECLARE REF_Z2mps				REFERENCE TO REF_DataRecord.SapZartmasCpZ2mps000; 
+		DECLARE REF_Z2einacp			REFERENCE TO REF_DataRecord.SapZartmasCpZ2einacp000;
+		DECLARE REF_Z2mvke				REFERENCE TO REF_DataRecord.SapZartmasCpZ2mvke001;
+		DECLARE REF_Z2marm				REFERENCE TO REF_DataRecord.SapZartmasCpZ2marm000;
+		DECLARE REF_Z2costpr			REFERENCE TO REF_DataRecord.SapZartmasCpZ2costpr000;
+		DECLARE REF_Z2mean				REFERENCE TO REF_DataRecord.SapZartmasCpZ2mean000;
+		DECLARE REF_Z2mamt				REFERENCE TO REF_DataRecord.SapZartmasCpZ2mamt000;
+		
+		--Declaring output refernces
+		DECLARE REF_Outref 				REFERENCE TO OutputRoot.XMLNSC.NS_Dfns:SynchroniseProduct;
+		DECLARE REF_AppArea 			REFERENCE TO REF_Outref.NS_oa:ApplicationArea;
+		DECLARE REF_DataArea 			REFERENCE TO REF_Outref.NS_Dfns:DataArea;
+		DECLARE REF_Synchronise			REFERENCE TO REF_DataArea.NS_Dfns:Synchronise;
+		DECLARE REF_ActionExpression	REFERENCE TO REF_Synchronise.NS_oa:ActionCriteria.NS_oa:ActionExpression;
+		DECLARE REF_Product				REFERENCE TO REF_DataArea.NS_Dfns:Product;
+		DECLARE REF_ProdIndicator		REFERENCE TO REF_Product.NS_Dfns:ProductIndicator;
+		DECLARE REF_DiscIndicator		REFERENCE TO REF_Product.NS_Dfns:DiscountIndicator;
+		DECLARE REF_ProdTechInfo		REFERENCE TO REF_Product.NS_Dfns:ProductTechnicalInformation;
+		DECLARE REF_BusinesPolCodes		REFERENCE TO REF_Product.NS_Dfns:BusinesPolicyCodes;
+		DECLARE REF_MerHierarchyCodes	REFERENCE TO REF_Product.NS_Dfns:MerchandisingHierarchy.NS_Dfns:Codes;
+		DECLARE REF_MerHiechyCodesCode	REFERENCE TO REF_MerHierarchyCodes.NS_oa:Code;
+		DECLARE REF_MerHierarchyDesc	REFERENCE TO REF_Product.NS_Dfns:MerchandisingHierarchy.NS_Dfns:Description;
+		DECLARE REF_BusinesPolCodesCode	REFERENCE TO REF_BusinesPolCodes.NS_oa:Code;
+		DECLARE REF_DimenMeasure		REFERENCE TO REF_Product.NS_oa:Dimensions.NS_oa:Measure;
+		DECLARE REF_Tax					REFERENCE TO REF_Product.NS_Dfns:Tax;
+		DECLARE REF_StockStatus			REFERENCE TO REF_Product.NS_Dfns:StockStatus;
+		DECLARE REF_ItemSalesOrg		REFERENCE TO REF_Product.NS_Dfns:ItemSalesOrganisation;
+		DECLARE REF_UOMPackage			REFERENCE TO REF_Product.NS_Dfns:UOMPackage;
+		DECLARE REF_ConversionFactor	REFERENCE TO REF_UOMPackage.NS_Dfns:ConversionFactor;
+		DECLARE REF_UPCID				REFERENCE TO REF_UOMPackage.NS_oa:UPCID;
+		DECLARE REF_ItemSupplier		REFERENCE TO REF_Product.NS_Dfns:ItemSupplier;
+
+		
+		SET DT_Date						= CAST(REF_ControlRecord.CREDAT AS DATE FORMAT 'yyyyMMdd');
+		SET TM_Time						= CAST(REF_ControlRecord.CRETIM AS TIME FORMAT 'HHmmss');
+		
+		--Retriving the topic and topic name from the database--		
+		SET CH_TableName 														= 'MBTOPICS';
+		SET CH_OutCol															= 'TOPICSTRING';
+		SET CH_Input 															= 'ProductWMSinDCTopic';
+		SET CH_OutValue 														= '';
+			
+		--Calling the generic WMB function
+		CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue);
+			
+		--Publishing the message to the topic--
+		SET OutputRoot.Properties												= InputRoot.Properties;
+		SET OutputRoot.MQMD 													= InputRoot.MQMD;
+		SET OutputRoot.MQRFH2.psc.Command 										= 'Publish';
+		SET OutputRoot.MQRFH2.psc.Topic 										= CH_OutValue;
+		
+		--Set version and encoding
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version 	= '1.0';
+        SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding 	= 'UTF-8';  	
+		
+		--Crteating field of references
+		CREATE FIELD OutputRoot.XMLNSC.NS_Dfns:SynchroniseProduct 				 AS REF_Outref;
+		CREATE FIELD REF_Outref.NS_oa:ApplicationArea 							 AS REF_AppArea;
+		
+		-- Set the namespace and headers
+		SET REF_Outref.(XMLNSC.Attribute)releaseID 								= '1.0';
+		SET REF_Outref.(XMLNSC.Attribute)languageCode 							= 'EN';
+		SET REF_Outref.(XMLNSC.NamespaceDecl)xmlns 								= NS_Dfns;
+		SET REF_Outref.(XMLNSC.NamespaceDecl)xmlns:oa 							= NS_oa;
+		
+		-- Set the Application Area value
+		SET REF_AppArea.NS_oa:Sender.NS_oa:LogicalID							= 'SAPCO';
+		SET REF_AppArea.NS_oa:Sender.NS_oa:ComponentID							= 'ZARTMAS_CP';
+		IF REF_Z2mara.MATNR IS NOT NULL THEN
+			SET REF_AppArea.NS_oa:Sender.NS_oa:ReferenceID						= 'ArtNum:'||REF_Z2mara.MATNR;
+		ELSE
+			SET REF_AppArea.NS_oa:Sender.NS_oa:ReferenceID						= 'ArtNum:';
+		END IF;
+		
+		SET REF_AppArea.NS_oa:CreationDateTime 	= CAST(DT_Date AS CHARACTER FORMAT 'yyyy-MM-dd')||'T'||CAST(TM_Time AS CHARACTER FORMAT 'HH:mm:ss');
+		IF REF_ControlRecord.DOCNUM IS NOT NULL THEN
+			SET REF_AppArea.NS_oa:BODID											= REF_ControlRecord.DOCNUM;	
+		ELSE
+			SET REF_AppArea.NS_oa:BODID											= '';
+		END IF;
+		
+		--Create feilds of Reference for DataArea
+		CREATE FIELD REF_Outref.NS_Dfns:DataArea 								 AS REF_DataArea;
+		CREATE FIELD REF_DataArea.NS_Dfns:Synchronise							 AS REF_Synchronise;
+		CREATE FIELD REF_Synchronise.NS_oa:ActionCriteria.NS_oa:ActionExpression AS REF_ActionExpression;
+		
+		--Do the mapping for ActionCriteria
+		IF REF_Z2mara.MSGFN 		= '009' THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Add';
+		ELSEIF REF_Z2mara.MSGFN 	= '003' THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Delete';
+		ELSEIF REF_Z2mara.MSGFN = '018' AND REF_Z2marazzcp.MSGFN = '018' AND REF_Z2maraz1.MSGFN = '018' AND REF_Z2maw1.MSGFN = '018' THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		ELSE
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		END IF;
+			SET REF_ActionExpression 											= 'SynchroniseProduct/DataArea/Product';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+		
+		--Create feilds of Reference for Product
+		CREATE FIELD REF_DataArea.NS_Dfns:Product								AS REF_Product;
+		
+		--Do the mapping for Product
+		SET REF_Product.NS_oa:ItemID.NS_oa:ID									= REF_Z2mara.MATNR;
+		SET REF_Product.NS_oa:ManufacturerItemID.NS_oa:ID						= REF_Z2marazzcp.BISMT;
+		SET REF_Product.NS_oa:UOMCode											= REF_Z2mara.MEINS;
+		
+		CREATE LASTCHILD OF REF_Product.NS_oa:Dimensions AS REF_DimenMeasure NAMESPACE NS_oa NAME 'Measure';
+		SET REF_DimenMeasure										VALUE		= COALESCE(REF_Z2mara.INHAL,'');
+		SET REF_DimenMeasure.(XMLNSC.Attribute)unitCode 						= REF_Z2mara.INHME;	
+		SET REF_DimenMeasure.(XMLNSC.Attribute)type 							= 'NETCONTENT';
+		
+		CREATE NEXTSIBLING OF REF_DimenMeasure AS REF_DimenMeasure REPEAT;	
+		SET REF_DimenMeasure										VALUE		= REF_Z2marazzcp.ZZINHAL;
+		SET REF_DimenMeasure.(XMLNSC.Attribute)unitCode 						= REF_Z2mara.INHME;	
+		SET REF_DimenMeasure.(XMLNSC.Attribute)type 							= 'NETCONTENT5';
+	
+		
+		SET REF_Product.NS_Dfns:Size											= REF_Z2marazzcp.ZZNOSTS;
+		SET REF_Product.NS_Dfns:Size.(XMLNSC.Attribute)unitCode					= REF_Z2marazzcp.ZZSIZECD;
+		IF REF_Z2marazzcp.ZZSIZECD = 'NSTD' THEN
+			SET REF_Product.NS_Dfns:Size.(XMLNSC.Attribute)type					= REF_Z2marazzcp.ZZNOSTS;
+		ELSE
+			SET REF_Product.NS_Dfns:Size.(XMLNSC.Attribute)type					= REF_Z2marazzcp.ZZSIZEDS;
+		END IF;
+		
+		SET REF_Product.NS_oa:Description										= REF_Z2marazzcp.ZZCUSTDS;
+		SET REF_Product.NS_oa:Description.(XMLNSC.Attribute)type				= 'CUSTOMER';
+		SET REF_Product.NS_oa:Description.(XMLNSC.Attribute)languageID			= 'EN';
+		
+		SET REF_Product.NS_oa:ItemStatus.NS_oa:Code								= REF_Z2mara.MSTAE;
+		
+		IF COALESCE(REF_Z2mara.MSTDE,'') <> '' THEN
+			IF COALESCE(REF_Z2mara.MSTDE,'00000000')<>'00000000' THEN
+				SET DT_MSTDE													= CAST(REF_Z2mara.MSTDE AS DATE FORMAT 'yyyyMMdd');
+			END IF;
+		END IF;
+		SET REF_Product.NS_oa:ItemStatus.NS_oa:EffectiveDateTime				= CAST(DT_MSTDE AS CHARACTER FORMAT 'yyyy-MM-dd');
+		CALL PROC_ActionExpressionX(REF_Z2mara.SapZartmasCpZ2marax001.MSTAE,'oa:ItemStatus/oa:Code',REF_ActionExpression);
+		SET REF_Product.NS_oa:Type												= REF_Z2mara.MTART;
+	    SET REF_Product.NS_Dfns:PriceComparisonBasisCode						= REF_Z2mara.VPREH;
+		
+		--Create Discount Indicators
+		CREATE LASTCHILD OF REF_Product AS REF_DiscIndicator NAMESPACE NS_Dfns NAME 'DiscountIndicator';
+		IF REF_Z2marazzcp.ZZDISCIND = 'Y' THEN
+			SET REF_DiscIndicator.NS_Dfns:Indicator								= 'true';
+		ELSE
+			SET REF_DiscIndicator.NS_Dfns:Indicator								= 'false';
+		END IF;
+		SET REF_DiscIndicator.NS_oa:Type.(XMLNSC.Attribute)name 				= 'CUSTOMERDISCOUNT';
+		CREATE NEXTSIBLING OF REF_DiscIndicator AS REF_DiscIndicator REPEAT;
+		IF REF_Z2marazzcp.ZZEMPDIS = 'Y' THEN
+			SET REF_DiscIndicator.NS_Dfns:Indicator								= 'true';
+		ELSE
+			SET REF_DiscIndicator.NS_Dfns:Indicator								= 'false';
+		END IF;
+		SET REF_DiscIndicator.NS_oa:Type.(XMLNSC.Attribute)name 				= 'EMPLOYEEDISCOUNT';
+		
+		--Create all the Product Indicators
+		CREATE LASTCHILD OF REF_Product AS REF_ProdIndicator NAMESPACE NS_Dfns NAME 'ProductIndicator';
+			IF REF_Z2marazzcp.ZCP = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'ARTICLECATALOGUECHANGE';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2marazzcp.ZZCADIND = 'Y' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'CAD';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2mara.LVORM = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'DELETIONFLAG';
+			
+			IF COALESCE(REF_Z2mara.LIQDT,'') <> '' THEN
+				IF COALESCE(REF_Z2mara.LIQDT,'00000000')<>'00000000' THEN
+					SET DT_LIQDT												= CAST(REF_Z2mara.LIQDT AS DATE FORMAT 'yyyyMMdd');
+				END IF;
+			END IF;
+			SET REF_ProdIndicator.NS_oa:EffectiveTimePeriod.NS_oa:StartDateTime = CAST(DT_LIQDT AS CHARACTER FORMAT 'yyyy-MM-dd');
+			CALL PROC_ActionExpressionX(REF_Z2mara.SapZartmasCpZ2marax001.LVORM,'ProductIndicator/oa:Type[@name=DELETIONFLAG]',REF_ActionExpression);
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			SET REF_ProdIndicator.NS_Dfns:Indicator								= 'true';
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'DISCONTINUE';
+			
+			IF COALESCE(REF_Z2marazzcp.DISCDATE,'') <> '' THEN
+				IF COALESCE(REF_Z2marazzcp.DISCDATE,'00000000')<>'00000000' THEN
+					SET DT_DISCDATE												= CAST(REF_Z2marazzcp.DISCDATE AS DATE FORMAT 'yyyyMMdd');
+				END IF;
+			END IF;
+			SET REF_ProdIndicator.NS_oa:EffectiveTimePeriod.NS_oa:StartDateTime = CAST(DT_DISCDATE AS CHARACTER FORMAT 'yyyy-MM-dd');
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2maraz1.ZZFASTSELL = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'FASTSELL';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2marazzcp.ZZIMPORT = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'IMPORT';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2maraz1.ZZINCERT = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'INSTALLCERTIFICATE';	
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2maraz1.ZZLABART = 'Y' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'LABEL';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2einacp.RELIF = 'X' THEN
+				IF REF_Z2einacp.RUECK = 'Z1' THEN
+					SET REF_ProdIndicator.NS_Dfns:Indicator						= 'true';
+				ELSE
+					SET REF_ProdIndicator.NS_Dfns:Indicator						= 'false';
+				END IF;
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'NILRETURN';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2marazzcp.ZZPRCPRMPT = 'Y' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'PRICEPROMPT';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2marazzcp.ZZSCCOIND = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'SSCO';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2marazzcp.ZZWGTMSIND = 'Y' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'WEIGHTMEASURE';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2marazzcp.ZZWHCOIND = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'WHCO';
+		CREATE NEXTSIBLING OF REF_ProdIndicator AS REF_ProdIndicator REPEAT;
+			IF REF_Z2maraz1.ZZCOSHHIND = 'X' THEN
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'true';
+			ELSE
+				SET REF_ProdIndicator.NS_Dfns:Indicator							= 'false';
+			END IF;
+			SET REF_ProdIndicator.NS_oa:Type.(XMLNSC.Attribute)name 			= 'COSHH';	
+	
+		
+		--Loop through the below logic for all segments of Z1MLAN and assign to the fields of Tax		
+		WHILE LASTMOVE(REF_Z2mlan) DO
+			CALL PROC_ActionExpression(REF_Z2mlan.MSGFN,'Tax',REF_ActionExpression);
+			CREATE LASTCHILD OF REF_Product AS REF_Tax NAMESPACE NS_Dfns NAME 'Tax';
+			SET REF_Tax.NS_oa:Type												= 'VAT';
+			SET REF_Tax.NS_oa:TaxJurisdicationCodes.NS_oa:Code					= REF_Z2mlan.ALAND;
+			SET REF_Tax.NS_oa:TaxJurisdicationCodes.NS_oa:Code.(XMLNSC.Attribute)listName	= 'COUNTRY';
+			SET REF_Tax.NS_Dfns:ProductTaxClassificationCode					= REF_Z2mlan.TAXM1;
+		
+			MOVE REF_Z2mlan NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+	
+		SET REF_Product.NS_Dfns:SellingRestriction.NS_oa:Code					= REF_Z2maraz1.ZZRETSALCD;
+		SET REF_Product.NS_Dfns:HazardousMaterial.NS_oa:Code					= REF_Z2maraz1.ZZHAZTYCD;
+		
+		--Loop through REF_Z2marm for UOMPackage
+		WHILE LASTMOVE(REF_Z2marm) DO
+			CREATE LASTCHILD OF REF_Product AS REF_UOMPackage NAMESPACE NS_Dfns NAME 'UOMPackage';
+			CALL PROC_ActionExpression(REF_Z2marm.MSGFN,'UOMPackage',REF_ActionExpression);
+			SET REF_UOMPackage.NS_oa:UOMCode									= REF_Z2marm.MEINH;
+			WHILE LASTMOVE(REF_Z2mamt) DO
+				IF REF_Z2mamt.MEINH = REF_UOMPackage.NS_oa:UOMCode AND REF_Z2mamt.MTXID = '02' THEN
+					SET REF_UOMPackage.NS_oa:UOMCode.(XMLNSC.Attribute)name			= REF_Z2mamt.MAKTM;	
+				END IF;
+			MOVE REF_Z2mamt NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;
+			MOVE REF_Z2mamt TO REF_DataRecord.SapZartmasCpZ2mamt000;
+			
+			-- Loop through REF_Z2mean for UPCID
+			WHILE LASTMOVE(REF_Z2mean) DO
+				CALL PROC_ActionExpression(REF_Z2mean.MSGFN,'UOMPackage/UPCID',REF_ActionExpression);
+				IF REF_Z2mean.MEINH = REF_Z2marm.MEINH  THEN
+					CREATE LASTCHILD OF REF_UOMPackage AS REF_UPCID NAMESPACE NS_oa NAME 'UPCID';
+					SET REF_UPCID 													= REF_Z2mean.EAN11;
+					SET REF_UPCID.(XMLNSC.Attribute)schemeName						= REF_Z2mean.EANTP;
+					IF REF_Z2mean.HPEAN = 'X' THEN
+						SET REF_UPCID.(XMLNSC.Attribute)schemeID					= 'MAIN';	
+					END IF;
+					IF REF_Z2mean.BQFLG = 'X' THEN
+						SET REF_UPCID.(XMLNSC.Attribute)schemeAgencyID				= 'true';
+					ELSE
+						SET REF_UPCID.(XMLNSC.Attribute)schemeAgencyID				= 'false';
+					END IF;
+				END IF;
+				MOVE REF_Z2mean NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+			MOVE REF_Z2mean TO REF_DataRecord.SapZartmasCpZ2mean000;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:WidthMeasure 								= REF_Z2marm.BREIT;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:WidthMeasure.(XMLNSC.Attribute)unitCode 	= REF_Z2marm.MEABM;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:LengthMeasure 							= REF_Z2marm.LAENG;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:LengthMeasure.(XMLNSC.Attribute)unitCode 	= REF_Z2marm.MEABM;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:HeightMeasure 							= REF_Z2marm.HOEHE;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:HeightMeasure.(XMLNSC.Attribute)unitCode 	= REF_Z2marm.MEABM;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:Measure									= REF_Z2marm.BRGEW;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:Measure.(XMLNSC.Attribute)type			= 'WEIGHT';
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:Dimensions.NS_oa:Measure.(XMLNSC.Attribute)unitCode		= REF_Z2marm.GEWEI;
+			
+			CREATE LASTCHILD OF REF_UOMPackage AS REF_ConversionFactor NAMESPACE NS_Dfns NAME 'ConversionFactor';
+			SET REF_ConversionFactor												VALUE							= REF_Z2marm.UMREZ;
+			SET REF_ConversionFactor.(XMLNSC.Attribute)type															= 'NUMERATOR';
+			
+			CREATE NEXTSIBLING OF REF_ConversionFactor AS REF_ConversionFactor REPEAT;			
+			SET REF_ConversionFactor												VALUE							= REF_Z2marm.UMREN;
+			SET REF_ConversionFactor.(XMLNSC.Attribute)type															= 'DENOMINATOR';
+			IF REF_Z2marm.BASEFLG = 'X' THEN
+				SET REF_UOMPackage.NS_Dfns:BaseUOMIndicator							= 'true';
+			ELSE 
+				SET REF_UOMPackage.NS_Dfns:BaseUOMIndicator							= 'false';
+			END IF;
+			IF REF_Z2marm.DLISFLG = 'X' THEN
+				SET REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator				= 'true';
+			ELSE 
+				SET REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator				= 'false';
+			END IF;
+			IF REF_Z2marm.ORDRFLG = 'X' THEN
+				SET REF_UOMPackage.NS_Dfns:OrderingUOMIndicator						= 'true';
+			ELSE 
+				SET REF_UOMPackage.NS_Dfns:OrderingUOMIndicator						= 'false';
+			END IF;
+			IF REF_Z2marm.SALEFLG = 'X' THEN
+				SET REF_UOMPackage.NS_Dfns:SellingUOMIndicator						= 'true';
+			ELSE 
+				SET REF_UOMPackage.NS_Dfns:SellingUOMIndicator						= 'false';
+			END IF;
+			
+			IF REF_Z2marm.UMREZ IS NULL OR REF_Z2marm.UMREZ = '0' OR REF_Z2marm.UMREZ = '' THEN 
+				SET REF_Z2marm.UMREZ = '1';
+			END IF;
+			IF REF_Z2marm.UMREN IS NULL OR REF_Z2marm.UMREN = '0' OR REF_Z2marm.UMREN = '' THEN
+				SET REF_Z2marm.UMREN = '1';
+			END IF;
+			SET REF_UOMPackage.NS_oa:UnitPackaging.NS_oa:CapacityPerPackageQuantity   = ROUND(CAST(REF_Z2marm.UMREZ AS DECIMAL) / CAST(REF_Z2marm.UMREN AS DECIMAL), 2 MODE ROUND_DOWN);
+		MOVE REF_Z2marm NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		
+		SET REF_Product.NS_Dfns:ShippingGroupCategoryCode								= REF_Z2maraz1.MTPOS_MARA;
+		SET REF_Product.NS_Dfns:ProductSellingBrand.NS_oa:Code.(XMLNSC.Attribute)name	= REF_Z2maraz1.ZZBRDNM;
+		
+		CREATE LASTCHILD OF REF_Product AS REF_ProdTechInfo NAMESPACE NS_Dfns NAME 'ProductTechnicalInformation';	
+		SET REF_ProdTechInfo.NS_oa:NameValue											= REF_Z2marazzcp.ZZCOLOUR;
+		SET REF_ProdTechInfo.NS_oa:NameValue.(XMLNSC.Attribute)name						= 'COLOUR';
+		
+		--Create feilds of Reference for MerchandisingHierarchy
+		CREATE FIELD REF_Product.NS_Dfns:MerchandisingHierarchy.NS_Dfns:Codes	 AS REF_MerHierarchyCodes;
+		CREATE LASTCHILD OF REF_MerHierarchyCodes AS REF_MerHiechyCodesCode NAMESPACE NS_oa NAME 'Code';
+			SET REF_MerHiechyCodesCode								VALUE				= COALESCE(REF_Z2marazzcp.ZZDEPTALPH,'');
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'ALPHADEPT';	
+		CREATE NEXTSIBLING OF REF_MerHiechyCodesCode AS REF_MerHiechyCodesCode REPEAT;
+			SET REF_MerHiechyCodesCode								VALUE				= REF_Zartclf.ATWRT_HIER;
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'BUYERMERCHCAT';
+		CREATE NEXTSIBLING OF REF_MerHiechyCodesCode AS REF_MerHiechyCodesCode REPEAT;
+			SET REF_MerHiechyCodesCode								VALUE				= REF_Z2mara.MATKL;
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'MERCHANDISINGCATEGORY';	
+		CREATE NEXTSIBLING OF REF_MerHiechyCodesCode AS REF_MerHiechyCodesCode REPEAT;
+			SET REF_MerHiechyCodesCode								VALUE				= REF_Z2marazzcp.ZZDEPTALPH;
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'MERCHANDISINGCATEGORYALPHA';	
+		CREATE NEXTSIBLING OF REF_MerHiechyCodesCode AS REF_MerHiechyCodesCode REPEAT;
+			SET REF_MerHiechyCodesCode								VALUE				= REF_Z2marazzcp.ZZDEPT;
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'MERCHANDISINGCATEGORYNUMERIC';	
+		CREATE NEXTSIBLING OF REF_MerHiechyCodesCode AS REF_MerHiechyCodesCode REPEAT;
+			SET REF_MerHiechyCodesCode								VALUE				= REF_Z2marazzcp.ZZDEPT;
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'NUMERICDEPTCODE';
+		CREATE NEXTSIBLING OF REF_MerHiechyCodesCode AS REF_MerHiechyCodesCode REPEAT;
+			SET REF_MerHiechyCodesCode								VALUE				= REF_Z2maraz1.ZZBUYCD;
+			SET REF_MerHiechyCodesCode.(XMLNSC.Attribute)name 							= 'BUYER';	
+			
+		CREATE LASTCHILD OF REF_Product.NS_Dfns:MerchandisingHierarchy AS REF_MerHierarchyDesc NAMESPACE NS_oa NAME 'Description';
+			SET REF_MerHierarchyDesc								VALUE				= COALESCE(REF_Z2mara.ZZMC_LVL1_DES,'');
+			SET REF_MerHierarchyDesc.(XMLNSC.Attribute)type 							= 'MERCHCATEGORYDESCRIPTION';	
+		CREATE NEXTSIBLING OF REF_MerHierarchyDesc AS REF_MerHierarchyDesc REPEAT;
+			SET REF_MerHierarchyDesc								VALUE				= REF_Z2maraz1.ZZBUYDS;
+			SET REF_MerHierarchyDesc.(XMLNSC.Attribute)type 							= 'BUYERDESCRIPTION';	
+		
+		
+		--Loop through REF_Z2einacp for ItemSupplier
+		WHILE LASTMOVE(REF_Z2einacp) DO
+			CALL PROC_ActionExpression(REF_Z2einacp.MSGFN,'ItemSupplier',REF_ActionExpression);
+			CREATE LASTCHILD OF REF_Product AS REF_ItemSupplier NAMESPACE NS_Dfns NAME 'ItemSupplier';
+			SET REF_ItemSupplier.NS_oa:SupplierItemID.NS_oa:ID							= REF_Z2einacp.IDNLF;
+			SET REF_ItemSupplier.NS_oa:UOMCode											= REF_Z2einacp.MEINS;
+			SET REF_ItemSupplier.NS_Dfns:SupplierParty.NS_oa:PartyIDs.NS_oa:ID			= REF_Z2einacp.LIFNR;
+			SET REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Dfns:BranchParty.NS_oa:PartyIDs.NS_oa:ID = REF_Z2einacp.LTSNR;
+			IF REF_Z2einacp.LOEKZ = 'X' THEN
+				SET REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Dfns:BranchParty.NS_Dfns:DeletionIndicator = 'true';
+			ELSE
+				SET REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Dfns:BranchParty.NS_Dfns:DeletionIndicator = 'false';
+			END IF;
+			
+			SET REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Dfns:BranchParty.NS_Dfns:DeliveryPriorityCode	= REF_Z2einacp.ZDELIV;
+	
+			IF COALESCE(REF_Z2einacp.LIFAB,'') <> '' THEN
+				IF COALESCE(REF_Z2einacp.LIFAB,'00000000')<>'00000000' THEN
+					SET DT_LIFAB					= CAST(REF_Z2einacp.LIFAB AS DATE FORMAT 'yyyyMMdd');
+				END IF;
+			END IF;
+			SET REF_ItemSupplier.NS_oa:EffectiveTimePeriod.NS_oa:StartDateTime							= CAST(DT_LIFAB AS CHARACTER FORMAT 'yyyy-MM-dd');
+			
+			IF COALESCE(REF_Z2einacp.LIFBI,'') <> '' THEN
+				IF COALESCE(REF_Z2einacp.LIFBI,'00000000')<>'00000000' THEN
+					SET DT_LIFBI =  CAST(REF_Z2einacp.LIFBI  AS DATE FORMAT 'yyyyMMdd');
+				END IF;
+			END IF;
+			SET REF_ItemSupplier.NS_oa:EffectiveTimePeriod.NS_oa:EndDateTime							= CAST(DT_LIFBI AS CHARACTER FORMAT 'yyyy-MM-dd');
+			IF REF_Z2einacp.RELIF = 'X' THEN
+				SET REF_ItemSupplier.NS_Dfns:PrimaryIndicator											= 'true';
+			ELSE
+				SET REF_ItemSupplier.NS_Dfns:PrimaryIndicator											= 'false';
+			END IF;
+			
+			WHILE LASTMOVE(REF_Z2costpr) DO
+				IF REF_Z2einacp.LIFNR = REF_Z2costpr.LIFNR THEN
+					IF CAST(DT_Date AS CHARACTER FORMAT 'yyyy-MM-dd')= CURRENT_DATE THEN
+						 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';		
+					END IF;
+					SET REF_ItemSupplier.NS_Dfns:CostPrice.NS_oa:Amount									= REF_Z2costpr.CSTPR;
+					SET REF_ItemSupplier.NS_Dfns:CostPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= REF_Z2costpr.KONWA;
+					SET REF_ItemSupplier.NS_Dfns:CostPrice.NS_oa:PerQuantity							= '1' ;
+					SET REF_ItemSupplier.NS_Dfns:CostPrice.NS_oa:PerQuantity.(XMLNSC.Attribute)unitCode	= REF_Z2costpr.CSUOM;	
+					
+					IF COALESCE(REF_Z2costpr.CEDAT,'') <> '' THEN
+						IF COALESCE(REF_Z2costpr.CEDAT,'00000000')<>'00000000' THEN
+							SET DT_CEDAT =  CAST(REF_Z2costpr.CEDAT AS DATE FORMAT 'yyyyMMdd');
+						END IF;
+					END IF;
+					SET REF_ItemSupplier.NS_Dfns:CostPrice.NS_oa:TimePeriod.NS_oa:StartDateTime			= CAST(DT_CEDAT AS CHARACTER FORMAT 'yyyy-MM-dd');
+					
+					IF COALESCE(REF_Z2costpr.CEDATEND,'') <> '' THEN
+						IF COALESCE(REF_Z2costpr.CEDATEND,'00000000')<>'00000000' THEN
+							SET DT_CEDATEND =  CAST(REF_Z2costpr.CEDATEND AS DATE FORMAT 'yyyyMMdd');
+						END IF;
+					END IF;
+					SET REF_ItemSupplier.NS_Dfns:CostPrice.NS_oa:TimePeriod.NS_oa:EndDateTime			= CAST(DT_CEDATEND AS CHARACTER FORMAT 'yyyy-MM-dd');
+				END IF;
+			MOVE REF_Z2costpr NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+			MOVE REF_Z2costpr TO REF_DataRecord.SapZartmasCpZ2costpr000;
+			SET REF_ItemSupplier.NS_Dfns:ReturnPolicyCode												= REF_Z2einacp.RUECK;								
+			
+		MOVE REF_Z2einacp NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		
+		--Loop through REF_Z2mps for StockStatus
+		WHILE LASTMOVE(REF_Z2mps) DO			
+		CREATE LASTCHILD OF REF_Product AS REF_StockStatus NAMESPACE NS_Dfns NAME 'StockStatus';
+			SET REF_StockStatus.NS_oa:Code							= REF_Z2mps.STATUS;
+			SET REF_StockStatus.NS_oa:Type							= 'MULTICHANNEL';	
+		MOVE REF_Z2mps NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+	
+		--Loop through REF_Z2mvke for ItemSalesOrganisation
+		WHILE LASTMOVE(REF_Z2mvke) DO
+			CREATE LASTCHILD OF REF_Product AS REF_ItemSalesOrg NAMESPACE NS_Dfns NAME 'ItemSalesOrganisation';
+			SET REF_ItemSalesOrg.NS_oa:ID										= REF_Z2mvke.VKORG;
+			SET REF_ItemSalesOrg.NS_Dfns:DistributionChannelCode				= REF_Z2mvke.VTWEG;
+			SET REF_ItemSalesOrg.NS_oa:GroupID									= REF_Z2mvke.KTGRM;
+			
+			IF COALESCE(REF_Z2mvke.VDVFL,'') <> '' THEN
+				IF COALESCE(REF_Z2mvke.VDVFL,'00000000')<>'00000000' THEN
+					SET DT_VDVFL =  CAST(REF_Z2mvke.VDVFL AS DATE FORMAT 'yyyyMMdd');
+				END IF;
+			END IF;
+			SET REF_ItemSalesOrg.NS_oa:EffectiveTimePeriod.NS_oa:StartDateTime	= CAST(DT_VDVFL AS CHARACTER FORMAT 'yyyy-MM-dd');
+			
+			IF COALESCE(REF_Z2mvke.VDBFL,'') <> '' THEN
+				IF COALESCE(REF_Z2mvke.VDBFL,'00000000')<>'00000000' THEN
+					SET DT_VDBFL =  CAST(REF_Z2mvke.VDBFL AS DATE FORMAT 'yyyyMMdd');
+				END IF;
+			END IF;
+			SET REF_ItemSalesOrg.NS_oa:EffectiveTimePeriod.NS_oa:EndDateTime	= CAST(DT_VDBFL AS CHARACTER FORMAT 'yyyy-MM-dd');
+			SET REF_ItemSalesOrg.NS_Dfns:WEEECategoryCode						= REF_Z2mvke.ZZFORMAT;
+			SET REF_ItemSalesOrg.NS_Dfns:WEEESubCategoryCode					= REF_Z2mvke.ZZWEEESUB;
+		
+		MOVE REF_Z2mvke NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		
+		--Create feilds of Reference for BusinesPolicyCodes
+		CREATE FIELD REF_Product.NS_Dfns:BusinesPolicyCodes		AS REF_BusinesPolCodes;
+		
+		CREATE LASTCHILD OF REF_BusinesPolCodes AS REF_BusinesPolCodesCode NAMESPACE NS_oa NAME 'Code';
+		SET REF_BusinesPolCodesCode 						VALUE	= COALESCE(REF_Z2marazzcp.ZZBUSPCD1,'');
+		SET REF_BusinesPolCodesCode.(XMLNSC.Attribute)sequence		= '1';
+		
+		CREATE NEXTSIBLING OF REF_BusinesPolCodesCode AS REF_BusinesPolCodesCode REPEAT;
+		SET REF_BusinesPolCodesCode 						VALUE	= REF_Z2maraz1.ZZBUSPCD2;
+		SET REF_BusinesPolCodesCode.(XMLNSC.Attribute)sequence		= '2';
+		
+		CREATE NEXTSIBLING OF REF_BusinesPolCodesCode AS REF_BusinesPolCodesCode REPEAT;
+		SET REF_BusinesPolCodesCode							VALUE	= REF_Z2maraz1.ZZBUSPCD3;
+		SET REF_BusinesPolCodesCode.(XMLNSC.Attribute)sequence		= '3';
+		
+		CREATE NEXTSIBLING OF REF_BusinesPolCodesCode AS REF_BusinesPolCodesCode REPEAT;
+		SET REF_BusinesPolCodesCode							VALUE	= REF_Z2maraz1.ZZBUSPCD4;
+		SET REF_BusinesPolCodesCode.(XMLNSC.Attribute)sequence		= '4';
+		
+		CREATE NEXTSIBLING OF REF_BusinesPolCodesCode AS REF_BusinesPolCodesCode REPEAT;
+		SET REF_BusinesPolCodesCode							VALUE	= REF_Z2maraz1.ZZBUSPCD5;
+		SET REF_BusinesPolCodesCode.(XMLNSC.Attribute)sequence		= '5';	
+		
+		Zartclf:WHILE LASTMOVE(REF_Zartclf) DO
+			IF REF_Zartclf.NAME_CHAR = 'Z_BRAND' THEN
+				SET REF_Product.NS_Dfns:Allowance.NS_oa:Type		= REF_Zartclf.CHAR_VALUE;				
+			LEAVE Zartclf;
+			END IF;
+		MOVE REF_Zartclf NEXTSIBLING REPEAT TYPE NAME;		
+		END WHILE;
+	
+		SET REF_Product.NS_Dfns:HandlingCategoryCode					= REF_Z2marazzcp.ZZHANDLING;
+		SET REF_Product.NS_Dfns:SeasonalCategoryCode					= REF_Z2mara.SAITY;
+		SET REF_Product.NS_Dfns:SupplySourceID							= REF_Z2maraz1.BWSCL;
+		CALL PROC_ActionExpressionX(REF_Z2maraz1.SapZartmasCpZ2maraz1x001.BWSCL,'SupplySourceID',REF_ActionExpression);
+		SET REF_Product.NS_Dfns:SupplySourceRouteID						= REF_Z2marazzcp.ZZSROUTE;
+		SET REF_Product.NS_Dfns:PurchasingParty.NS_oa:PartyIDs.NS_oa:ID	= REF_Z2maw1.WEKGR;
+		SET REF_Product.NS_oa:ClassificationSchemeID					= REF_Z2mara.LABOR;
+		
+	END;
+		
+	/***********************************************************************************************************************
+	* Procedure Name	: PROC_ActionExpression() 										 								   *
+	* Input Parameters	: CH_Msgfn,CH_Field, REF_ActionExpression														   *
+	* Output Parameters	: None 																						       *
+	* Description		: This procedure is to populate the ActionExpression field value of the Output message 		   	   *
+	* Version 	Date 			Author 					Description                                                    	   *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	20-MAR-2013 	Ipsita Sahoo 			The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE PROC_ActionExpression (IN CH_Msgfn CHARACTER,IN CH_Field CHARACTER,INOUT REF_ActionExpression REFERENCE)
+	BEGIN
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			CASE
+				CH_Msgfn
+			WHEN '009' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Add';	
+			WHEN '003' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Delete';
+			WHEN '018' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';	
+			END CASE;
+				
+			SET REF_ActionExpression 											= 'SynchroniseProduct/DataArea/Product/'||CH_Field;
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+	END;
+	
+	/***********************************************************************************************************************
+	* Procedure Name	: PROC_ActionExpressionX() 										 								   *
+	* Input Parameters	: CH_Msgfn,CH_Field, REF_ActionExpression														   *
+	* Output Parameters	: None 																						       *
+	* Description		: This procedure is to populate the ActionExpressionX attribute value of the Output message 	   *
+	* Version 	Date 			Author 					Description                                                        *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	20-MAR-2013 	Ipsita Sahoo 			The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	
+	CREATE PROCEDURE PROC_ActionExpressionX (IN CH_Msgfn CHARACTER,IN CH_Field CHARACTER,INOUT REF_ActionExpression REFERENCE)
+	BEGIN
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			CASE
+				CH_Msgfn
+			WHEN 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';	
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';	
+			END CASE;
+				
+		SET REF_ActionExpression 											= 'SynchroniseProduct/DataArea/Product/'||CH_Field;
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+	END;
+END MODULE;

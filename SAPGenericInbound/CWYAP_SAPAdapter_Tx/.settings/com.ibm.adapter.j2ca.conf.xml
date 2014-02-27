@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?><configuration xmlns="http://j2ca.adapter.ibm.com">
+<systemEntry uri="C:\SAP\SAPJCO\sapjco3.dll"/>
+<systemEntry uri="C:\SAP\SAPJCO\sapjco3.jar"/>
+<systemEntry uri="C:\SAP\SAPJCO\sapidoc3.jar"/>
+</configuration>

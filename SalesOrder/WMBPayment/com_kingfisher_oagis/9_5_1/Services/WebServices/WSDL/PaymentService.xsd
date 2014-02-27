@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://www.kingfisher.com/Services/PaymentService/1.0" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/PaymentService/1.0" xmlns:ns1="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:import namespace="http://www.kingfisher.com/oagis/9" schemaLocation="PaymentService_InlineSchema1.xsd"/>
+
+<!-- BEGIN Global group petaining to all wsdl:message definitions -->
+<!-- END Global group -->
+
+
+<!-- BEGIN Message Definitions for the wsdl:operations  -->
+<!-- END Message Definitions -->
+
+
+</xsd:schema>

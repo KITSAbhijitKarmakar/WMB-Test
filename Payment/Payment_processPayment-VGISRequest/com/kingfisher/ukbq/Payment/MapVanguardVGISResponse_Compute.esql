@@ -1,0 +1,56 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateVanguardVGISRequest												*
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_processPayment-VGISRequest									*
+* Message Flow 				: ProcessPayment_VGISRequest											*
+* Message Flow Description  : The primary function of this message flow is to receive input from 	*
+* 							  Charge/Release flow and create Vanguard Webservice request Structure	*
+* 							  map the into environment to update ODS with Settlement Status.		*
+* Module Name 				: MapVanguardVGISResponse_Compute										*
+* Description 				: The primary function of this node is to map the response from CommIdea*
+* 							  into environment to update ODS table								    *
+*																									*
+* Version 	Date Author 		Author 				Description										*
+* ======= 	=========== 		================ 	=================== 							*
+* 0.1		21-MAR-2013 		Asif Hossain 		The initial version. 							*
+****************************************************************************************************/
+CREATE COMPUTE MODULE MapVanguardVGISResponse_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Declaring reference for input
+		DECLARE REF_MsgResult 	REFERENCE TO InputRoot.XMLNSC.NS_comns:ProcessMsgResponse.NS_comns:ProcessMsgResult;
+		DECLARE REF_EnvSuccess 	REFERENCE TO Environment;
+		DECLARE REF_EnvError	REFERENCE TO Environment;
+		
+		SET Environment.Variables.processMsgType = REF_MsgResult.NS_comns:MsgType;
+		
+		--Parse the CDATA section from the incoming xml message and store it in Environment
+		IF REF_MsgResult.NS_comns:MsgType <> '' AND REF_MsgResult.NS_comns:MsgType = 'ERROR' THEN
+        	CREATE LASTCHILD OF Environment.Response.Error AS REF_EnvError DOMAIN ('XMLNSC') PARSE (REF_MsgResult.NS_comns:MsgData 
+				CCSID InputRoot.Properties.CodedCharSetId) ;
+			
+			MOVE REF_EnvError TO Environment.Response.Error.XMLNSC.NS_vgis:ERROR;
+
+		ELSE
+			CREATE LASTCHILD OF Environment.Response.Success AS REF_EnvSuccess DOMAIN ('XMLNSC') PARSE (REF_MsgResult.NS_comns:MsgData 
+				CCSID InputRoot.Properties.CodedCharSetId) ;  	
+			
+			MOVE REF_EnvSuccess TO Environment.Response.Success.XMLNSC.NS_vgis:vgisresponse;
+			
+		END IF;
+
+		RETURN TRUE;
+	END;
+
+END MODULE;

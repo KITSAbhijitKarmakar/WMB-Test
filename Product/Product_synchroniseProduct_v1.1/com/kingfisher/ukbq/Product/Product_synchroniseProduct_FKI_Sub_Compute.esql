@@ -1,0 +1,568 @@
+BROKER SCHEMA com.kingfisher.ukbq.Product
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      :	Map_Product_Canonical_FKI								  	  			  	                  	  *									
+* Interface Id 	 :																				  			  	      *
+* Interface Name :	Product_synchroniseProduct                                                      		  		  *															
+* Message Flow 	 : 	Product_synchroniseProduct_FKI_Sub												      			  *
+* Message Flow 																						  			      *
+* Description 	 : 	The Product Canonical is mapped to the required FKI XML structure through the Compute node.       *
+*																													  * 														  	  				
+* Module Name  	 :	Product_synchroniseProduct_FKI_Sub_Compute     			  		  								  *            				  	  
+* Description  	 :	The Product Canonical is mapped to the required FKI XML structure through the Compute node.       *   														  			                                         
+*																									  				  *
+* Version   Date	   		Author			Description                     				 				  		  *
+* ======= 	=========== 	=========== 	========================================				  				  *
+*  0.1  	29-Mar-2013   	Ipsita Sahoo	The initial version.                			  				  	      * 
+*																													  *
+**********************************************************************************************************************/
+
+CREATE COMPUTE MODULE Product_synchroniseProduct_FKI_Sub_Compute
+		CREATE FUNCTION Main() RETURNS BOOLEAN
+		BEGIN
+			--Call SyncroniseProductFKI procedure
+			CALL SyncroniseProductFKI();
+			--SET Environment.variable.ProcessingStatus
+			IF Environment.variable.ProcessingStatus = 'true' THEN
+				RETURN TRUE;
+			ELSE
+				RETURN FALSE;
+			END IF;			
+		END;
+		
+	/***********************************************************************************************************************
+	* Procedure Name	: SyncroniseProductFKI() 										 								   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: The Product Canonical is mapped to the required FKI structure					 		   		   *
+	*										   	                                                                           *
+	* Version 	Date 			Author 					Description                                                    	   *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	29-MAR-2013 	Ipsita Sahoo 			The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE SyncroniseProductFKI() BEGIN		
+		
+		--Declaring Variables
+		DECLARE CH_AccountGroupValue 			CHARACTER;
+		DECLARE CH_TableName 					CHARACTER;
+		DECLARE CH_Input 						CHARACTER; 
+		DECLARE CH_OutCol 						CHARACTER;
+		DECLARE CH_OutValue 					CHARACTER;
+		DECLARE CH_delFlag						CHARACTER;
+		DECLARE IN_PackSize						INTEGER;
+		DECLARE CH_flag							CHARACTER 'false';
+		DECLARE CH_dim							CHARACTER;
+		DECLARE CH_wt							CHARACTER;
+		DECLARE CH_Pack 						CHARACTER;
+		DECLARE IN_DelPack						INTEGER;
+		DECLARE DE_OdrPack						DECIMAL;
+		DECLARE DE_DlvPack						DECIMAL;
+		DECLARE IN_LAYPack						INTEGER;
+		DECLARE IN_PALPack						INTEGER;
+		DECLARE IN_VBMPack						INTEGER;
+		DECLARE CH_DeleteProdFlag				CHARACTER;
+		DECLARE CH_DeletionIndX					CHARACTER;
+		DECLARE CH_ChangeType					CHARACTER;
+		DECLARE CH_SupplySourceX				CHARACTER;
+		DECLARE CH_ArticleStatusX				CHARACTER;
+		DECLARE CH_ActionCode					CHARACTER;
+		
+		--Declaring input References
+		DECLARE REF_AppArea 					REFERENCE TO InputRoot.XMLNSC.NS_Dfns:SynchroniseProduct.NS_Oa:ApplicationArea;
+		DECLARE REF_DataArea 					REFERENCE TO InputRoot.XMLNSC.NS_Dfns:SynchroniseProduct.NS_Dfns:DataArea;
+		DECLARE REF_Product						REFERENCE TO REF_DataArea.NS_Dfns:Product;
+		DECLARE REF_ActionCriteria				REFERENCE TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria;
+		DECLARE REF_ActionExpression			REFERENCE TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+		DECLARE REF_UOMPackage					REFERENCE TO REF_Product.NS_Dfns:UOMPackage;
+		DECLARE REF_UPCID						REFERENCE TO REF_UOMPackage.NS_Oa:UPCID;	
+		DECLARE REF_ItemSupplier				REFERENCE TO REF_Product.NS_Dfns:ItemSupplier;
+		DECLARE REF_ProdTechInfo				REFERENCE TO REF_Product.NS_Dfns:ProductTechnicalInformation;
+		DECLARE REF_MerHierarchyCodes			REFERENCE TO REF_Product.NS_Dfns:MerchandisingHierarchy.NS_Dfns:Codes;
+		
+		
+		--Retriving the topic and topic name from the database--		
+		SET CH_TableName 							        			= 'MBCONFIG';
+		SET CH_OutCol													= 'CONFIGVALUE';		
+		SET CH_OutValue 												= '';
+				
+	
+		DECLARE REF_ProductIndicator REFERENCE TO REF_Product.NS_Dfns:ProductIndicator;
+		WHILE LASTMOVE(REF_ProductIndicator) DO
+			IF REF_ProductIndicator.NS_Oa:Type.(XMLNSC.Attribute)name 	= 'DELETIONFLAG' THEN
+				SET CH_delFlag 											= FIELDVALUE(REF_ProductIndicator.NS_Dfns:Indicator);
+			END IF;
+			MOVE REF_ProductIndicator NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		---------------------------------Flag Setting Product Delete---------------------------------------------
+		WHILE LASTMOVE(REF_ActionExpression) DO
+			IF REF_ActionExpression = 'SynchroniseProduct/DataArea/Product/ProductIndicator/oa:Type[@name=DELETIONFLAG]' THEN
+				SET CH_DeletionIndX 									= FIELDVALUE(REF_ActionExpression.(XMLNSC.Attribute)actionCode); 
+			ELSEIF REF_ActionExpression = 'SynchroniseProduct/DataArea/Product' THEN
+				SET CH_ChangeType 										= FIELDVALUE(REF_ActionExpression.(XMLNSC.Attribute)actionCode); 
+			ELSEIF REF_ActionExpression = 'SynchroniseProduct/DataArea/Product/SupplySourceID' THEN
+				SET CH_SupplySourceX 									= FIELDVALUE(REF_ActionExpression.(XMLNSC.Attribute)actionCode);
+			ELSEIF REF_ActionExpression = 'SynchroniseProduct/DataArea/Product/oa:ItemStatus/oa:Code' THEN
+				SET CH_ArticleStatusX 									= FIELDVALUE(REF_ActionExpression.(XMLNSC.Attribute)actionCode); 
+			END IF;				
+			MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		MOVE REF_ActionExpression TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+		
+		IF REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'H1' OR REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'R1' OR REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'S1' THEN
+			WHILE LASTMOVE(REF_ActionExpression) DO
+				IF REF_ActionExpression = 'SynchroniseProduct/DataArea/Product/oa:ItemStatus/oa:Code' THEN
+					IF CH_ArticleStatusX = 'Modified' THEN						
+						IF REF_Product.NS_Dfns:SupplySourceID = '2' THEN
+							SET CH_DeleteProdFlag 						= 'true';				
+						END IF;						
+					END IF;					
+				END IF;
+				MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;
+			MOVE REF_ActionExpression TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+		END IF; 		
+		
+		IF CH_DeletionIndX = 'Modified' AND CH_delFlag = 'true' AND REF_Product.NS_Dfns:SupplySourceID = '2' THEN
+			SET CH_DeleteProdFlag 										= 'true';			
+		END IF;
+						
+		IF CH_ChangeType = 'Delete' AND REF_Product.NS_Dfns:SupplySourceID = '2' THEN
+			SET CH_DeleteProdFlag 										= 'true';
+		END IF;
+				
+		IF CH_SupplySourceX = 'Modified' AND REF_Product.NS_Dfns:SupplySourceID <> '2'  THEN
+			SET CH_DeleteProdFlag 										= 'true';			
+		END IF;
+		
+		SET CH_ActionCode												= '';
+				
+		--Checking the condition and do the mapping for Product Update
+		IF REF_Product.NS_Oa:ItemStatus.NS_Oa:Code <> 'H1' AND REF_Product.NS_Oa:ItemStatus.NS_Oa:Code <> 'R1' AND REF_Product.NS_Oa:ItemStatus.NS_Oa:Code <> 'S1' THEN
+			IF CH_delFlag = 'false' AND REF_Product.NS_Dfns:SupplySourceID = '2' THEN
+				--Loop through all ActionExpression and findout the value of ActionExpression attribute fieldvalue
+				WHILE LASTMOVE(REF_ActionExpression) DO
+					IF FIELDVALUE(REF_ActionExpression) = 'SynchroniseProduct/DataArea/Product' AND CH_ActionCode <> 'true' THEN
+						IF REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Add' OR REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Modified' THEN 
+							SET CH_ActionCode ='true';
+						ELSE
+							SET CH_ActionCode ='false';
+						END IF;
+					END IF;
+				MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;
+				MOVE REF_ActionExpression TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+				
+				IF CH_ActionCode = 'true' THEN
+					SET CH_flag  = 'true';
+				END IF;
+				
+				WHILE LASTMOVE(REF_UOMPackage) DO
+					SET CH_ActionCode	= '';
+					--Loop through all ActionExpression and findout the value of ActionExpression attribute fieldvalue
+					WHILE LASTMOVE(REF_ActionExpression) DO
+						IF FIELDVALUE(REF_ActionExpression) = 'SynchroniseProduct/DataArea/Product/UOMPackage' AND CH_ActionCode <> 'true' THEN
+							IF REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Add' OR REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Modified' THEN 
+								SET CH_ActionCode ='true';
+							ELSE
+								SET CH_ActionCode ='false';
+							END IF;
+						END IF;
+					MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+					END WHILE;
+					MOVE REF_ActionExpression TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+					
+					IF CH_ActionCode = 'true' THEN
+						SET CH_flag  = 'true';
+					END IF;
+					WHILE LASTMOVE(REF_UPCID) DO
+						SET CH_ActionCode	= '';
+						--Loop through all ActionExpression and findout the value of ActionExpression attribute fieldvalue
+						WHILE LASTMOVE(REF_ActionExpression) DO
+							IF FIELDVALUE(REF_ActionExpression) = 'SynchroniseProduct/DataArea/Product/UOMPackage/UPCID' AND CH_ActionCode <> 'true' THEN
+								IF REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Add' OR REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Modified' THEN 
+									SET CH_ActionCode ='true';
+								ELSE
+									SET CH_ActionCode ='false';
+								END IF;
+							END IF;
+						MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+						END WHILE;
+						MOVE REF_ActionExpression TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+					
+						IF CH_ActionCode = 'true' THEN
+							SET CH_flag  = 'true';
+						END IF;
+					 MOVE REF_UPCID NEXTSIBLING REPEAT TYPE NAME;	
+					END WHILE;
+					MOVE REF_UPCID TO REF_UOMPackage.NS_Oa:UPCID;
+				MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;	
+				END WHILE;
+				MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+				MOVE REF_UPCID TO REF_UOMPackage.NS_Oa:UPCID;
+				
+				
+				IF CH_flag = 'false' THEN
+					WHILE LASTMOVE(REF_ItemSupplier) DO
+						SET CH_ActionCode	= '';
+						--Loop through all ActionExpression and findout the value of ActionExpression attribute fieldvalue
+						WHILE LASTMOVE(REF_ActionExpression) DO
+							IF FIELDVALUE(REF_ActionExpression) = 'SynchroniseProduct/DataArea/Product/ItemSupplier' AND CH_ActionCode <> 'true' THEN
+								IF REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Add' OR REF_ActionExpression.(XMLNSC.Attribute)actionCode ='Modified' OR REF_ActionExpression.(XMLNSC.Attribute)actionCode = 'Delete' THEN 
+									SET CH_ActionCode ='true';
+								ELSE
+									SET CH_ActionCode ='false';
+								END IF;
+							END IF;
+						MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+						END WHILE;
+						MOVE REF_ActionExpression TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+					
+						IF CH_ActionCode = 'true' THEN
+							SET CH_flag	 = 'true';
+						END IF;
+					 MOVE REF_ItemSupplier NEXTSIBLING REPEAT TYPE NAME;	
+					END WHILE;
+					MOVE REF_ItemSupplier TO REF_Product.NS_Dfns:ItemSupplier;
+				END IF;
+			END IF;
+		END IF;	
+		--Mapping for Product Update
+		IF CH_flag = 'true' THEN
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version= '1.0';
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding = 'UTF-8';
+			--Declaring Output refernces
+	
+			DECLARE REF_ListToWcs					REFERENCE TO OutputRoot.XMLNSC.messageListToWcs;		
+			--Output field creation
+			CREATE FIELD OutputRoot.XMLNSC.messageListToWcs 	AS REF_ListToWcs;
+			SET	REF_ListToWcs.(XMLNSC.NamespaceDecl)xmlns:xsi						= xsi;
+			SET REF_ListToWcs.(XMLNSC.NamespaceDecl)xsi:noNamespaceSchemaLocation	= NS_noNamespaceSchemaLocation;
+			
+			
+			SET REF_ListToWcs.datetime 												= REF_AppArea.NS_Oa:CreationDateTime;
+			SET REF_ListToWcs.sequenceNo											= getMessageIDForKey1('CoreDC_Product');
+			DECLARE REF_productUpdate				REFERENCE TO REF_ListToWcs.productUpdate;
+			CREATE LASTCHILD OF REF_ListToWcs AS REF_productUpdate NAME 'productUpdate';
+			
+			-- Creating the output structure for Product Update
+			CREATE LASTCHILD OF REF_productUpdate NAME 'bnqProductCode' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'ean' 					VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sapVendorNumber' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sapVendorSubRange' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'purchaseGroup' 			VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'colour'					VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'deptCode' 				VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sapMerchandiseCat' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'itemDescription' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'size' 					VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'packSize' 				VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'repackFactor' 			VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorProductRef'		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'productClassification' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'discontinued' 			VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'itemCost' 				VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sellUnitCaseLength' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sellUnitCaseWidth' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sellUnitCaseHeight' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sellUnitCaseWeight' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'sellUnitCaseCube' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'shipUnitCaseLength' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'shipUnitCaseWidth' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'shipUnitCaseHeight' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'shipUnitCaseWeight' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'shipUnitCaseCube' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'palletSize' 			VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorPacksPerLayer' 	VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'layersPerPallet' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorCaseLength' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorCaseWidth' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorCaseHeight' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorCaseWeight' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorCaseCube' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorPalletQty' 		VALUE '';
+			CREATE LASTCHILD OF REF_productUpdate NAME 'vendorBuyingMultiple' 	VALUE '';
+			
+			
+			WHILE LASTMOVE(REF_UOMPackage) DO
+				IF (REF_UOMPackage.NS_Dfns:BaseUOMIndicator <> 'true' AND REF_UOMPackage.NS_Dfns:OrderingUOMIndicator <> 'true' AND REF_UOMPackage.NS_Dfns:SellingUOMIndicator = 'true') OR REF_UOMPackage.NS_Dfns:BaseUOMIndicator = 'true' THEN
+					FOR REF_UPCID AS REF_UOMPackage.NS_Oa:UPCID[] DO
+						IF REF_UPCID.(XMLNSC.Attribute)schemeAgencyID	= 'true' THEN
+							SET REF_productUpdate.bnqProductCode 					= FIELDVALUE(REF_UPCID);
+						END IF;
+						IF REF_UPCID.(XMLNSC.Attribute)schemeID	= 'MAIN' THEN
+							IF LENGTH(REF_UPCID) = 13 THEN
+								SET REF_productUpdate.ean 							= FIELDVALUE(REF_UPCID);
+							ELSE
+								IF LENGTH(REF_UPCID) > 13 THEN
+									SET REF_productUpdate.ean 						= SUBSTRING(FIELDVALUE(REF_UPCID) FROM 1 FOR 13);	
+								ELSE
+									SET REF_productUpdate.ean 						= PadLeadingCharacters(13,FIELDVALUE(REF_UPCID),'0');
+								END IF;
+							END IF;
+						END IF;
+					END FOR;
+				END IF;
+				IF REF_UOMPackage.NS_Dfns:BaseUOMIndicator <> 'true' AND REF_UOMPackage.NS_Dfns:OrderingUOMIndicator <> 'true' AND REF_UOMPackage.NS_Dfns:SellingUOMIndicator = 'true' THEN
+					SET CH_Pack 													= 'true';
+				ELSEIF REF_UOMPackage.NS_Dfns:BaseUOMIndicator = 'true' THEN
+					SET CH_Pack 													= 'false';
+				END IF;
+				
+				IF REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator = 'true' THEN
+					SET IN_DelPack 													= ROUND(CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL),0 MODE ROUND_DOWN);
+					SET DE_DlvPack 													= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);
+				END IF;	
+				IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+					SET DE_OdrPack 													= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);
+				END IF;
+			MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;		
+			END WHILE;
+			MOVE REF_UPCID TO REF_UOMPackage.NS_Oa:UPCID;
+			MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+			
+			--Loop through all ItemSupplier and mapping	
+			ItemSup:WHILE LASTMOVE(REF_ItemSupplier) DO
+				SET REF_productUpdate.sapVendorNumber 								= REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Oa:PartyIDs.NS_Oa:ID;
+				IF LENGTH(REF_productUpdate.sapVendorNumber) > 6 THEN
+					SET REF_productUpdate.sapVendorNumber 							= SUBSTRING(REF_productUpdate.sapVendorNumber FROM (LENGTH(REF_productUpdate.sapVendorNumber)-5) FOR 6);
+				END IF;
+				SET REF_productUpdate.sapVendorSubRange 							= REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Dfns:BranchParty.NS_Oa:PartyIDs.NS_Oa:ID;
+				LEAVE ItemSup;
+			MOVE REF_ItemSupplier NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+			MOVE REF_ItemSupplier TO REF_Product.NS_Dfns:ItemSupplier;
+			
+			SET REF_productUpdate.purchaseGroup 									= REF_Product.NS_Dfns:PurchasingParty.NS_Oa:PartyIDs.NS_Oa:ID;
+			
+			FOR REF_ProdTechInfo AS REF_Product.NS_Dfns:ProductTechnicalInformation[] DO
+				IF REF_ProdTechInfo.NS_Oa:NameValue.(XMLNSC.Attribute)name = 'COLOUR' THEN 
+					SET REF_productUpdate.colour 									= FIELDVALUE(REF_ProdTechInfo.NS_Oa:NameValue);
+				END IF;
+			END FOR;
+			
+			FOR REF_MerHiechyCodesCode AS REF_MerHierarchyCodes.NS_Oa:Code[] DO
+				IF REF_MerHiechyCodesCode.(XMLNSC.Attribute)name = 'MERCHANDISINGCATEGORYALPHA' THEN 
+					SET REF_productUpdate.deptCode 									= FIELDVALUE(REF_MerHiechyCodesCode);
+				END IF;
+			END FOR;
+			
+			FOR REF_MerHiechyCodesCode AS REF_MerHierarchyCodes.NS_Oa:Code[] DO
+				IF REF_MerHiechyCodesCode.(XMLNSC.Attribute)name = 'MERCHANDISINGCATEGORY' THEN 
+					SET REF_productUpdate.sapMerchandiseCat							= FIELDVALUE(REF_MerHiechyCodesCode);
+				END IF;
+			END FOR;
+			
+			IF REF_Product.NS_Oa:Description.(XMLNSC.Attribute)type = 'CUSTOMER' THEN 
+				SET REF_productUpdate.itemDescription 								= FIELDVALUE(REF_Product.NS_Oa:Description);
+			END IF;
+			
+			SET REF_productUpdate.size = FIELDVALUE(REF_Product.NS_Dfns:Size.(XMLNSC.Attribute)type);
+			IF LENGTH(REF_productUpdate.size) > 10 THEN
+				SET REF_productUpdate.size 											= SUBSTRING(REF_productUpdate.size FROM 1 FOR 10);
+			END IF;
+			
+			IF CH_Pack = 'true' THEN
+				SET REF_productUpdate.packSize 										= '1';
+			ELSE
+				SET REF_productUpdate.packSize 										= IN_DelPack;
+			END IF;
+			
+			IF DE_OdrPack < 1 THEN
+				SET DE_OdrPack 														= 1;
+			END IF;
+			
+			SET REF_productUpdate.repackFactor = ROUND(CAST(DE_OdrPack/DE_DlvPack AS DECIMAL),0 MODE ROUND_DOWN);
+			IF REF_productUpdate.repackFactor < 1 THEN
+				SET REF_productUpdate.repackFactor 									= 1;
+			END IF;
+			
+			--Loop through all ItemSupplier and mapping	
+			ItemSup:WHILE LASTMOVE(REF_ItemSupplier) DO
+				SET REF_productUpdate.vendorProductRef								= REF_ItemSupplier.NS_Oa:SupplierItemID.NS_Oa:ID;
+				IF LENGTH(REF_productUpdate.vendorProductRef) > 15 THEN
+					SET REF_productUpdate.vendorProductRef 							= SUBSTRING(REF_productUpdate.vendorProductRef FROM 1 FOR 15);
+				END IF;
+				LEAVE ItemSup;
+			MOVE REF_ItemSupplier NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+			MOVE REF_ItemSupplier TO REF_Product.NS_Dfns:ItemSupplier;
+			
+			SET REF_productUpdate.productClassification 							= REF_Product.NS_Oa:ClassificationSchemeID;
+			IF REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'X1' OR REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'X2' OR REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'X3' OR REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'X4' OR REF_Product.NS_Oa:ItemStatus.NS_Oa:Code = 'X5' THEN
+				SET REF_productUpdate.discontinued 									= 'Y';
+			ELSE
+				SET REF_productUpdate.discontinued 									= 'N';
+			END IF;
+			
+			--Loop through all ItemSupplier and mapping	
+			ItemSup:WHILE LASTMOVE(REF_ItemSupplier) DO
+				WHILE LASTMOVE(REF_UOMPackage) DO
+					IF REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator = 'true' THEN
+						SET IN_PackSize 											= ROUND(CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL),0 MODE ROUND_DOWN);
+					END IF;
+				MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;	
+				END WHILE;
+				MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+				
+				IF LENGTH(REF_ItemSupplier.NS_Dfns:CostPrice.NS_Oa:Amount) > 0 THEN
+						SET REF_productUpdate.itemCost 								= ROUND(CAST(REF_ItemSupplier.NS_Dfns:CostPrice.NS_Oa:Amount AS DECIMAL) * IN_PackSize, 3 MODE ROUND_DOWN);
+				ELSE
+					SET REF_productUpdate.itemCost 									= '0.000';
+				END IF;
+				LEAVE ItemSup;
+			MOVE REF_ItemSupplier NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+			MOVE REF_ItemSupplier TO REF_Product.NS_Dfns:ItemSupplier;
+			
+			--Loop through all UOM and mapping	
+			 WHILE LASTMOVE(REF_UOMPackage) DO
+				IF REF_UOMPackage.NS_Dfns:BaseUOMIndicator = 'true' THEN
+					SET CH_dim 														= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure.(XMLNSC.Attribute)unitCode;
+					SET CH_wt  														= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:Measure.(XMLNSC.Attribute)unitCode;
+					SET REF_productUpdate.sellUnitCaseLength 						= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.sellUnitCaseWidth  						= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:WidthMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.sellUnitCaseHeight 						= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:HeightMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.sellUnitCaseWeight 						= ROUND(Func_calcWeightDimension(CH_wt,'KG',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:Measure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.sellUnitCaseCube	 						= CAST(ROUND(CAST(REF_productUpdate.sellUnitCaseLength * REF_productUpdate.sellUnitCaseHeight * REF_productUpdate.sellUnitCaseWidth AS DECIMAL) / 1000, 3 MODE ROUND_DOWN) AS CHARACTER) ;
+					IF REF_productUpdate.sellUnitCaseCube = '0.000' THEN
+						SET REF_productUpdate.sellUnitCaseCube 						= CAST(0.001 AS CHARACTER); 
+					END IF;
+				END IF;
+				IF REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator = 'true' THEN
+--						
+						SET CH_dim 														= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure.(XMLNSC.Attribute)unitCode;
+					SET CH_wt  														= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:Measure.(XMLNSC.Attribute)unitCode;
+					SET REF_productUpdate.shipUnitCaseLength 						= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.shipUnitCaseWidth  						= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:WidthMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.shipUnitCaseHeight 						= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:HeightMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.shipUnitCaseWeight 						= ROUND(Func_calcWeightDimension(CH_wt,'KG',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:Measure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.shipUnitCaseCube	 						= CAST(ROUND(CAST(REF_productUpdate.shipUnitCaseLength AS DECIMAL) * CAST(REF_productUpdate.shipUnitCaseHeight AS DECIMAL) * CAST(REF_productUpdate.shipUnitCaseWidth AS DECIMAL) / 1000, 3 MODE ROUND_DOWN) AS CHARACTER) ;
+					IF REF_productUpdate.shipUnitCaseCube = '0.000' THEN
+						SET REF_productUpdate.shipUnitCaseCube 						= CAST(0.001 AS CHARACTER); 
+					END IF;
+				END IF;
+				
+				IF REF_UOMPackage.NS_Oa:UOMCode = 'LAY' THEN
+					SET IN_LAYPack 													= ROUND(CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL),0 MODE ROUND_DOWN);
+					IF IN_LAYPack < 1 THEN
+						SET IN_LAYPack 												= 1;
+					END IF; 
+				END IF;
+				IF REF_UOMPackage.NS_Oa:UOMCode = 'PAL' THEN
+					SET IN_PALPack 													= ROUND(CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL),0 MODE ROUND_DOWN); 
+					IF IN_PALPack < 1 THEN
+						SET IN_PALPack 												= 1;
+					END IF; 
+				END IF;
+				IF REF_UOMPackage.NS_Oa:UOMCode = 'VBM' THEN
+					SET IN_VBMPack 													=  ROUND(CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL),0 MODE ROUND_DOWN);
+					IF IN_VBMPack < 1 THEN
+						SET IN_VBMPack 												= 1;
+					END IF;  
+				END IF;
+			MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;		
+			END WHILE;
+			MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+			
+			SET REF_productUpdate.palletSize 										= 'L';
+			
+			SET REF_productUpdate.vendorPacksPerLayer 								= COALESCE(ROUND(CAST(IN_LAYPack/DE_OdrPack AS DECIMAL),0 MODE ROUND_DOWN),0);
+			IF REF_productUpdate.vendorPacksPerLayer < 1 THEN
+				SET REF_productUpdate.vendorPacksPerLayer 							= 1;
+			END IF; 
+			SET REF_productUpdate.layersPerPallet 									= COALESCE(ROUND(CAST(IN_PALPack/IN_LAYPack AS DECIMAL),0 MODE ROUND_DOWN),0);
+			IF REF_productUpdate.layersPerPallet < 1 THEN
+				SET REF_productUpdate.layersPerPallet 								= 1;
+			END IF;
+			
+			--Loop through all UOM and mapping	
+			 WHILE LASTMOVE(REF_UOMPackage) DO
+				IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+					
+					SET CH_dim 														= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure.(XMLNSC.Attribute)unitCode;
+					SET CH_wt  														= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:Measure.(XMLNSC.Attribute)unitCode;
+					SET REF_productUpdate.vendorCaseLength 							= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.vendorCaseWidth  							= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:WidthMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.vendorCaseHeight 							= ROUND(Func_calcLengthDimension(CH_dim,'CM',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:HeightMeasure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.vendorCaseWeight							= ROUND(Func_calcWeightDimension(CH_wt,'KG',REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:Measure),2 MODE ROUND_DOWN);
+					SET REF_productUpdate.vendorCaseCube	 						= CAST(ROUND(CAST(REF_productUpdate.vendorCaseLength * REF_productUpdate.vendorCaseHeight * REF_productUpdate.vendorCaseWidth AS DECIMAL) / 1000, 3 MODE ROUND_DOWN) AS CHARACTER) ;
+					IF REF_productUpdate.vendorCaseCube = '0.000' THEN
+						SET REF_productUpdate.vendorCaseCube 						= CAST(0.001 AS CHARACTER); 
+					END IF;
+				END IF;
+				
+				MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;		
+			END WHILE;
+			MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+			
+			
+			SET REF_productUpdate.vendorPalletQty 									= COALESCE(REF_productUpdate.layersPerPallet * REF_productUpdate.vendorPacksPerLayer,0);
+			 
+			SET REF_productUpdate.vendorBuyingMultiple 								= COALESCE(ROUND(CAST(IN_VBMPack/DE_OdrPack AS DECIMAL),0 MODE ROUND_DOWN),0);
+			IF REF_productUpdate.vendorBuyingMultiple < 1 THEN
+				SET REF_productUpdate.vendorBuyingMultiple 							= 1;
+			END IF; 
+			
+			SET CH_Input 															= 'CoreDC_Product_Update_Queue';
+			CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue); 
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName 	= CH_OutValue;
+			SET Environment.variable.ProcessingStatus											= 'true'; 
+		
+		ELSEIF CH_DeleteProdFlag = 'true' THEN
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version 	= '1.0';
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding	= 'UTF-8';
+			--Declare outputfields
+			DECLARE REF_ListToWcs					REFERENCE TO OutputRoot.XMLNSC.messageListToWcs;		
+			--Output field creation
+			CREATE FIELD OutputRoot.XMLNSC.messageListToWcs 	AS REF_ListToWcs;
+			SET	REF_ListToWcs.(XMLNSC.NamespaceDecl)xmlns:xsi						 	= xsi;
+			SET REF_ListToWcs.(XMLNSC.NamespaceDecl)xsi:noNamespaceSchemaLocation	 	= NS_noNamespaceSchemaLocation;
+			SET REF_ListToWcs.datetime 												 	= REF_AppArea.NS_Oa:CreationDateTime;
+			SET REF_ListToWcs.sequenceNo											 	= getMessageIDForKey1('CoreDC_Product');
+			DECLARE REF_productDelete												 REFERENCE TO REF_ListToWcs.productDelete;
+			CREATE LASTCHILD OF REF_ListToWcs AS REF_productDelete NAME 'productDelete';
+			
+			-- Creating the output structure for Product Delete
+			CREATE LASTCHILD OF REF_productDelete NAME 'ean' VALUE '';
+			
+			--Loop through all UOM
+				UOMPack1: WHILE LASTMOVE(REF_UOMPackage) DO
+					IF REF_UOMPackage.NS_Dfns:BaseUOMIndicator = 'true' THEN
+						--Loop through all UPCID of each UOM
+						FOR REF_UPCID AS REF_UOMPackage.NS_Oa:UPCID[] DO 
+							IF REF_UPCID.(XMLNSC.Attribute)schemeID = 'MAIN' THEN
+								IF LENGTH(REF_UPCID) = 13 THEN
+									SET REF_productDelete.ean 							= FIELDVALUE(REF_UPCID);
+								ELSEIF LENGTH(REF_UPCID) > 13 THEN
+									SET REF_productDelete.ean 							= SUBSTRING(FIELDVALUE(REF_UPCID) FROM 1 FOR 13);
+								ELSE
+									SET REF_productDelete.ean 							= PadLeadingCharacters(13,FIELDVALUE(REF_UPCID),'0');	
+								END IF;
+							LEAVE UOMPack1;	
+							END IF;
+						END FOR;
+					END IF;
+					MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;
+					MOVE REF_UPCID TO REF_UOMPackage.NS_Oa:UPCID;	
+				END WHILE;				
+			SET CH_Input 														   		= 'CoreDC_Product_Delete_Queue';
+			CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue); 
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName 		= CH_OutValue;	
+			SET Environment.variable.ProcessingStatus												= 'true';
+		ELSE
+			SET Environment.variable.ProcessingStatus													= 'false';		
+		END IF;	
+		
+		
+	END;
+END MODULE;

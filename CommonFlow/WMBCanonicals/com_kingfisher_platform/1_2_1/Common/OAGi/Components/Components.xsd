@@ -1,0 +1,919 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSPY v5 rel. 4 U (http://www.xmlspy.com) by Jon Mitchell (B & Q Plc) --><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         11 Nov 2011
+  Copyright 2011, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ccts="urn:un:unece:uncefact:documentation:1.1" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element name="AccountCard" type="AccountCardType"/>
+	<xsd:element name="ApprovedByParty" type="SignatoryPartyType"/>
+	<xsd:element name="AssignedToContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">To who all the task is assigned to</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="AuthorizationDateTime" type="oa:DateTimeType"/>
+	<xsd:element name="BillToParty" type="BillToPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that the bill or invoice is to be sent. In most cases this is the same as the CustomerParty however there are many cases where the CustomerParty and the BillToParty will be different.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="BodyCopy" type="oa:NoteType">
+		<xsd:annotation>
+			<xsd:documentation>Marketing text describing a product</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="BookingMessage" type="oa:TextType"/>
+	<xsd:element name="BranchParty" type="SemanticPartyType"/>
+	<xsd:element name="Brand" type="BrandType"/>
+	<xsd:element name="BrandChannel" type="BrandChannelType"/>
+	<xsd:element name="BuyerContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information for the buying person, organization, department, or group on the associated document or line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="BuyerParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The entity that is responsible for Buying the document or element in which it is associacted. Additionally, the contact  may be a person or a group or department.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Card" type="CreditCardType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Credit Card account information.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CarrierParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Idenitfies the party that serves as the carrier of the goods or services for the transaction.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CatalogParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party whose catalog is used to purchase the goods or services.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Channel" type="ChannelType"/>
+	<xsd:element name="ChannelID" type="oa:IdentifierType"/>
+	<xsd:element name="ChequeFromParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that ordered the issuance of the cheque.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ChildParty" type="PartyType"/>
+	<xsd:element name="CompetitorParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Indicates the organizations that are competeing for this business.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ConcernedParty" type="PartyType"/>
+	<xsd:element name="Contact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Contacts are the point of communication with the given party. In the case of an organization it may be the requestioner, the buyer, customer service, etc. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CreatedByParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the  organization that created the cart. In a third party buying scenario, this will identify the Party that created the cart on behalf of another Party</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CreatedForParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">This identifies the organization/ entity for whom the cart was created. This is also used in the context of third party buying, where this will identify the entity or organization for whom the cart is intended</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CustomerParty" type="CustomerPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Is the organization that is the end customer of the goods or services being provided in the associated transaction.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CustomerServiceContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information of the person, organization, department, or group that is responsible for customer service.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="DeclarantParty" type="SemanticPartyType"/>
+	<xsd:element name="DeliverToParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">This is the Party (the person or organization) to receive delivery of a the associated entitys.  This can be goods, services, cheques, etc.
+
+Several examples of the value of this field include an office number, a complete address, or a person</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="DeliveryGroupCode" type="oa:CodeType">
+		<xsd:annotation>
+			<xsd:documentation>The grouping code to which the line item belongs for delivery. Usually grouped based on method, date and mode of delivery</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="DeliveryReversedIndicator" type="oa:IndicatorType">
+		<xsd:annotation>
+			<xsd:documentation>Indicates if the line item delivery status has been reversed. The default value is 'false' unless the line item delivery status has been reveresed, in which case the status is set to 'true'</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="EmergencyContact" type="ContactType"/>
+	<xsd:element name="FeatureCopy" type="oa:NoteType"/>
+	<xsd:element name="FinalParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Party that is the ultimate beneficiary of the cash transfer.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="FinancialParty" type="FinancialPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Financial institution that receives the payment transaction from the account owner or authorised party and processes the instruction. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="FirstAgentParty" type="FinancialPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Financial institution that receives the payment transaction from the account  owner or authorised party and processes the instruction. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ForwardingAgentParty" type="FinancialPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Financial institution that receives the payment transaction from the account owner or authorised party and processes the instruction. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="GiftList" type="GiftListType"/>
+	<xsd:element name="HazardousMaterial" type="HazardousMaterialType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Provides the Hazardous Material Code and description.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InformationalMessage" type="oa:TextType"/>
+	<xsd:element name="InitiatingParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Party initiating the payment to the forwarding or first agent. This can be the debtor (in a credit transfer), the creditor (in a direct debit) or a party that initiates the payment on behalf of the debtor or creditor.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InspectorContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information of the person, organization, department, or group that is to or has inspected the contents communicated by the document or line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="IntermediaryFinancialParty" type="FinancialPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">An agent between the first and final agent.
+
+Usage guideline: This information is provided by the initiating party, based on information provided by the creditor or final party. How this information is handled by the first agent will depend on the service level/business practice between initiating party and first agent.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InvoiceeParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">PmtInf/PmtTx/RmtInf/Invcee</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InvoicerParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">PmtInf/PmtTx/RmtInf/Invcr</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="IssueNumber" type="oa:NumericType"/>
+	<xsd:element name="IssuingParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the organization/entity that issued/ created the document</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Item">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:group maxOccurs="unbounded" minOccurs="0" ref="oa:ItemIDsGroup"/>
+				<xsd:element minOccurs="0" ref="oa:BaseUOMCode"/>
+				<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Packaging"/>
+				<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Dimensions"/>
+				<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Name">
+					<xsd:annotation>
+						<xsd:documentation source="http://www.openapplications.org/oagis/9">Is the name of the Product.</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+				<xsd:element maxOccurs="unbounded" minOccurs="0" ref="HazardousMaterial"/>
+				<xsd:element maxOccurs="unbounded" minOccurs="0" name="HierarchyID" type="oa:IdentifierType">
+					<xsd:annotation>
+						<xsd:documentation>ID of the Product Hierarchy to which the Product belongs</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Loan" type="LoanType"/>
+	<xsd:element name="Location" type="LocationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The location of a thing, as captured by an address (or addresses), GPS Coordinates, and/or in relation to other locations.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="LongDescription" type="oa:DescriptionType"/>
+	<xsd:element name="LongMessage" type="oa:TextType"/>
+	<xsd:element name="ManualKeyingIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="ManufacturingParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that manufactured the associated Item.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="MediumDescription" type="oa:DescriptionType"/>
+	<xsd:element name="MembershipCard" type="MembershipCardType"/>
+	<xsd:element name="OrderReferenceRequiredIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="Organisation" type="PartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">A generic Party  for non-validated or application-validated parties. A work-around for situations where Schema-validation of Parties is not feasible or not desired.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="OriginatorParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that originated the purchase of the goods, service or payment.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="OverriddenUnitPrice" type="oa:PriceABIEType">
+		<xsd:annotation>
+			<xsd:documentation>This the manual price change made by an authorised user that will override base retail unit price of a product this price includes TAX</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="OwnerIndicator" type="oa:IndicatorType"/>
+	<xsd:element name="OwnerParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">This is used to identify who or which organization owns the item or part. The content of this field is user defined based on a specific Customer or Supplier.
+
+Synonyms are Vendor Consignment ID, Supplier Consignment ID</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ParentParty" type="PartyType"/>
+	<xsd:element name="PayeeParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">This is a Party that is identified as a Payee on an Accounts Payable document. The SupplierParty of the goods or services typically.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PayFromParty" type="PayFromPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that the payment for the goods or services will come.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Payment" type="PaymentType"/>
+	<xsd:element name="PaymentAuthorization" type="PaymentAuthorizationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">If the method of payment was authorized (credit Card or EFT), this is the authorization information that was passed back from the 3rd party.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PaymentCard" type="PaymentCardType"/>
+	<xsd:element name="Person" type="PersonType"/>
+	<xsd:element name="PlannerContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information of the person, organization, department, or group that planned for the timing of the exchange of goods/services that this document is associated at the document or line level.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PreferredStoreID" type="oa:IdentifierType"/>
+	<xsd:element name="PriceComparisonBasisCode" type="oa:CodeType">
+		<xsd:annotation>
+			<xsd:documentation>This entity enables a set of comparison to be known which will be allocated to the product and then variable by brand.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PriceSegmentGroup" type="oa:CodeType"/>
+	<xsd:element name="ProductTaxClassificationCode" type="oa:CodeType"/>
+	<xsd:element name="ProviderParty" type="PartyType"/>
+	<xsd:element name="PublisherParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the publisher organization/entity of the Catalog or transaction in which it is associated for the associated.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PurchasingParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that purchased the goods or services.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Qualification" type="ProfessionalQualificationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Represents the qualification of the associated object.
+
+When used in a RFQ and Quote scenarios may represents the response to selection criteria that will be used to evaluate  the Party. It may also represent capabilities the party offers which are not requested. Examples include quality certifications (ISO-9000), CAD data compatibility (Pro/E), manufacturing operations (JIT), company size, and performance ratings.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ReceivedByParty" type="SemanticPartyType"/>
+	<xsd:element name="ReceivingContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information of the person, organization, department, or group that is to receive the contents communicated by the document or line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="RecipientParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the recipient of the goods or services.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Referral" type="ReferralType"/>
+	<xsd:element name="RemitToParty" type="RemitToPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party or location that the payment is to be remitted to or sent to.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="RequesterContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information for the requesting person, organization, department, or group on the associated document or line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="RequesterParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The party that requested the associated entity.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ReturnPolicyDaysQuantity" type="oa:QuantityType"/>
+	<xsd:element name="ReviewerContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information for the reviewer person, organization, department, or group on the associated document or line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ReviewerParty" type="ReviewerPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The party that is responsible for reviewing and approving the associated entity.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="SalesContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the sales contact and sales department/organization that is responsible for the sale that the instance is associated.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="SegmentType" type="oa:CodeType">
+		<xsd:annotation>
+			<xsd:documentation>Customer Segment type Decsription in LDM is mapped to SegmentType attribute 'name'</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="TechnicalSpecificationText" type="oa:SequencedTextType"/>
+	<xsd:element name="ShelfLifeExpirationDateTime" type="oa:DateTimeType"/>
+	<xsd:element name="ShipFromParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the party that the goods or services are being shipped or sent from.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ShipperParty" type="SemanticPartyType"/>
+	<xsd:element name="ShippingContact" type="ContactType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the contact information of the person, organization, department, or group that is to shipping the contents communicated by the document or line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ShippingGroupCategoryCode" type="oa:CodeType">
+		<xsd:annotation>
+			<xsd:documentation>Group code to which the shippingservicelevelcodes belong</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ShipToParty" type="ShipToPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the ShipToParty for the document or the line. In a lot of cases, this is the same as the CustomerParty. In multi-organization purchasing, the CustomerParty may be different from the BuyerParty</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ShortDescription" type="oa:DescriptionType"/>
+	<xsd:element name="ShortMessage" type="oa:TextType"/>
+	<xsd:element name="SignatoryContact" type="ContactType"/>
+	<xsd:element name="SMSTelephoneCommunication" type="oa:TelephoneCommunicationType"/>
+	<xsd:element name="SoldToParty" type="SemanticPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Is to be used for third party buying to indicate the buying organization. All purchasing scenario will have a CustomerParty is used to indicated the End Customer of the transaction.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="SubjectInterest" type="SubjectInterestType"/>
+	<xsd:element name="SupplierParty" type="SupplierPartyType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the supplier organization/entity of the items or inventory for the associated transaction.
+
+In most cases there is one SupplierParty per transaction. i.e. one SupplierParty for a given PurchaseOrder. However in the cases where an transaction Broker is involved there are cases where a single transaction may have different SupplierParties at the line level or in the case of a Catalog for the Catalog. 
+</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="Tax" type="TaxType"/>
+	<xsd:element name="TaxClassificationCodes" type="oa:CodesType"/>
+	<xsd:element name="Token" type="oa:IdentifierType"/>
+	<xsd:element name="TradeAssociation" type="TradeAssociationType"/>
+	<xsd:element name="TradeType" type="oa:CodeType">
+		<xsd:annotation>
+			<xsd:documentation>Note: Customer Trade Type Desc in LDM is mapped to TradeCode attribure 'name'</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="UltimateRecipientParty" type="SemanticPartyType"/>
+	<xsd:element name="VOCGLevelCode" type="oa:CodeType"/>
+	<xsd:element name="WarehouseParty" type="SemanticPartyType"/>
+	<xsd:element name="WishList" type="WishListType"/>
+	<xsd:complexType name="AccountCardType">
+		<xsd:complexContent>
+			<xsd:extension base="CardBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:PIN"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="AuthorizationType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">AuthorizationABIEType is based on UN/CEFACT TBG17 ABIE AuthorizationType which is found in the RUABIE file.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:ResponseCode"/>
+			<xsd:element minOccurs="0" ref="AuthorizationDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:Amount"/>
+			<xsd:element minOccurs="0" ref="Token"/>
+			<xsd:element minOccurs="0" ref="oa:TransactionID"/>
+			<xsd:element minOccurs="0" ref="oa:Result">
+				<xsd:annotation>
+					<xsd:documentation>Verification Result</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" name="ProtocolName" type="oa:NameType">
+				<xsd:annotation>
+					<xsd:documentation>The basic concept of the protocol is to tie the financial authorization process with an online authentication. This authentication is based on a three domain model (hence the 3-D in the name). The three domains are:
+
+    Acquirer Domain (the merchant and the bank to which money is being paid).
+    Issuer Domain (the bank which issued the card being used).
+    Interoperability Domain (the infrastructure provided by the card scheme, credit, debit, prepaid or other type of finance card, to support the 3-D Secure protocol). Interoperability Domain includes the internet, MPI, ACS and other software providers
+
+The protocol uses XML messages sent over SSL connections with client authentication (this ensures the authenticity of both peers, the server and the client, using digital certificates).</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" name="ElectronicCommerceIndicatorID" type="oa:IdentifierType">
+				<xsd:annotation>
+					<xsd:documentation>Visa and MasterCard forbid Internet merchants from using software or equipment that does not support the Electronic Commerce Indicator. Electronic Commerce is when the cardholder’s information leaves possession of the cardholder and travels through an open connection, such as the Internet, to reach the merchant. In order to designate this type of transaction, the Electronic Commerce Indicator (ECI) must be included on the payment transaction message format to show that the transaction originated form an Internet source. This indicator is assigned in the point of sale product utilized by the merchant. Credit card information sent via email does constitute a transaction needing the ECI in the transaction to the processing bank.
+
+Visa U.S.A. introduced a penalty structure effective June 1, 2000, for acquirers who fail to identify an electronic commerce transaction with the correct electronic commerce indicators. MasterCard International introduced a penalty structure effective August 1, 2000, for acquirers who fail to identify an electronic commerce transaction with the correct electronic commerce indicators.
+
+If a merchant’s software sends an ECI (values of 5, 6, or 7) the transactions are noted as a secure ECI transaction and must be using a secure form of processing card data. These transactions are eligible for CPS rate programs. If the software sends up an ECI value of 8 or 9, the merchant is processing the card data in a non-secure format and the transaction cannot qualify better than EIRF (i.e. the highest rate you can pay for a transaction).
+
+All terminal products that are certified to pass an ECI send a value of 8 because this is a non secure way of processing electronic commerce transactions. But there aren’t any credit card terminals currently supported to handle ECI. This means you must use special software or a gateway only. Visa and MasterCard employ 250 employees whose sole purpose is to find web merchants who violate this policy. Violating could result in fines, your account being terminated, and/or you being blacklisted for accepting credit cards.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" name="MDStatusCode" type="oa:CodeType"/>
+			<xsd:element minOccurs="0" name="CV2CheckResponseCode" type="oa:CodeType">
+				<xsd:annotation>
+					<xsd:documentation>CVV check response code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" name="PCCheckResponseCode" type="oa:CodeType">
+				<xsd:annotation>
+					<xsd:documentation>Post Code Check response code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" name="ADDCheckResponseCode" type="oa:CodeType">
+				<xsd:annotation>
+					<xsd:documentation>Address Check response Code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" name="OverallResponseCode" type="oa:CodeType">
+				<xsd:annotation>
+					<xsd:documentation>OVerall Response code of the Authorisation</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="BillToPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="CustomerPartyBaseType"/>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="BrandChannelType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+			<xsd:element minOccurs="0" ref="Brand"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Channel"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="BrandType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+			<xsd:element minOccurs="0" ref="ReturnPolicyDaysQuantity"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType abstract="true" name="CardBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:AccountInformationType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:NickName"/>
+					<xsd:element minOccurs="0" name="HashedNumber" type="oa:IdentifierType"/>
+					<xsd:element minOccurs="0" name="HashKey" type="oa:NormalizedStringType"/>
+					<xsd:element minOccurs="0" name="IVData" type="oa:NormalizedStringType"/>
+					<xsd:element minOccurs="0" name="StartDate" type="StartType">
+						<xsd:annotation>
+							<xsd:documentation>Indicates the start month and year of the credit card.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:Expiration"/>
+					<xsd:element minOccurs="0" ref="oa:CompanyName"/>
+					<xsd:element minOccurs="0" ref="PaymentAuthorization"/>
+					<xsd:element minOccurs="0" ref="IssueNumber"/>
+					<xsd:element minOccurs="0" ref="Referral"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ChannelType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ContactType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:group minOccurs="0" ref="oa:PersonNameGroup"/>
+			<xsd:element minOccurs="0" ref="oa:JobTitle"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Responsibility"/>
+			<xsd:element minOccurs="0" ref="oa:DepartmentName"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:TelephoneCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:MobileTelephoneCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:FaxTelephoneCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:PagerTelephoneCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SMSTelephoneCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:EMailAddressCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:InstantMessageCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:InternetAddressCommunication"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:SocialNetworkCommunication"/>
+			<xsd:element minOccurs="0" ref="Location"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Preference"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="CreditCardType">
+		<xsd:complexContent>
+			<xsd:extension base="CardBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:CardCode"/>
+					<xsd:element minOccurs="0" ref="oa:BillingAddress"/>
+					<xsd:element minOccurs="0" ref="oa:OwnerAddress"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="CustomerPartyBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="PersonType"/>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="CustomerPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="CustomerPartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="Organisation">
+						<xsd:annotation>
+							<xsd:documentation>If Customer is a party values within the structe to be used</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:Type"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="TradeType"/>
+					<xsd:element minOccurs="0" ref="SegmentType"/>
+					<xsd:element minOccurs="0" ref="oa:GroupType"/>
+					<xsd:element minOccurs="0" ref="oa:Status"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="BrandChannel"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="MembershipCard"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="TradeAssociation"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Payment"/>
+					<xsd:element minOccurs="0" ref="PriceSegmentGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="WishList"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="GiftList"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SubjectInterest"/>
+					<xsd:element minOccurs="0" ref="PreferredStoreID"/>
+					<xsd:element minOccurs="0" ref="OrderReferenceRequiredIndicator"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="DebitCardType">
+		<xsd:complexContent>
+			<xsd:extension base="CardBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:PIN"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="FinancialPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:ClearingSystemMemberID"/>
+					<xsd:element minOccurs="0" ref="BranchParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:FinancialAccount"/>
+					<xsd:element minOccurs="0" ref="oa:CountryCode"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="GiftListType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:IDs"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="HazardousMaterialABIEType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">HazardousMaterialABIEType is logically derived from UN/CEFACT TBG17 ABIE 
+HazardousMaterialType as defined in the Reusable Aggregate Business Information Entity (RUABIE) XML Schema file.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:MFAGID"/>
+			<xsd:element minOccurs="0" ref="oa:TechnicalName"/>
+			<xsd:element minOccurs="0" ref="oa:PlacardEndorsement"/>
+			<xsd:element minOccurs="0" ref="oa:PlacardNotation"/>
+			<xsd:element minOccurs="0" ref="oa:MarinePollutionLevelCode"/>
+			<xsd:element minOccurs="0" ref="oa:ToxicityZoneCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Temperature"/>
+			<xsd:element minOccurs="0" ref="oa:FlashpointTemperature"/>
+			<xsd:element minOccurs="0" ref="oa:PrimaryEntryRoute"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Description"/>
+			<xsd:element minOccurs="0" ref="oa:EmergencyContact"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="HazardousMaterialType">
+		<xsd:complexContent>
+			<xsd:extension base="HazardousMaterialABIEType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:Code"/>
+					<xsd:element minOccurs="0" ref="oa:HazardousClass"/>
+					<xsd:element minOccurs="0" ref="oa:PackingGroup"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="LoanType">
+		<xsd:sequence minOccurs="0">
+			<xsd:element minOccurs="0" name="IssuingSite">
+				<xsd:annotation>
+					<xsd:documentation>Site loan was issued at</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:Number"/>
+			<xsd:element minOccurs="0" ref="oa:Amount"/>
+			<xsd:element minOccurs="0" name="Action">
+				<xsd:annotation>
+					<xsd:documentation>Credit, Debit etc.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="LocationType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Name"/>
+			<xsd:element minOccurs="0" ref="oa:Directions"/>
+			<xsd:element minOccurs="0" ref="oa:Coordinate"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Address"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" name="TimeZoneCode"/>
+			<xsd:element minOccurs="0" ref="ManualKeyingIndicator"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="MembershipCardType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ID"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Name"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+			<xsd:element minOccurs="0" ref="oa:CreationDateTime"/>
+			<xsd:element minOccurs="0" name="ExpiredDateTime" type="oa:DateTimeType"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:attribute name="role" type="oa:PartyRoleCodeContentType"/>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType abstract="true" name="PartyBaseType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:PartyIDs"/>
+			<xsd:element minOccurs="0" ref="oa:AccountID"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Name"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Location"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Contact"/>
+			<xsd:element minOccurs="0" name="EmployeeCount" type="oa:PositiveIntegerNumericType"/>
+		</xsd:sequence>
+		<xsd:attribute name="category" type="oa:PartyCategoryCodeContentType"/>
+	</xsd:complexType>
+	<xsd:complexType name="PartyMasterBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="OpenPartyType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:AccountIDs"/>
+					<xsd:element minOccurs="0" ref="oa:PaymentTermID"/>
+					<xsd:element minOccurs="0" ref="oa:PaymentMethodCode"/>
+					<xsd:element minOccurs="0" ref="oa:TaxExemptCodes"/>
+					<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+					<xsd:element minOccurs="0" ref="FinancialParty"/>
+					<xsd:element minOccurs="0" ref="oa:CreationDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:LastModificationDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:Status"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PartyType">
+		<xsd:complexContent>
+			<xsd:extension base="OpenPartyType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="OwnerIndicator"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PayerPartyBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:CustomerAccountID"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PayFromPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="CustomerPartyBaseType"/>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PaymentAuthorizationType">
+		<xsd:complexContent>
+			<xsd:extension base="AuthorizationType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:ReferenceOrderNumber"/>
+					<xsd:element minOccurs="0" ref="oa:RevenueSourceID"/>
+					<xsd:element minOccurs="0" ref="oa:RemittanceBankID"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PaymentBaseType">
+		<xsd:choice>
+			<xsd:element minOccurs="0" ref="oa:CashIndicator"/>
+			<xsd:element minOccurs="0" ref="oa:Cheque"/>
+			<xsd:element minOccurs="0" ref="PaymentCard"/>
+			<xsd:element minOccurs="0" ref="oa:ElectronicFundsTransfer"/>
+			<xsd:element minOccurs="0" ref="oa:ProcurementCard"/>
+			<xsd:element minOccurs="0" ref="oa:BankDraft"/>
+			<xsd:element minOccurs="0" ref="oa:PurchaseOrderReference"/>
+			<xsd:element minOccurs="0" ref="Loan"/>
+		</xsd:choice>
+	</xsd:complexType>
+	<xsd:complexType name="PaymentCardType">
+		<xsd:complexContent>
+			<xsd:extension base="CardBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:PIN"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PaymentType">
+		<xsd:complexContent>
+			<xsd:extension base="PaymentBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:Amount"/>
+					<xsd:element minOccurs="0" ref="oa:Preference"/>
+					<xsd:element minOccurs="0" ref="oa:Status"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PersonType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" name="Login" type="oa:IdentifierType"/>
+			<xsd:group minOccurs="0" ref="oa:PersonNameGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Description"/>
+			<xsd:element minOccurs="0" ref="oa:GenderCode"/>
+			<xsd:element minOccurs="0" ref="oa:MaritalStatusCode"/>
+			<xsd:element minOccurs="0" ref="oa:BirthDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:DeathDateTime"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:AgeMeasure"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:LanguageCode"/>
+			<xsd:element minOccurs="0" ref="oa:NationalityCountryCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Location"/>
+			<xsd:element minOccurs="0" ref="Contact"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ProfessionalQualificationType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:Code"/>
+			<xsd:element minOccurs="0" ref="oa:Indicator"/>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="oa:QualificationDateTime"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="oa:EffectiveTimePeriod"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ReferralType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:TransactionID"/>
+			<xsd:element minOccurs="0" ref="oa:StatusCode"/>
+			<xsd:element minOccurs="0" ref="oa:ResponseCode">
+				<xsd:annotation>
+					<xsd:documentation>Referral Response</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:Indicator"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="RemitToPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:FinancialAccount"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ReviewerPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ReviewerContact"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="SemanticPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShipToPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="CustomerPartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:AppointmentRequiredIndicator"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="SignatoryPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SignatoryContact"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="StartType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Month"/>
+			<xsd:element minOccurs="0" ref="oa:Year"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SubjectInterestType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="oa:Indicator"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SupplierPartyType">
+		<xsd:complexContent>
+			<xsd:extension base="PartyBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="BranchParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SalesContact"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShippingContact"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="CustomerServiceContact"/>
+					<xsd:element minOccurs="0" ref="oa:LanguageCode"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="TaxType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:TaxABIEType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="ProductTaxClassificationCode"/>
+					<xsd:element minOccurs="0" ref="oa:Code">
+						<xsd:annotation>
+							<xsd:documentation>Tax code</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:EffectiveTimePeriod"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="TradeAssociationType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Type"/>
+			<xsd:element minOccurs="0" ref="oa:CreationDateTime"/>
+			<xsd:element minOccurs="0" name="MembershipNo" type="oa:IdentifierType"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="WishListType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:CreationDateTime"/>
+			<xsd:element minOccurs="0" name="ProductAmount" type="oa:AmountType"/>
+			<xsd:element minOccurs="0" name="ProductID" type="oa:IdentifierType"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:attributeGroup name="brand_channel">
+		<xsd:attribute name="brand" type="oa:NormalizedStringType"/>
+		<xsd:attribute name="channel" type="oa:NormalizedStringType"/>
+	</xsd:attributeGroup>
+</xsd:schema>

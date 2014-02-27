@@ -1,0 +1,17 @@
+****************************************************************************************
+**   Script	:  EPOSSetup.MQSC: Sets up queues to connect EPOS to WMB	
+**   Created By	:  Ashwin Pai
+**   Modified By:  Ashwin Pai
+**   Environment:  S-tier	
+****************************************************************************************
+
+		
+***Create Remote Queue to WMB
+DEFINE QREMOTE('POSLOG.EPOS.INBOUND.WMB.REMOTE') +
+		DESCR('Remote queue to UNXS0464.MB.QM1') +
+		PUT(ENABLED) +
+		XMITQ('UNXS0464.QM1') +
+		RNAME('POSLOG.EPOS.INBOUND.WMB') +
+		RQMNAME('UNXS0464.MB.QM1') +
+		DEFPSIST(YES) +
+		REPLACE  

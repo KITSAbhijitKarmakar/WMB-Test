@@ -1,0 +1,326 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+PATH com.kingfisher.ukbq.WMBFunctions;
+DECLARE CH_MBREPOS	EXTERNAL NAME 'MBREPOS';
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 	 	       : MapToODS																*
+* Interface Id 	           :  																		*
+* Interface Name 		   : Ledger_LoadLedger 														*
+* Message Flow   		   : LoadLedger																*
+* Message Flow Description : The primary function of this message flow is to receive canonical from *
+* 							 Orchestrator service and make a RFC Call updating the SAP and ODS table*
+* Module Name              : MapToODS_Compute														*	
+* Description              : The primary function of this Node is to update the 					*
+* 							 SALES_TRANSACTIONS_ORDERS ODS table.									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		10-APR-2013 	Soutam Dutta 		The initial version. 								*
+* 0.2 		05-JUN-2013 	Soutam Dutta 		Correction of Date format of TRANSACTION_ENDDATETIME*
+* 0.3 		18-JUN-2013 	Soutam Dutta 		Code change for defect #68 for CardNumber			*
+* 0.4 		22-JUN-2013 	Soutam Dutta 		Code change for defect #68 for CardNumber 			*  
+*												Population of Loan and	PaymentCard					*
+* 0.5 		01-JUL-2013 	Soutam Dutta 		CREATED_DATE field population added in ORDERS table	*
+* 0.6 		10-SEP-2013 	Soutam Dutta 		Namespace changed from oa to default for startdate	*
+* 0.7 		24-OCT-2013 	Soutam Dutta 		Code change for multiple CustomerParty				*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE MapToODS_Compute
+		
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;
+				
+		--Declare Reference For InputRoot
+		DECLARE	REF_LoadLedger			REFERENCE TO Environment.InputCanonical.NS_dfns:LoadLedger;
+		DECLARE REF_LedgerHeader 		REFERENCE TO REF_LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader;				
+		DECLARE REF_SalesOrderReference	REFERENCE TO REF_LedgerHeader.NS_dfns:SalesOrderReference;
+		DECLARE REF_Payment 			REFERENCE TO REF_SalesOrderReference.NS_dfns:Payment;		
+		DECLARE CH_SqlQuery				CHARACTER;
+		DECLARE IN_Index				INTEGER;
+		
+		--Code change start for version 0.7
+		SET IN_Index = 1;
+		--Code change end for version 0.7
+		--Outer Loop on SalesOrderReference
+		WHILE LASTMOVE(REF_SalesOrderReference)	DO			
+			
+			--Inner loop for each instance of Payment 
+				WHILE LASTMOVE(REF_Payment) DO
+					CALL PROC_MapToODS(REF_SalesOrderReference,REF_LoadLedger,REF_Payment,REF_LedgerHeader,IN_Index);
+					MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;
+			
+			--Code change start for version 0.7
+			SET IN_Index = IN_Index+1;
+			--Code change end for version 0.7																		
+			MOVE REF_SalesOrderReference NEXTSIBLING REPEAT TYPE NAME;
+			MOVE REF_Payment TO REF_SalesOrderReference.NS_dfns:Payment;
+		END WHILE;			
+		RETURN FALSE;
+		END;	
+			
+	/*******************************************************************************************\
+	* Procedure Name	: PROC_MapToODS 										 			 	*
+	* Input Parameters	: REF_LoadLedger,REF_Payment,REF_LedgerHeader,REF_SalesOrderReference	*
+	* Output Parameters	: REF_LoadLedger,REF_Payment,REF_LedgerHeader,REF_SalesOrderReference	*									 
+	* Description		: Procedure to update ODS table if instances of Payment exists    	 	*
+	*					  																     	*
+	* Version 	Date 			Author 				Description                          		*
+	* ======= 	=========== 	=============== 	============================ 			 	*
+	*  0.1   	10-APR-2013 	Soutam Dutta 		The initial version. 				 		*
+	********************************************************************************************/	
+				
+	CREATE PROCEDURE PROC_MapToODS (INOUT REF_SalesOrderReference REFERENCE,INOUT REF_LoadLedger REFERENCE,INOUT REF_Payment REFERENCE,INOUT REF_LedgerHeader REFERENCE,INOUT IN_Index INTEGER)
+	BEGIN	
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN 
+			PASSTHRU 'ROLLBACK';
+			RESIGNAL;
+		END;		
+		
+		--Declaration Of Reference				
+		DECLARE REF_PaymentCard					REFERENCE TO REF_Payment.NS_dfns:PaymentCard;
+		DECLARE REF_SalesTransaction			REFERENCE TO REF_SalesOrderReference.NS_dfns:SalesTransaction;			
+		
+		--Declaration Of Variable		
+		DECLARE DC_TenderAmount					DECIMAL;
+		DECLARE CH_StoreCode					CHARACTER;
+		DECLARE CH_BusinessDayDate 				CHARACTER;
+		DECLARE CH_TransactionID				CHARACTER;
+		DECLARE CH_TenderID						CHARACTER;		
+		DECLARE CH_SaleReturnFlag				CHARACTER;
+		DECLARE CH_TransactionEndDateTime 		CHARACTER;
+		DECLARE CH_LocalTenderType				CHARACTER;
+		DECLARE CH_AccountID					CHARACTER;
+		DECLARE CH_MCStore						CHARACTER '';
+		DECLARE CH_CustomerID					CHARACTER;
+		DECLARE CH_WorkStation					CHARACTER;
+		DECLARE CH_OperatorID					CHARACTER;
+		DECLARE CH_Sequence						CHARACTER;
+		DECLARE CH_SAPReference					CHARACTER;
+		DECLARE CH_TenderType					CHARACTER;
+		DECLARE CH_ProcessedSEOD				CHARACTER;
+		DECLARE CH_ProcessedASEOD				CHARACTER;
+		DECLARE CH_ValidationReturnCode			CHARACTER;
+		DECLARE CH_InvalidCustomerID			CHARACTER '';
+		DECLARE CH_FIBFlag						CHARACTER;
+		DECLARE CH_LineNumber					CHARACTER;
+		DECLARE CH_CardType						CHARACTER;
+		DECLARE CH_CardNumber					CHARACTER;
+		DECLARE	CH_ValidTo						CHARACTER;
+		DECLARE CH_CardHolderName				CHARACTER;
+		DECLARE CH_ValidFrom					CHARACTER;
+		DECLARE CH_AuthorisationNumber			CHARACTER;
+		DECLARE CH_IvData						CHARACTER;
+		DECLARE	CH_HashedAccountID				CHARACTER;
+		DECLARE CH_MaskedAccountID				CHARACTER;
+		DECLARE CH_EncryptedAccountID			CHARACTER;
+		DECLARE CH_Token						CHARACTER;
+		DECLARE CH_Sqlstr						CHARACTER;		
+		DECLARE CH_MonthYear					CHARACTER;
+		DECLARE DT_TransactionEndDateTime		DATE;
+		DECLARE TS_TimeStamp 					TIMESTAMP;
+		DECLARE IN_PaymentCount					INTEGER;
+		
+		
+		--Storing result from RFC Call		
+		SET CH_ValidationReturnCode 			= Environment.Variables.RFCReturn;
+				
+		--Settiing the values in the variable		
+		SET CH_StoreCode						= REF_LedgerHeader.NS_oa:GLEntityID;
+		SET CH_BusinessDayDate					= REF_SalesTransaction.NS_dfns:BusinessDayID;
+		SET CH_TransactionEndDateTime			= REF_LedgerHeader.NS_oa:DocumentDateTime;
+		SET CH_TransactionID					= REF_SalesTransaction.NS_oa:ID;
+		SET CH_TenderID							= REF_Payment.(XMLNSC.Attribute)id;
+		SET DC_TenderAmount						= REF_Payment.NS_oa:Amount;		
+		
+		--Checking /SalesOrderReference/oa:DocumentReference/oa:Type  field and set value accordingly			
+		IF REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:Type 		= 'NORMAL' THEN
+			SET CH_SaleReturnFlag 				= 'S';
+		ELSEIF REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:Type 	= 'RETURN' THEN
+			SET CH_SaleReturnFlag 				= 'R';
+		END IF;
+				
+		--Lookup MCStore From Database	
+		--IF REF_LoadLedger.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID='EPOS' THEN
+			SET CH_MCStore = THE( SELECT ITEM (SD.MCSTORE) FROM Database.{CH_MBREPOS}.MBREPOS.MBSTRCD AS SD WHERE SD.GENERICSTORECODE = REF_LedgerHeader.NS_oa:GLEntityID);			
+		--END IF;
+		
+		SET IN_PaymentCount						= CARDINALITY(REF_SalesOrderReference.NS_dfns:Payment[]);
+		SET CH_LocalTenderType					= REF_Payment.(XMLNSC.Attribute)type;
+		
+		IF UPPER(CH_LocalTenderType) = 'T' AND CH_MCStore = 'N' THEN
+			SET CH_AccountID 					= REF_Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID;
+		ELSEIF UPPER(CH_LocalTenderType) = 'T' AND CH_MCStore = 'Y' THEN
+			SET CH_AccountID 					= REF_PaymentCard.NS_dfns:CleartextNumber;
+		ELSEIF IN_PaymentCount =1 AND UPPER(CH_TenderID) IN('FIXEDTERMLOAN','HITACHILOAN') THEN
+			SET CH_AccountID 					= REF_Payment.NS_dfns:Loan.NS_oa:Number;
+					
+		ELSE
+			--Code change starts for version 0.4 defect #68
+			--SET CH_AccountID					= REF_PaymentCard.NS_oa:Number;
+			SET CH_AccountID					= '0000000000000000';
+			--Code change ends for version 0.4 defect #68
+		END IF;
+		
+		----Code change start for version 0.7
+		SET CH_CustomerID						= REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_Index] || REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID;
+		--SET CH_CustomerID						= REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID || REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID;
+		--Code change ends for version 0.7
+		
+		SET CH_WorkStation						= REF_LoadLedger.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:ComponentID;
+		SET CH_OperatorID						= REF_SalesTransaction.NS_dfns:OperatorID;			 	
+		SET CH_Sequence							= REF_SalesTransaction.NS_oa:Sequence;
+		
+		--Code change start for version 0.7
+		SET CH_SAPReference						= REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_Index] || REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID;
+		---SET CH_SAPReference					= REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID || REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID;
+		--Code change ends for version 0.7
+		
+		SET CH_TenderType						= REF_Payment.(XMLNSC.Attribute)type;			
+		SET CH_ProcessedSEOD					= 'U';
+		SET CH_ProcessedASEOD					= 'U';	 
+		 
+		 --Validation_Return_Code RFC Call 	 
+		IF CH_ValidationReturnCode <> 'S' THEN
+			SET CH_InvalidCustomerID 			= 'Y';
+		END IF;	
+		
+		SET CH_FIBFlag							= 'Y';
+		SET CH_LineNumber						= REF_Payment.NS_oa:LineNumber;
+ 		SET CH_CardType							= THE(SELECT ITEM(TD.SAPCARDTYPE) FROM Database.{CH_MBREPOS}.MBREPOS.TENDERDATA  AS TD WHERE TD.TENDERID = REF_Payment.(XMLNSC.Attribute)id);		
+		
+		IF UPPER(CH_CardType) <> 'CASH' THEN
+			
+			--Code comment starts  for version 0.3 defect #68
+			--IF (CH_LocalTenderType = 'T') AND STARTSWITH(CH_TenderID,'HFCS') THEN
+			--Code comment ends  for version 0.3 defect #68
+			
+			--Code change starts for version 0.3 defect #68
+			--Code comment start for version 0.4
+			--IF (CH_LocalTenderType = 'T') OR STARTSWITH(CH_TenderID,'HFCS') THEN
+			--Code comment end for version 0.4
+			--Code change ends for version 0.3 defect #68
+			--Code change start for version 0.4
+			IF (CH_LocalTenderType = 'T')THEN
+			--Code change end for version 0.4	
+				
+				SET CH_CardNumber				= REF_PaymentCard.NS_dfns:CleartextNumber;
+			--Code comment start for version 0.4
+			--ELSEIF CH_TenderID IN ('FixedTermLoan','HitachiLoan') THEN
+			--Code comment end for version 0.4
+			--Code change start for version 0.4
+			ELSEIF CH_TenderID IN ('FixedTermLoan','HitachiLoan') OR STARTSWITH(CH_TenderID,'HFCS') THEN
+			--Code change end for version 0.4
+			
+				SET CH_CardNumber				= REF_Payment.NS_dfns:Loan.NS_oa:Number;				
+			END IF; 
+						
+			SET CH_MonthYear						= REF_PaymentCard.NS_oa:Expiration.NS_oa:Month||'.'||REF_PaymentCard.NS_oa:Expiration.NS_oa:Year;
+			SET Environment.Variables.MonthLastdate = FUNC_GetLastDayOfMonth(CH_MonthYear||'.01','MM.yyyy.dd');
+			SET CH_ValidTo		 					= Environment.Variables.MonthLastdate||'-'||REF_PaymentCard.NS_oa:Expiration.NS_oa:Month||'-'||REF_PaymentCard.NS_oa:Expiration.NS_oa:Year;						
+			SET CH_CardHolderName					= REF_PaymentCard.NS_oa:NameOnAccount;		
+			
+			--Code Change Start for Production Defect on 10/09/2013 vesion 0.6
+			--SET CH_MonthYear						= REF_PaymentCard.NS_oa:StartDate.NS_oa:Month||'.'||REF_PaymentCard.NS_oa:StartDate.NS_oa:Year;
+			SET CH_MonthYear						= REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month||'.'||REF_PaymentCard.NS_dfns:StartDate.NS_oa:Year;
+			
+			--IF REF_PaymentCard.NS_oa:StartDate.NS_oa:Month <> '00' THEN
+			IF REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month <> '00' THEN
+				SET Environment.Variables.MonthLastdate = FUNC_GetLastDayOfMonth(CH_MonthYear||'.01','MM.yyyy.dd');
+      			
+      			SET CH_ValidFrom = Environment.Variables.MonthLastdate||'-'||REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month||'-'||REF_PaymentCard.NS_dfns:StartDate.NS_oa:Year;
+      			--SET CH_ValidFrom = Environment.Variables.MonthLastdate||'-'||REF_PaymentCard.NS_oa:StartDate.NS_oa:Month||'-'||REF_PaymentCard.NS_oa:StartDate.NS_oa:Year;
+			--ELSEIF REF_PaymentCard.NS_oa:StartDate.NS_oa:Month ='00'THEN
+			ELSEIF REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month ='00'THEN
+      			-- If Input Start Date format is 00.00 for mm.yy, we will replace it with 31.12.1999
+      			SET CH_ValidFrom = '31-12-1999';
+			END IF; 
+			
+			--Code Change Ends for Production Defect on 10/09/2013 vesion 0.6
+			
+			SET CH_AuthorisationNumber				= REF_PaymentCard.NS_dfns:PaymentAuthorization.NS_oa:ResponseCode;
+			SET CH_IvData							= REF_PaymentCard.NS_dfns:IVData;
+			SET CH_HashedAccountID					= REF_PaymentCard.NS_dfns:HashedNumber;
+			SET CH_MaskedAccountID					= REF_PaymentCard.NS_oa:Number;
+			SET CH_EncryptedAccountID				= REF_PaymentCard.NS_dfns:EncryptedNumber;
+			SET CH_Token							= REF_PaymentCard.NS_dfns:PaymentAuthorization.NS_dfns:Token;			
+			
+			IF CH_ValidTo <> '' THEN
+				SET CH_ValidTo 						= 'to_date('''||CH_ValidTo ||'''' || ',' || '''dd-mm-yyyy''' || ')';
+			ELSE
+				SET CH_ValidTo 						= '''''';
+			END IF;
+		
+			IF CH_ValidFrom <> '' THEN
+				SET CH_ValidFrom 					= 'to_date('''||CH_ValidFrom ||'''' || ',' || '''dd-mm-yyyy''' || ')';
+			ELSE
+				SET CH_ValidFrom 					= '''''';
+			END IF;
+		END IF;
+		
+		--Conversion of Date time to yyyyMMdd Format
+		--Code change done for version 0.2				
+		--SET DT_TransactionEndDateTime				= CAST(CH_TransactionEndDateTime AS DATE FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		--SET CH_TransactionEndDateTime				= CAST(DT_TransactionEndDateTime AS CHARACTER FORMAT 'dd-MMM-yy');
+		SET TS_TimeStamp                          	= CAST(CH_TransactionEndDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		SET CH_TransactionEndDateTime       	 	= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy HH24:mi:ss'')';
+		--Code change ends for version 0.2
+		
+		
+		
+		--Insert Statement to insert values in the SALES_TRANSACTIONS_ORDERS Table		
+		SET CH_Sqlstr ='INSERT INTO SALES_TRANSACTIONS_ORDERS (STORE_CODE,BUSINESS_DAY_DATE,TRANSACTION_ID,TENDER_ID,TENDER_AMOUNT,SALE_RETURN_FLAG,TRANSACTION_END_DATE_TIME,ACCOUNT_ID,
+		CUSTOMER_ID,WORKSTATION,OPERATOR_ID,SEQUENCE,SAP_REFERENCE,TENDER_TYPE,PROCESSED_SEOD,PROCESSED_ASEOD,INVALID_CUSTOMER_NO,FIB_FLAG,LINE_NUMBER,CARD_TYPE,CARD_NUMBER,VALID_TO,CARDHOLDER_NAME,
+		VALID_FROM,AUTHORISATION_NUMBER,IV_DATA,HASHED_ACCOUNT_ID,MASKED_ACCOUNT_ID,ENCRYPTED_ACCOUNT_ID,TOKEN,CREATED_DATE)
+				VALUES('''||COALESCE(CH_StoreCode,'') ||''''
+				||',' 	|| COALESCE(CH_BusinessDayDate,'0')
+				||',''' || COALESCE(CH_TransactionID,'') ||''''
+				||',''' || COALESCE(CH_TenderID,'') ||''''
+				||',''' || COALESCE(CAST(DC_TenderAmount AS CHARACTER),'')||''''
+				||',''' || COALESCE(CH_SaleReturnFlag,'') ||''''
+				||','	|| COALESCE(CH_TransactionEndDateTime,'''''') 				
+				||',''' || COALESCE(CH_AccountID,'') ||''''
+				||',''' || COALESCE(CH_CustomerID,'') ||''''			
+				||',''' || COALESCE(CH_WorkStation,'') ||''''
+				||',''' || COALESCE(CH_OperatorID,'') ||''''
+				||',''' || COALESCE(CH_Sequence,'') ||''''							
+				||',''' || COALESCE(CH_SAPReference,'') ||''''
+				||',''' || COALESCE(CH_TenderType,'') ||''''
+				||',''' || COALESCE(CH_ProcessedSEOD,'') ||''''
+				||',''' || COALESCE(CH_ProcessedASEOD,'') ||''''
+				||',''' || COALESCE(CH_InvalidCustomerID,'') ||''''
+				||',''' || COALESCE(CH_FIBFlag,'') ||''''
+				||',''' || COALESCE(CH_LineNumber,'') ||''''
+				||',''' || COALESCE(CH_CardType,'') ||''''
+				||',''' || COALESCE(CH_CardNumber,'') ||''''	
+				||','|| COALESCE(CH_ValidTo,'''''')
+				||',''' || COALESCE(CH_CardHolderName,'') ||''''
+				||','|| COALESCE(CH_ValidFrom,'''''')		
+				||',''' || COALESCE(CH_AuthorisationNumber,'') ||''''
+				||',''' || COALESCE(CH_IvData,'') ||''''
+				||',''' || COALESCE(CH_HashedAccountID,'') ||''''
+				||',''' || COALESCE(CH_MaskedAccountID,'') ||''''
+				||',''' || COALESCE(CH_EncryptedAccountID,'') ||''''
+				||',''' || COALESCE(CH_Token,'') ||''''
+				||', sysdate'
+				||')'
+				||'';
+		
+		PASSTHRU(CH_Sqlstr);		
+	END;
+
+END MODULE;
+

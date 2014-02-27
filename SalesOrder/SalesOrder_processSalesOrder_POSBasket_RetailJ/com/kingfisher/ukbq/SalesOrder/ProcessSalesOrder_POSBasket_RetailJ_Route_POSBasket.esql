@@ -1,0 +1,470 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Route_POSBasket														*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Route the POSBasket message depending upon the message item			*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_Route_POSBasket			 		*
+* Description 				: Route the POSBasket message depending upon the message item			*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		01-APR-2013 	Sayantan Som 		The initial version. 								*
+* 0.2 		23-MAY-2013 	Vineet More			Fix to generates Account Payment Sale and 			*
+*												Account Payment Return on proper Condition.			*
+* 0.3 		20-JUN-2013 	Asif Hossain		Codition added to populate duplicate Payment if		*
+*												VoidStatus exists									*
+* 0.4 		03-AUG-2013 	Subir Bhaumik		Fix: Do not Populate Tax Percent for voided lines	*
+* 0.5 		12-AUG-2013 	Subir Bhaumik		Updated code to populate Quantity upto 2 decimal 	*
+*												places.												*
+* 0.6 		16-OCT-2013 	soutam Dutta & 		Code fix for production defect#INC0129896			*
+*							Sourav Banu																*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_Route_POSBasket
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot					REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_LocalEnv				REFERENCE TO OutputLocalEnvironment.Destination.RouterList.DestinationData;
+
+		DECLARE REF_OUTSalesOrder			REFERENCE TO Environment.Variables.OutMessage.XMLNSC.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine			REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		
+		CREATE LASTCHILD OF Environment.Variables AS REF_OUTSalesOrder DOMAIN('XMLNSC') NAME 'OutMessage';
+		CREATE LASTCHILD OF REF_OUTSalesOrder AS REF_OUTSalesOrder NAMESPACE NS_dfns NAME 'ProcessSalesOrder';
+		SET REF_OUTSalesOrder.(XMLNSC.Attribute)releaseID 					= '1.0';
+		SET REF_OUTSalesOrder.(XMLNSC.Attribute)languageCode				= 'en';
+		SET REF_OUTSalesOrder.(XMLNSC.NamespaceDecl)xmlns 					= NS_dfns;
+		SET REF_OUTSalesOrder.(XMLNSC.NamespaceDecl)xmlns:oa 				= NS_oa;
+
+		CREATE LASTCHILD OF REF_OUTSalesOrder NAMESPACE NS_oa NAME 'ApplicationArea';
+		CREATE LASTCHILD OF REF_OUTSalesOrder NAMESPACE NS_dfns NAME 'DataArea';
+		CREATE LASTCHILD OF REF_OUTSalesOrder.NS_dfns:DataArea NAMESPACE NS_oa NAME 'Process';
+		CREATE FIELD REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		CREATE FIELD REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		
+		--Create the header section of the message. It has to be called for all messages
+		CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+		CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'Header';
+		CALL CopyEntireMessage();
+		PROPAGATE TO TERMINAL 'out1';
+		--
+		DECLARE REF_Header REFERENCE TO REF_INRoot.Header;
+		DECLARE CH_FieldName CHARACTER;
+		
+		WHILE LASTMOVE(REF_Header) DO
+			 SET CH_FieldName = FIELDNAME(REF_Header);
+			
+
+				IF CH_FieldName = 'CardTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'CardTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('CardTenderItem');
+				END IF;
+				
+				-- Create the message structure for the TokenisedCardTenderItem
+				IF CH_FieldName = 'TokenisedCardTenderItem' THEN 
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'TokenisedCardTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('TokenisedCardTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'ProductSale' THEN
+					SET Environment.Variables.Condition.SETVATCODE	= TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'ProductSale';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+				END IF;
+				
+				IF CH_FieldName = 'GiftVoucherSale'THEN
+					SET Environment.Variables.Condition.GVTAX		= TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'GiftVoucherSale';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+		--			CALL PROC_CommonItemLogic();
+				END IF;
+				
+				IF CH_FieldName = 'RechargeableVoucherSale' THEN
+					SET Environment.Variables.Condition.GVTAX		= TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'RechargeableVoucherSale';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+		--			CALL PROC_CommonItemLogic();
+				END IF;
+		
+				IF CH_FieldName = 'ProductReturn' THEN
+					SET Environment.Variables.Condition.SETVATCODE	= TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'ProductReturn';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+		--			CALL PROC_CommonItemLogic();
+				END IF;
+				
+				IF CH_FieldName = 'GiftVoucherReturn' THEN
+					SET Environment.Variables.Condition.GVTAX		= TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'GiftVoucherReturn';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+		--			CALL PROC_CommonItemLogic();
+				END IF;
+				
+				IF CH_FieldName = 'CashTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'CashTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('CashTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'LoanTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'LoanTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('LoanTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'ChequeTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'ChequeTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('ChequeTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'CreditNoteTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'CreditNoteTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('CreditNoteTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'TravellersChequeTenderItem' THEN	
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'TravellersChequeTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('TravellersChequeTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'SimpleVoucherTenderItem' THEN					
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'SimpleVoucherTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('SimpleVoucherTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'GiftVoucherTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'GiftVoucherTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('GiftVoucherTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'RechargeableVoucherTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'RechargeableVoucherTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('RechargeableVoucherTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'SimpleAccountTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'SimpleAccountTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('SimpleAccountTenderItem');
+				END IF;
+				
+				IF CH_FieldName = 'AccountPayment' THEN
+					SET Environment.Variables.Condition.SAPCOTax = TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					
+					--Code Change starts For Production Defect#INC0129896 version 0.6
+					--IF CAST(REF_INRoot.AccountPayment.Amount AS DECIMAL) >= 0 THEN
+					IF CAST(REF_Header.Amount AS DECIMAL) >= 0 THEN
+					--Code Change ends For Production Defect#INC0129896 version 0.6
+					
+						CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'AccountPaymentSale';
+					ELSE
+						CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'AccountPaymentReturn';
+					END IF;
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+		--			CALL PROC_CommonItemLogic();
+		 		END IF;
+				
+				IF CH_FieldName = 'NoSaleTransactionItem' THEN
+					SET Environment.Variables.Condition.GVTax = TRUE;
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'NoSaleTransactionItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					CALL PROC_CommonItemLogic();
+				END IF;
+						
+				IF CH_FieldName = 'BasketStoredItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'BasketStoredItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+				END IF;
+		
+				IF CH_FieldName = 'BasketRecalledItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'BasketRecalledItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+				END IF;
+				
+				IF CH_FieldName = 'TokenisedChequeTenderItem' THEN
+					CREATE FIELD OutputLocalEnvironment.Destination.RouterList.DestinationData AS REF_LocalEnv;
+					CREATE LASTCHILD OF REF_LocalEnv NAME 'label' VALUE 'TokenisedChequeTenderItem';
+					CALL CopyEntireMessage();
+					PROPAGATE TO TERMINAL 'out1';
+					-- Calling the procedure for the common tender logic
+					CALL PROC_CommonTenderLogic('TokenisedChequeTenderItem');
+				END IF;
+				
+			MOVE REF_Header NEXTSIBLING;
+		END WHILE;
+				
+		-- Since the Payment and Layout section has been created once for message ordering, this extra
+		-- section is being deleted
+		--SET REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:Payment	= NULL;
+		DECLARE REF_Payment REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:Payment;
+            WHILE LASTMOVE(REF_Payment)DO
+                  IF REF_Payment.NS_oa:ID = 'TEST' THEN
+                        SET REF_Payment         = NULL;
+                  END IF;
+                  MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+            END WHILE;
+		MOVE REF_Payment TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:Payment;
+		
+		SET REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:LayAwayDetails	= NULL;
+		SET REF_OUTSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID	= NULL;
+		-- Calling a procedure to create the common Payment sections.
+		CALL PROC_PaymentCommon();
+		CALL PROC_CommonItemLogic();
+		SET OutputRoot.Properties	= InputRoot.Properties;
+		SET OutputRoot.MQMD			= InputRoot.MQMD;
+		SET OutputRoot.XMLNSC		= InputRoot.XMLNSC;
+		RETURN TRUE;
+	END;
+	
+    /************************************************************************************
+	* Procedure Name     :PROC_CommonTenderLogic                          				*
+	* Input Parameters   :CH_Field                                                      *
+	* Output Parameters  :None                                                          *
+	* Description        :Custom logic for common Tender mapping			            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_CommonTenderLogic(IN CH_Field CHARACTER)
+	BEGIN
+		DECLARE REF_INRoot					REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_Payment					REFERENCE TO Environment;
+		DECLARE REF_OUTSalesOrder			REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine			REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		
+		DECLARE IN_Index INTEGER;
+		FOR REF_Tender	AS REF_INRoot.{CH_Field}[] DO
+			---IF COALESCE(REF_Tender.RetainedChangeAmount, '') <> '' AND EXISTS(REF_Tender.VoidValue[]) THEN
+			IF COALESCE(REF_Tender.RetainedChangeAmount, '') <> '' AND EXISTS(REF_Tender.VoidValue[])= FALSE THEN
+				
+				SET IN_Index = CARDINALITY(REF_OUTSalesOrderHeader.NS_dfns:Payment[]);
+				CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment[IN_Index] AS REF_Payment REPEAT;
+				SET REF_Payment = REF_OUTSalesOrderHeader.NS_dfns:Payment[IN_Index];
+				SET REF_Payment.(XMLNSC.Attribute)type 						= 'CHANGE NOT ISSUED';
+				SET REF_Payment.(XMLNSC.Attribute)id 						= 'ChangeNotIssued';
+				SET REF_Payment.NS_oa:Amount								= FUNC_ConvertPennytoPound(REF_Tender.RetainedChangeAmount,1,2,'ROUND_HALF_UP');
+				SET REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+					
+			END IF;
+		END FOR;
+	END;
+	
+    /************************************************************************************
+	* Procedure Name     :PROC_CommonItemLogic					                        *
+	* Input Parameters   :None                                                          *
+	* Output Parameters  :None                                                          *
+	* Description        :Create new segment for SalesOrderLine	and store in environment*
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_CommonItemLogic() 
+        BEGIN 
+            DECLARE REF_OUTSalesOrder               REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder; 
+            DECLARE REF_OUTSalesLine                REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder; 
+            DECLARE REF_SOLine                      REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine; 
+            DECLARE REF_NewLine                     REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine; 
+            DECLARE IN_SOL INTEGER; 
+            
+            SET IN_SOL = CARDINALITY(REF_OUTSalesLine.NS_dfns:SalesOrderLine[]); 
+            
+            -- Since the SalesOrder Line that is just created is needed, moving the reference 
+            --Code Change for Uncommited MSG Start 
+            SOLine: 
+            WHILE LASTMOVE(REF_SOLine) DO 
+                    
+                -- If the Void Status section exists, then create a new segment with similar details 
+                IF EXISTS(REF_SOLine.NS_dfns:VoidStatus[]) AND REF_SOLine.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' AND IN_SOL<>0 THEN 
+                   
+                   -- CREATE LASTCHILD OF REF_OUTSalesLine AS REF_NewLine NAMESPACE NS_dfns NAME 'SalesOrderLine'; 
+                    
+                    --CREATE NEXTSIBLING OF REF_OUTSalesLine.NS_dfns:SalesOrderLine AS REF_NewLine REPEAT;
+                    CREATE NEXTSIBLING OF REF_SOLine AS REF_NewLine REPEAT;
+                    
+                    SET REF_NewLine                                                         = REF_SOLine; 
+                    --SET REF_NewLine.NS_oa:Note                                            = 'VOID LINE'; 
+                    IF REF_NewLine.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' THEN 
+                            SET REF_NewLine.NS_dfns:VoidStatus.NS_oa:Code                   = 'VOID LINE'; 
+                    END IF; 
+                    
+                    SET REF_NewLine.NS_oa:ExtendedAmount                                    = CAST(REF_NewLine.NS_oa:ExtendedAmount AS DECIMAL) * -1; 
+                    SET REF_NewLine.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID       = InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID; 
+                    --Round Quantity upto 2 decimal places. Version 0.5
+                    --SET REF_NewLine.NS_oa:Quantity                                         = CAST(REF_NewLine.NS_oa:Quantity AS DECIMAL) * -1;
+                    SET REF_NewLine.NS_oa:Quantity                                         	= ROUND(CAST(REF_NewLine.NS_oa:Quantity AS DECIMAL) * -1, 2 MODE ROUND_HALF_UP);
+                     --Do not populate Tax Percent for voided lines. Version 0.4
+                    IF COALESCE(REF_NewLine.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric, '') <> '' THEN
+                    	SET REF_NewLine.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric = NULL;
+                    END IF;
+                    
+                    SET IN_SOL = IN_SOL+1;  
+                END IF; 
+                SET IN_SOL = IN_SOL-1; 
+                
+                IF IN_SOL = 0 THEN 
+                	LEAVE SOLine;                         
+                END IF; 
+            
+            MOVE REF_SOLine NEXTSIBLING REPEAT TYPE NAME; 
+         	END WHILE; 
+            --Code Change for Uncommited MSG End 
+        END; 
+
+	
+    /************************************************************************************
+	* Procedure Name     :PROC_PaymentCommon					                        *
+	* Input Parameters   :None                                                          *
+	* Output Parameters  :None                                                          *
+	* Description        :Create new payment and stored in environment 		            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_PaymentCommon() 
+	BEGIN 
+        DECLARE REF_OUTSalesOrder              REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder; 
+        DECLARE REF_OUTSalesLine               REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder; 
+        DECLARE	REF_OUTSalesOrderHeader        REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader; 
+        DECLARE REF_NewPayment                 REFERENCE TO OutputRoot; 
+        DECLARE REF_Payment                    REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:Payment; 
+        
+        --Code change starts for version 0.3 
+        DECLARE IN_PaymentCount INTEGER; 
+        SET IN_PaymentCount =  CARDINALITY(REF_OUTSalesOrderHeader.NS_dfns:Payment[]); 
+        --Code change ends for version 0.3 
+        
+        --Code Change for Uncommited MSG Start 
+        --FOR REF_Payment AS REF_OUTSalesOrderHeader.NS_dfns:Payment[] DO 
+        Payment: 
+        WHILE LASTMOVE(REF_Payment) DO                         
+            --Code comment starts for version 0.3 
+            --IF EXISTS(REF_Payment.NS_dfns:VoidStatus[]) THEN 
+            --Code comment ends for version 0.3 
+            
+            --Code change starts for version 0.3 
+            IF EXISTS(REF_Payment.NS_dfns:VoidStatus[]) AND REF_Payment.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY' AND IN_PaymentCount <> 0 THEN 
+            --Code change ends for version 0.3 
+        
+                --CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment AS REF_NewPayment REPEAT;
+                
+                CREATE NEXTSIBLING OF REF_Payment AS REF_NewPayment REPEAT;
+                
+                SET REF_NewPayment                                                              = REF_Payment; 
+                
+                IF COALESCE(REF_Payment.NS_oa:Amount,'') <> '' THEN
+                	
+                	SET REF_NewPayment.NS_oa:Amount                                                 = CAST(REF_Payment.NS_oa:Amount AS DECIMAL) * -1; 
+                	SET REF_NewPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID        = InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+                	
+                END IF;
+                 
+                IF COALESCE(REF_Payment.NS_dfns:ChangeAmount,'') <> '' THEN
+                	
+                	SET REF_NewPayment.NS_dfns:ChangeAmount                                                 = CAST(REF_Payment.NS_dfns:ChangeAmount AS DECIMAL) * -1; 
+	                SET REF_NewPayment.NS_dfns:ChangeAmount.(XMLNSC.Attribute)currencyID        = InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+	                
+                END IF; 
+                
+                
+                IF REF_NewPayment.NS_dfns:VoidStatus.NS_oa:Code        = 'VOID ENTRY' THEN 
+                    SET REF_NewPayment.NS_dfns:VoidStatus.NS_oa:Code                        = 'VOID LINE'; 
+                END IF; 
+                
+                SET IN_PaymentCount = IN_PaymentCount+1;
+            
+            END IF; 
+            SET IN_PaymentCount = IN_PaymentCount-1;
+            IF IN_PaymentCount = 0 THEN 
+                     LEAVE Payment; 
+            END IF; 
+--        END FOR; 
+        MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME; 
+        END WHILE; 
+        --Code Change for Uncommited MSG End 
+     END; 
+
+		
+    /************************************************************************************
+	* Procedure Name     :CopyEntireMessage                         					*
+	* Input Parameters   :None                                                          *
+	* Output Parameters  :None                                                          *
+	* Description        :Copied the whole message from input to output		            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

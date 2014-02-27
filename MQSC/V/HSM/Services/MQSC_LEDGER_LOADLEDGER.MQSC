@@ -1,0 +1,49 @@
+**************************************************************
+**   Script	:  MQSC_LEDGER_LOADLEDGER.MQSC
+**   Created By	:  Sayamtan Som / Asif Hossain
+**   Modified By:  Panchanan Mandal
+**   Environment:  D & S-tier	
+**************************************************************
+
+** Queues for Ledger_loadLedger Application
+
+
+** Queues for LoadLedger.msgflow
+
+DEFINE QLOCAL(LEDGER.SAP.TRANSIT.LOCAL) +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+MAXDEPTH(500000) +
+DESCR('QL defination for Ledger Sap transit') +
+REPLACE
+
+
+DEFINE QALIAS(LEDGER.SAP.TRANSIT.WMB) + 
+LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+TARGQ(LEDGER.SAP.TRANSIT.LOCAL) +
+DESCR('QA defination for Ledger Sap transit QL') +
+REPLACE
+
+
+DEFINE QLOCAL(LEDGER.PAYMENTCARD.WMB.TRANSIT.LOCAL) +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+DESCR('QL defination for Ledger Outbound to RegisterToken') +
+REPLACE
+
+
+DEFINE QALIAS(LEDGER.PAYMENTCARD.WMB.OUTBOUND.WMB) + 
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+MAXDEPTH(250000) +
+TARGQ(LEDGER.PAYMENTCARD.WMB.TRANSIT.LOCAL) +
+DESCR('QA defination for Ledger Outbound to RegisterToken') +
+REPLACE
+
+
+** Queues for RegisterToken.msgflow
+
+DEFINE QALIAS(LEDGER.PAYMENTCARD.WMB.TRANSIT.WMB) +
+LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+TARGQ(LEDGER.PAYMENTCARD.WMB.TRANSIT.LOCAL) +
+DESCR('QA defination for Ledger ledger paymentcard transit QL') +
+REPLACE
+
+**************************EndScript***************************

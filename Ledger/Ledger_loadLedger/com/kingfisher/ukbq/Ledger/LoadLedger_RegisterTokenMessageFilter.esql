@@ -1,0 +1,37 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: RegisterTokenMessageFilter											*
+* Interface Id 				:  																		*
+* Interface Name 			: Ledger_loadLedger 													*
+* Message Flow 				: LoadLedger															*
+* Message Flow Description 	: The primary function of this message flow is to receive canonical from*
+* 							  Orchestrator service & make a RFC Call updating the SAP and ODS table *
+* Module Name 				: LoadLedger_RegisterTokenMessageFilter									*	
+* Description 				: The function of this Node is to filter the input message going into 	* 
+*							  the RegisterToken flow from the LoadLedger flow.			            *
+*																									*
+* Version   Date	   		Author							Description                 			*
+* ======= 	=========== 	==========================  	======================================	*
+*  0.1      22-MAY-2013   	Asif Hossain  	     	        The initial version.		        	*
+****************************************************************************************************/
+CREATE FILTER MODULE LoadLedger_RegisterTokenMessageFilter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Loop through  the Payment
+		FOR REF_Payment AS Root.XMLNSC.NS_dfns:LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader.NS_dfns:SalesOrderReference.NS_dfns:Payment[] DO
+			--Checking whether IVData is present inside PaymentCard or not  
+			IF  EXISTS(REF_Payment.NS_dfns:PaymentCard.NS_dfns:IVData[]) THEN
+				RETURN TRUE;	
+			END IF;
+		END FOR;
+		RETURN FALSE;
+	END;
+END MODULE;

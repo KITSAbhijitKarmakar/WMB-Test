@@ -1,0 +1,113 @@
+**************************************************************
+**   Script	:  MQSC_PRODUCT_SYNCHRONISEPRODUCT_v1.1.MQSC	
+**   Created By	:  Ipsita Sahoo
+**   Environment:  X-tier	
+**************************************************************
+
+
+DEFINE QLOCAL ('PRODUCT.FKI.TRANSIT.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input queue(Local) for SynchroniseProduct(FKI)') +
+       REPLACE
+
+	   
+DEFINE QALIAS ('PRODUCT.FKI.TRANSIT.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       DESCR('WMB alias of QL for SynchroniseProduct(FKI)') +
+       TARGQ('PRODUCT.FKI.TRANSIT.LOCAL') +
+       REPLACE
+
+
+DEFINE QLOCAL ('PRODUCT.RP.TRANSIT.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input queue(Local) for SynchroniseProduct(RP)') +
+       REPLACE 
+
+ 
+DEFINE QALIAS ('PRODUCT.RP.TRANSIT.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       DESCR('WMB alias of QL for SynchroniseProduct(RP)') +
+       TARGQ('PRODUCT.RP.TRANSIT.LOCAL') +
+       REPLACE
+
+DEFINE QALIAS ('PRODUCT.UPDATE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Outbound queue for SynchroniseProduct(FKI)') +
+	   TARGQ('COREDC.MASTER.ARTICLE.UPDATE.REMOTE') +
+       REPLACE
+
+	   
+DEFINE QALIAS ('PRODUCT.DELETE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Inbound queue for SynchroniseProduct(FKI)') +
+	   TARGQ('COREDC.MASTER.ARTICLE.DELETE.REMOTE') +
+       REPLACE
+
+**
+** Define Xmit queue for PRODUCT Service
+**
+
+DEFINE QLOCAL('TQ.BQ.GATEWAY.TST') +
+		DESCR('Transmission queue to GHA MB QM') +
+		USAGE(XMITQ) +
+		PUT(ENABLED) +
+		GET(DISABLED) +
+		DEFPSIST(YES) +
+		MAXDEPTH(5000) +
+		TRIGGER TRIGTYPE(FIRST) +
+		TRIGDATA(UNXS378TOBQ.GATEWAY) +
+		INITQ(SYSTEM.DEFAULT.INITQ) +
+		REPLACE
+
+		
+DEFINE CHANNEL('UNXS378TOBQ.GATEWAY') + 
+		CHLTYPE(SDR) +
+		TRPTYPE(TCP) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		CONNAME('gbbqpwh001ap128') +
+		DESCR('Sender channel to MQ Gateway QM')  +
+		REPLACE
+	   
+**
+** Define Remote queues for Product Service
+**
+
+DEFINE QREMOTE('COREDC.MASTER.ARTICLE.UPDATE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		RNAME('COREDC.MASTERDATA.ARTICLE.UPDATE.QM3') +
+		RQMNAME('BQ.GATEWAY.TST') +
+		DEFPSIST(YES) +
+		REPLACE 
+
+DEFINE QREMOTE('COREDC.MASTER.ARTICLE.DELETE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		RNAME('COREDC.MASTERDDATA.ARTICLE.DELETE.QM3') +
+		RQMNAME('BQ.GATEWAY.TST') +
+		DEFPSIST(YES) +
+		REPLACE 
+**
+** Define Subscriptions
+**
+
+DEFINE SUB('MASTERDATA.PRODUCT.RP') +
+       DEST('PRODUCT.RP.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.PRODUCT.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+
+
+DEFINE SUB('MASTERDATA.PRODUCT.FKI') +
+       DEST('PRODUCT.FKI.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.PRODUCT.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+	   
+**************************EndScript***************************

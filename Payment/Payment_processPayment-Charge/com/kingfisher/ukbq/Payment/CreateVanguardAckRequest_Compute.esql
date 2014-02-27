@@ -1,0 +1,143 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateVanguardAckRequest												*
+* Interface Id 				:  																		*
+* Interface Name			: Payment_processPayment-Charge 										*
+* Message Flow 				: ProcessPayment_ConfirmORReject										*
+* Message Flow Description  : The primary function of this message flow is to receive Charge flow	* 
+*							  output and translate it into Vanguard Webservice request Structure.	*
+* Module Name 				: CreateVanguardAckRequest_Compute	 									*
+* Description 				: The primary function of this Node is to receive Charge flow			* 
+*							  output and translate it into Vanguard Webservice request Structure.	*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		6-MAR-2013 		Asif Hossain		The initial version. 								*
+****************************************************************************************************/
+CREATE COMPUTE MODULE CreateVanguardAckRequest_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Declaring input refernece
+		DECLARE REF_ProcessPayment 	REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessPayment;
+		DECLARE REF_AppArea 		REFERENCE TO REF_ProcessPayment.NS_oa:ApplicationArea;
+		DECLARE REF_DataArea		REFERENCE TO REF_ProcessPayment.NS_dfns:DataArea;
+		DECLARE REF_Payment 		REFERENCE TO REF_DataArea.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth 	REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		--Storing the input canonical to Environment
+		DECLARE REF_Canonical 		REFERENCE TO Environment.InputCanonical;
+		
+		--Storing the input canonical to Environment
+		CREATE LASTCHILD OF Environment AS REF_Canonical DOMAIN('XMLNSC') NAME 'InputCanonical';
+		SET REF_Canonical = InputRoot.XMLNSC;
+		
+		-- DataBaselookUp to read data from MBCONFIG table
+	    SET Environment.Variables.MBconfig[] = SELECT M.CANVAL ,M.CONFIGVALUE 
+	    FROM Database.MBCONFIG AS M WHERE M.CANVAL LIKE 'PCI_COMMIDEA_%'; 
+		 
+		-- Loop thorugh the 'MBCONFIG' tree structure to set some variables which will be used in request structure.
+	    FOR REF_mbConfig AS Environment.Variables.MBconfig[]  DO
+	    	CASE REF_mbConfig.CANVAL
+	    	WHEN 'PCI_COMMIDEA_WS_SYSTEMID' THEN
+	    		SET Environment.SystemID  	= REF_mbConfig.CONFIGVALUE;
+	    	WHEN 'PCI_COMMIDEA_WS_SYSTEMGUID' THEN
+	    		SET Environment.SystemGUID 	= REF_mbConfig.CONFIGVALUE;
+	    	WHEN 'PCI_COMMIDEA_WS_PASSCODE' THEN
+	    		SET Environment.Passcode  	= REF_mbConfig.CONFIGVALUE;
+	   		WHEN 'PCI_COMMIDEA_WS_DESTINATION_SAPCODIY'  THEN    
+                SET Environment.SAPCOURL 	= REF_mbConfig.CONFIGVALUE;
+            WHEN 'PCI_COMMIDEA_WS_DESTINATION_EPOS'  THEN    
+                SET Environment.EPOSURL 	= REF_mbConfig.CONFIGVALUE;
+			END CASE;
+		END FOR;
+		    
+	    --Setting WS url in the SOAP Request Node
+	    SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.SAPCOURL;
+	    
+		--Procedure to Create Request Structure for CommIdea webservice call    
+		CALL CreateRequestStructure(REF_ProcessPayment,REF_PaymentAuth);
+		RETURN TRUE;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: CreateRequestStructure 										 	 *
+	* Input Parameters	: REF_ProcessPayment,REF_PaymentAuth								 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to Create Request Structure for CommIdea webservice for	 * 
+	*					  Confirmation call											    	 *
+	* Version 	Date 			Author 				Description                         	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	06-MAR-2013 	Asif Hossain 		 The initial version. 				 	 *
+	*****************************************************************************************/	
+	CREATE PROCEDURE CreateRequestStructure(IN REF_ProcessPayment REFERENCE,IN REF_PaymentAuth REFERENCE) BEGIN
+		
+		--Declaring reference for Vanguard Request structure
+	    DECLARE REF_Message REFERENCE TO OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message; 
+	    DECLARE REF_Header 	REFERENCE TO REF_Message.NS_comns:ClientHeader;
+		DECLARE REF_MsgData REFERENCE TO REF_Message.NS_comns:MsgData;
+	   	
+	   	--Declaring Reference for confirmation request
+		DECLARE REF_VGConfirmationRequest REFERENCE TO REF_MsgData.NS_txn:confirmationrequest;
+		
+		--Declaring Reference for Rejection request
+		DECLARE REF_VGRejectionRequest REFERENCE TO REF_MsgData.NS_txn:rejectionrequest;
+
+		SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+		
+	    CREATE FIELD OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message AS REF_Message;
+	    CREATE FIELD REF_Message.NS_comns:ClientHeader 						AS REF_Header;
+		
+		--Declaring references for MesgData([CDATA]) mapping
+		CREATE FIELD  REF_Message.NS_comns:MsgData 							AS REF_MsgData;	   	
+	   	
+	   	--Creating the request Header structure for Vanguard
+	    SET REF_Header.NS_comns:SystemID 		= Environment.SystemID;
+		SET REF_Header.NS_comns:SystemGUID		= Environment.SystemGUID;
+		SET REF_Header.NS_comns:Passcode 		= Environment.Passcode;
+		SET REF_Header.NS_comns:ProcessingDB	= REF_PaymentAuth.NS_dfns:AuthorizationDatabaseID;
+		SET REF_Header.NS_comns:SendAttempt 	= '0';
+	   	
+		--Mapping MsgType and confirmation request
+		--IF REF_PaymentAuth.NS_oa:Result.(XMLNSC.Attribute)languageID = 'CONFIRM' THEN
+		IF REF_PaymentAuth.NS_dfns:TransactionStatus.NS_oa:Type = 'CONFIRM' THEN
+			
+			SET REF_Message.NS_comns:MsgType 				= 'CNF';
+			--Declaring NameSpace to the MessageBody
+			SET REF_MsgData.NS_txn:confirmationrequest.(XMLNSC.NamespaceDecl)xmlns:txn = NS_txn;
+			
+			CREATE FIELD REF_MsgData.NS_txn:confirmationrequest AS  REF_VGConfirmationRequest;
+
+			--Request mapping for confirmation request
+			SET REF_VGConfirmationRequest.NS_txn:transactionid = REF_PaymentAuth.NS_dfns:ExternalTransactionID;
+		
+		 ELSEIF REF_PaymentAuth.NS_dfns:TransactionStatus.NS_oa:Type = 'REJECT' THEN	
+			SET REF_Message.NS_comns:MsgType 				= 'RJT';
+			
+			--Declaring NameSpace to the MessageBody
+			SET REF_MsgData.NS_txn:rejectionrequest.(XMLNSC.NamespaceDecl)xmlns:txn = NS_txn;
+			
+			CREATE FIELD REF_MsgData.NS_txn:rejectionrequest AS REF_VGRejectionRequest;	
+
+			--Request mapping for Rejection request
+			SET REF_VGRejectionRequest.NS_txn:transactionid = REF_PaymentAuth.NS_dfns:ExternalTransactionID;
+			SET REF_VGRejectionRequest.NS_txn:tokenid		= REF_PaymentAuth.NS_dfns:Token;
+			SET REF_VGRejectionRequest.NS_txn:capturemethod = '11';
+		END IF;
+		
+		--Calling to create CDATA Section of the Request Structure
+		CALL CreateCDATAMessage(REF_MsgData, InputRoot);
+		
+		--Added to delete the extra elements from MsgData
+		SET REF_MsgData.* = NULL;
+	END;
+	
+END MODULE;

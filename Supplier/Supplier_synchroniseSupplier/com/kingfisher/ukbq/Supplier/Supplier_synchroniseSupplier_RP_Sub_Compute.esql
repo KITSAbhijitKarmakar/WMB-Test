@@ -1,0 +1,208 @@
+BROKER SCHEMA com.kingfisher.ukbq.Supplier
+PATH com.kingfisher.ukbq.WMBFunctions;
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      :	Map_Supplier_Canonical_RP								  	  			  	                  	  *									
+* Interface Id 	 :																				  			  	      *
+* Interface Name :	Supplier_SynchroniseSupplier                                                           			  *															
+* Message Flow 	 : 	Supplier_synchroniseSupplier_RP_Sub												          		  *
+* Description 	 : 	The Supplier Canonical is mapped to the required RP table(INTERFACE_ADDRESS)structure through     *
+*  					the Compute node.									  	  										  *
+* Module Name  	 :	Supplier_synchroniseSupplier_RP_Sub_Compute     			  		                              *            				  	  
+* Description  	 :	The Supplier Canonical is mapped to the required RP table structure through the Compute node.     *   														  			                                         
+*																								  				      *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+*  0.1  	25-Mar-2013   	Panchanan Mandal	The initial version.                			  				  	  * 
+*  0.2		27-Jun-2013		Ipsita Sahoo		Functionality added to handle special Character						  *	
+**********************************************************************************************************************/
+
+DECLARE DSN 	EXTERNAL NAME 'MBREPOS';
+
+CREATE COMPUTE MODULE Supplier_synchroniseSupplier_RP_Sub_Compute
+		
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- Call the Procedure MappingToRP()
+		CALL MappingToRP();
+		RETURN TRUE;
+	END;
+	
+	/***********************************************************************************************************************
+	* Procedure Name	: MappingToRP() 										 								   		   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: The Supplier Canonical is mapped to the required RP table structure					 		   *
+	*									   	                                                                               *
+	* Version 	Date 			Author 					Description                                                        *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	25-MAR-2013 	Panchanan Mandal 		The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE MappingToRP() BEGIN
+		
+		--Declaring Variables
+		DECLARE CH_AccountGroupValue 			CHARACTER;
+		DECLARE CH_Key							CHARACTER;
+		DECLARE CH_ClientId 					CHARACTER;
+		DECLARE CH_AddressID 					CHARACTER;
+		DECLARE CH_AddressType 					CHARACTER;
+		DECLARE CH_Name 						CHARACTER;
+		DECLARE CH_OpenSat 						CHARACTER;
+		DECLARE CH_OpenSun 						CHARACTER;
+		DECLARE CH_CloseTime 					CHARACTER;
+		DECLARE CH_OpenTime 					CHARACTER;
+		DECLARE CH_DefType 						CHARACTER;
+		DECLARE CH_MergeAction 					CHARACTER;
+		DECLARE CH_MergeStatus 					CHARACTER;
+		DECLARE CH_Contact 						CHARACTER;
+		DECLARE CH_ContactEmail 				CHARACTER;
+		DECLARE CH_ContactFax 					CHARACTER;
+		DECLARE CH_ContactPhone 				CHARACTER;
+		DECLARE CH_Address1 					CHARACTER;
+		DECLARE CH_Address2 					CHARACTER;
+		DECLARE CH_Town 						CHARACTER;
+		DECLARE CH_Country 						CHARACTER;
+		DECLARE CH_Postcode 					CHARACTER;
+		DECLARE CH_SqlString					CHARACTER;
+		DECLARE CH_Blank						CHARACTER;	
+			
+	
+		--Declaring Input References
+		DECLARE REF_DataArea 					REFERENCE TO InputRoot.XMLNSC.NS_Dfns:SynchroniseSupplier.NS_Dfns:DataArea;
+		DECLARE REF_Supplier 					REFERENCE TO REF_DataArea.NS_Dfns:Supplier;
+		DECLARE REF_AccountIDs					REFERENCE TO REF_Supplier.NS_Oa:AccountIDs;
+		DECLARE REF_Id							REFERENCE TO REF_AccountIDs.NS_Oa:ID;
+		DECLARE REF_ActionExpression			REFERENCE TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+		DECLARE REF_Contact						REFERENCE TO REF_Supplier.NS_Dfns:Contact;
+		DECLARE REF_TelephoneComm 				REFERENCE TO REF_Contact.NS_Oa:TelephoneCommunication;
+		DECLARE REF_FaxTelephoneComm 			REFERENCE TO REF_Contact.NS_Oa:FaxTelephoneCommunication;
+		DECLARE REF_AddressLine					REFERENCE TO REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CitySubDivisionName;
+		
+		SET CH_Blank = '';	
+		--Loop through all Id and findout the value of AccountGroupValue 							      
+		FOR Rep_ID AS REF_AccountIDs.NS_Oa:ID[] DO
+		
+			IF Rep_ID.(XMLNSC.Attribute)schemeName 	= 'AccountGroup'  THEN
+				SET CH_AccountGroupValue 		= FIELDVALUE(Rep_ID);							
+			END IF;		
+		END FOR;
+			
+		--Loop through all contact and where the condition satisfy once, leave the loop 
+		Contact: WHILE LASTMOVE(REF_Contact) DO		
+			IF CH_AccountGroupValue = 'ZVND' OR CH_AccountGroupValue = 'ZINS' THEN
+				SET CH_Key 						= 'RedPrairieClientID' || REF_Supplier.NS_Dfns:BuyerParty.NS_Oa:PartyIDs.NS_Oa:ID;
+				SET CH_ClientId					= THE(SELECT ITEM(T.CONFIGVALUE) FROM Database.{DSN}.MBREPOS.MBCONFIG AS T WHERE T.CANVAL = CH_Key);
+				
+				--Trim leading zeroes for AddressID
+				SET CH_AddressID 				= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID));
+				
+				SET CH_AddressType				= 'Supp/Cust';
+				IF LENGTH(TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:Name)) > 30 THEN
+					SET CH_Name					= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:Name) FROM 1 FOR 30));
+				ELSE
+					SET CH_Name					= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Oa:Name));
+				END IF;
+				SET CH_OpenSat					= 'Y';
+				SET CH_OpenSun					= 'Y';
+				SET CH_CloseTime				= CAST(CURRENT_DATE AS CHARACTER FORMAT 'yyyyMMdd')||' 23:59:59';
+				SET CH_OpenTime 				= CAST(CURRENT_DATE AS CHARACTER FORMAT 'yyyyMMdd')||' 00:00:00';
+				SET CH_DefType					= 'VENDOR';
+				SET CH_MergeAction				= 'A';
+				SET CH_MergeStatus				= 'Pending';
+				
+				IF REF_Supplier.NS_Dfns:Contact.NS_Oa:Type = 'VN' THEN
+					SET CH_Contact				= TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Dfns:Contact.NS_Oa:GivenName)||' '||TRIM(BOTH CH_Blank FROM REF_Supplier.NS_Dfns:Contact.NS_Oa:FamilyName);
+					IF LENGTH(CH_Contact) > 25 THEN
+						SET CH_Contact			= SUBSTRING (CH_Contact FROM 1 FOR 25);
+					END IF;
+				END IF;
+				SET CH_ContactEmail 			= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Oa:EMailAddressCommunication.NS_Oa:EMailAddressID));
+				
+				TelphFax: WHILE LASTMOVE(REF_FaxTelephoneComm) DO
+					IF REF_FaxTelephoneComm.NS_Oa:UseCode = 'CONTACT' THEN
+						SET CH_ContactFax		= TRIM(BOTH CH_Blank FROM REF_FaxTelephoneComm.NS_Oa:FormattedNumber);
+						LEAVE TelphFax;	
+					END IF;
+					MOVE REF_FaxTelephoneComm NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;
+				
+				WHILE LASTMOVE(REF_TelephoneComm) DO
+					IF REF_TelephoneComm.NS_Oa:UseCode = 'CONTACT' THEN
+						SET CH_ContactPhone		= TRIM(BOTH CH_Blank FROM REF_TelephoneComm.NS_Oa:FormattedNumber);
+					END IF;
+					MOVE REF_TelephoneComm NEXTSIBLING REPEAT TYPE NAME;
+				END WHILE;
+				
+				IF LENGTH(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName)) > 35 THEN
+					SET CH_Address1				= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName) FROM 1 FOR 35));
+				ELSE
+					SET CH_Address1				= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName));
+				END IF;
+				
+				--Loop through all addressLine and find the Address2
+				Address: WHILE LASTMOVE(REF_AddressLine) DO
+					IF REF_AddressLine.(XMLNSC.Attribute)sequenceName = 'Street2' THEN
+						IF LENGTH(TRIM(BOTH CH_Blank FROM REF_AddressLine)) > 35 THEN
+							SET CH_Address2		= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_AddressLine) FROM 1 FOR 35));
+						ELSE
+							SET CH_Address2		= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_AddressLine));
+						END IF;						
+					LEAVE Address;
+					END IF;				
+				END WHILE;
+				
+				IF LENGTH(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CityName)) > 35 THEN
+					SET CH_Town					= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CityName) FROM 1 FOR 35));
+				ELSE
+					SET CH_Town					= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CityName));
+				END IF;
+				
+				SET CH_Country					= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CountrySubDivisionCode));
+				SET CH_Postcode					= TRIM(BOTH CH_Blank FROM REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:PostalCode);	
+				LEAVE Contact;
+			END IF;
+			MOVE REF_Contact NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		
+		--Creating the sql query string
+		 SET CH_SqlString ='INSERT INTO INTERFACE_ADDRESS (KEY,CLIENT_ID,ADDRESS_ID,ADDRESS_TYPE,NAME,DELIVERY_OPEN_SAT,DELIVERY_OPEN_SUN,DELIVERY_CLOSE_TIME,DELIVERY_OPEN_TIME,USER_DEF_TYPE_1,MERGE_ACTION,MERGE_STATUS,
+					CONTACT,CONTACT_EMAIL,CONTACT_FAX,CONTACT_PHONE,ADDRESS1,ADDRESS2,TOWN,COUNTY,POSTCODE)
+					VALUES(IF_A_PK_SEQ.NEXTVAL'
+					||',''' || COALESCE(CH_ClientId,'') ||''''
+					||',''' || COALESCE(CH_AddressID,'') ||''''
+					||',''' || COALESCE(CH_AddressType,'') ||''''
+					||',''' || COALESCE(CH_Name,'') ||''''
+					||',''' || COALESCE(CH_OpenSat,'') ||''''
+					||',''' || COALESCE(CH_OpenSun,'') ||''''
+					||',''' || COALESCE(CH_CloseTime,'') ||''''
+					||',''' || COALESCE(CH_OpenTime ,'')||''''
+					||',''' || COALESCE(CH_DefType,'') ||''''
+					||',''' || COALESCE(CH_MergeAction,'') ||''''
+					||',''' || COALESCE(CH_MergeStatus,'') ||''''
+					||',''' || COALESCE(CH_Contact,'') ||''''
+					||',''' || COALESCE(CH_ContactEmail,'') ||''''
+					||',''' || COALESCE(CH_ContactFax,'') ||''''
+					||',''' || COALESCE(CH_ContactPhone,'') ||''''
+					||',''' || COALESCE(CH_Address1,'') ||''''
+					||',''' || COALESCE(CH_Address2,'') ||''''
+					||',''' || COALESCE(CH_Town,'') ||''''
+					||',''' || COALESCE(CH_Country,'') ||''''
+					||',''' || COALESCE(CH_Postcode,'') ||''''
+					||')'
+					||'';
+								
+			--Inserting values to the INTERFACE_ADDRESS table
+			IF CH_AccountGroupValue = 'ZVND' OR CH_AccountGroupValue = 'ZINS' THEN					
+				PASSTHRU (CH_SqlString);
+				
+				
+			END IF;
+		END;
+END MODULE;

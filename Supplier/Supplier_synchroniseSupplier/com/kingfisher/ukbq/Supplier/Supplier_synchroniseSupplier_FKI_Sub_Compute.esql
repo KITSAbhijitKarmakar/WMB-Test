@@ -1,0 +1,235 @@
+BROKER SCHEMA com.kingfisher.ukbq.Supplier
+PATH com.kingfisher.ukbq.WMBFunctions;
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      :	Map_Supplier_Canonical_FKI								  	  			  	                  	  *									
+* Interface Id 	 :																				  			  	      *
+* Interface Name :	Supplier_SynchroniseSupplier                                                           			  *															
+* Message Flow 	 : 	Supplier_synchroniseSupplier_FKI_Sub															  *
+* Description 	 : 	The Supplier Canonical is mapped to the required FKI XML structure through the Compute node.      *
+*																													  * 														  	  											
+* Module Name  	 :	Supplier_synchroniseSupplier_FKI_Sub_Compute     			  		  							  *            				  	  
+* Description  	 :	The Supplier Canonical is mapped to the required FKI XML structure through the Compute node.      *   														  			                                         
+*																									  				  *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+*  0.1  	25-Mar-2013   	Panchanan Mandal	The initial version.                			  				  	  * 
+*																													  *
+**********************************************************************************************************************/
+
+CREATE COMPUTE MODULE Supplier_synchroniseSupplier_FKI_Sub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- Call the Procedure SyncroniseSupplierFKI()
+		CALL SyncroniseSupplierFKI();
+		IF Environment.Variables.ProcessingStatus = 'true' THEN
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;
+		END IF;
+	END;
+	
+	/***********************************************************************************************************************
+	* Procedure Name	: SyncroniseSupplierFKI() 										 								   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: The Supplier Canonical is mapped to the required FKI XML structure					 		   *
+	*										   	                                                                           *
+	* Version 	Date 			Author 					Description                                                    	   *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	25-MAR-2013 	Panchanan Mandal 		The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE SyncroniseSupplierFKI() BEGIN
+		
+		--Declaring Variables
+		DECLARE CH_AccountGroupValue 			CHARACTER;
+		DECLARE CH_ActionExpression  			CHARACTER;
+		DECLARE CH_TableName 					CHARACTER;  
+		DECLARE CH_Input 						CHARACTER;   
+		DECLARE CH_OutCol 						CHARACTER;  
+		DECLARE CH_OutValue 					CHARACTER; 	
+		
+		
+		--Declaring Input References
+		DECLARE REF_DataArea 					REFERENCE TO InputRoot.XMLNSC.NS_Dfns:SynchroniseSupplier.NS_Dfns:DataArea;
+		DECLARE REF_Supplier 					REFERENCE TO REF_DataArea.NS_Dfns:Supplier;
+		DECLARE REF_AccountIDs					REFERENCE TO REF_Supplier.NS_Oa:AccountIDs;
+		DECLARE REF_ActionExpression			REFERENCE TO REF_DataArea.NS_Dfns:Synchronise.NS_Oa:ActionCriteria.NS_Oa:ActionExpression;
+		DECLARE REF_Contact						REFERENCE TO REF_Supplier.NS_Dfns:Contact;
+		DECLARE REF_TelephoneComm 				REFERENCE TO REF_Contact.NS_Oa:TelephoneCommunication;
+		DECLARE REF_FaxTelephoneComm 			REFERENCE TO REF_Contact.NS_Oa:FaxTelephoneCommunication;								
+			
+		--Declaring Output Refernces
+		DECLARE REF_ListToWcs					REFERENCE TO OutputRoot.XMLNSC.messageListToWcs;		
+		DECLARE REF_vendorUpdate				REFERENCE TO REF_ListToWcs.vendorUpdate;
+		DECLARE REF_vendorDelete				REFERENCE TO REF_ListToWcs.vendorDelete;
+		
+		--Output field creation
+		CREATE FIELD OutputRoot.XMLNSC.messageListToWcs 	AS REF_ListToWcs;
+		
+		--Retriving the topic and topic name from the database--		
+		SET CH_TableName 																= 'MBCONFIG';
+		SET CH_OutCol																	= 'CONFIGVALUE';		
+		SET CH_OutValue 																= '';
+				
+		--Loop through all Id and findout the value of AccountGroupValue 							      
+		FOR REF_Id AS REF_AccountIDs.NS_Oa:ID[] DO
+			IF REF_Id.(XMLNSC.Attribute)schemeName 	= 'AccountGroup'  THEN
+				SET CH_AccountGroupValue 												= REF_Id;							
+			END IF;
+		END FOR;
+			
+		--Loop through all ActionExpression and findout the value of ActionExpression attribute fieldvalue
+		
+		REF_Action: WHILE LASTMOVE(REF_ActionExpression) DO
+			IF REF_ActionExpression = 'SynchroniseSupplier/DataArea/Supplier' THEN
+				SET CH_ActionExpression 												= FIELDVALUE(REF_ActionExpression.(XMLNSC.Attribute)actionCode);
+				LEAVE REF_Action;
+			END IF;
+			MOVE REF_ActionExpression NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+					
+		--Chcking the condition and do the mapping for Vendor Update
+		IF CH_AccountGroupValue = 'ZVND' AND REF_Supplier.NS_Dfns:DeletionIndicator <> 'true' AND (CH_ActionExpression = 'Add' OR CH_ActionExpression = 'Modified' OR CH_ActionExpression = 'Replace') THEN
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version 	= '1.0';
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding   = 'UTF-8';
+			SET	REF_ListToWcs.(XMLNSC.NamespaceDecl)xmlns:xsi							= xsi;
+			SET REF_ListToWcs.(XMLNSC.NamespaceDecl)xsi:noNamespaceSchemaLocation		= NS_noNamespaceSchemaLocation;
+			SET REF_ListToWcs.datetime 													= REF_Supplier.NS_Oa:CreationDateTime;
+			SET REF_ListToWcs.sequenceNo												= getMessageIDForKey1('CoreDC_Vendor');
+						
+			--Loop through all Contact and mapping
+			Rep_Contact: WHILE LASTMOVE(REF_Contact) DO					
+				IF REF_Contact.NS_Oa:Type = 'VN' THEN
+					CREATE LASTCHILD OF REF_ListToWcs AS REF_vendorUpdate NAME 'vendorUpdate';
+					
+					-- Creating the output structure for Vendor Update
+					CREATE LASTCHILD OF REF_vendorUpdate NAME 'sapVendorNumber' VALUE '';
+					CREATE LASTCHILD OF REF_vendorUpdate NAME 'vendorName' 		VALUE '';
+					CREATE LASTCHILD OF REF_vendorUpdate NAME 'vendorAdd1' 		VALUE '';					
+					
+					IF LENGTH(REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID) > 6 THEN
+						SET REF_vendorUpdate.sapVendorNumber 							= SUBSTRING (REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID FROM (LENGTH(REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID)-5) FOR 6);
+					ELSE 
+						SET REF_vendorUpdate.sapVendorNumber 							= REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID;
+					END IF;
+					IF  LENGTH(REF_Supplier.NS_Oa:Name) > 35 THEN
+						SET REF_vendorUpdate.vendorName									= SUBSTRING (REF_Supplier.NS_Oa:Name FROM 1 FOR 35);
+					ELSE
+						SET REF_vendorUpdate.vendorName									= REF_Supplier.NS_Oa:Name;	
+					END IF;
+					IF LENGTH(REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName) > 35  THEN
+						SET REF_vendorUpdate.vendorAdd1									= SUBSTRING(REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName FROM 1 FOR 35);						
+					ELSE
+						SET REF_vendorUpdate.vendorAdd1									= REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:StreetName;
+					END IF;
+										
+					FOR REF_CitySubDivisionName AS REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CitySubDivisionName[] DO
+						
+						IF REF_CitySubDivisionName.(XMLNSC.Attribute)sequenceName ='Street2' THEN
+							IF LENGTH(REF_CitySubDivisionName) > 35 THEN
+								SET REF_vendorUpdate.vendorAdd2	 						= SUBSTRING(FIELDVALUE(REF_CitySubDivisionName) FROM 1 FOR 35);
+							ELSE
+								SET REF_vendorUpdate.vendorAdd2	 						= FIELDVALUE(REF_CitySubDivisionName);	
+							END IF;
+						END IF;
+					END FOR;
+					
+					-- Creating the output structure for Vendor Update
+					CREATE LASTCHILD OF REF_vendorUpdate NAME 'vendorAdd3' 		VALUE '';
+					CREATE LASTCHILD OF REF_vendorUpdate NAME 'vendorAdd4' 		VALUE '';
+					
+					FOR REF_CitySubDivisionName AS REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CitySubDivisionName[] DO
+						IF REF_CitySubDivisionName.(XMLNSC.Attribute)sequenceName ='Street3' THEN
+								IF LENGTH(REF_CitySubDivisionName) > 35 THEN
+									SET REF_vendorUpdate.vendorAdd3	 						= SUBSTRING(FIELDVALUE(REF_CitySubDivisionName) FROM 1 FOR 35);
+								ELSE
+									SET REF_vendorUpdate.vendorAdd3	 						= FIELDVALUE(REF_CitySubDivisionName);	
+								END IF;
+						END IF;
+					END FOR;
+						
+					IF LENGTH(REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CityName) > 35  THEN
+						SET REF_vendorUpdate.vendorAdd4									= SUBSTRING(REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CityName FROM 1 FOR 35);
+					ELSE
+						SET REF_vendorUpdate.vendorAdd4									= REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:CityName;						
+					END IF;
+					IF LENGTH(REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:PostalCode) > 9  THEN
+						SET REF_vendorUpdate.postcode									= SUBSTRING(REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:PostalCode FROM 1 FOR 9);						
+					ELSE
+						SET REF_vendorUpdate.postcode									= REF_Contact.NS_Dfns:Location.NS_Oa:Address.NS_Oa:PostalCode;
+					END IF;
+						--Loop through all Telecommunication and mapping	
+						Telph: WHILE LASTMOVE(REF_TelephoneComm) DO
+							IF REF_TelephoneComm.NS_Oa:UseCode = 'LOCATION' THEN
+								IF LENGTH(REF_TelephoneComm.NS_Oa:FormattedNumber) > 20 THEN
+									SET REF_vendorUpdate.phone 							= SUBSTRING(REF_TelephoneComm.NS_Oa:FormattedNumber FROM 1 FOR 20);
+								ELSE
+									SET REF_vendorUpdate.phone 							= REF_TelephoneComm.NS_Oa:FormattedNumber;
+								END IF;
+								LEAVE Telph;
+							END IF;
+							MOVE REF_TelephoneComm NEXTSIBLING REPEAT TYPE NAME;
+						END WHILE;
+						
+						--Loop through all FaxTelecommunication and mapping	
+						TelphFax: WHILE LASTMOVE(REF_FaxTelephoneComm) DO
+							IF REF_FaxTelephoneComm.NS_Oa:UseCode = 'LOCATION' THEN
+								IF LENGTH(REF_FaxTelephoneComm.NS_Oa:FormattedNumber) > 20 THEN
+									SET REF_vendorUpdate.fax 							= SUBSTRING(REF_FaxTelephoneComm.NS_Oa:FormattedNumber FROM 1 FOR 20);
+								ELSE
+									SET REF_vendorUpdate.fax 							= REF_FaxTelephoneComm.NS_Oa:FormattedNumber;
+								END IF;
+								LEAVE TelphFax;	
+							END IF;
+							MOVE REF_FaxTelephoneComm NEXTSIBLING REPEAT TYPE NAME;
+						END WHILE;												
+					LEAVE Rep_Contact;
+				END IF;
+				MOVE REF_Contact NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;
+			
+			SET CH_Input 														   	= 'CoreDC_Vendor_Update_Queue';
+			CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue); 
+			SET Environment.Variables.ProcessingStatus								= 'true';
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName 	= CH_OutValue;	
+			
+		--Chcking the condition and do the mapping for Vendor Delete
+		ELSEIF CH_AccountGroupValue = 'ZVND' THEN
+			If REF_Supplier.NS_Dfns:DeletionIndicator = 'true' OR CH_ActionExpression = 'Delete' THEN 
+		   	
+			   	SET REF_ListToWcs.datetime 													= REF_Supplier.NS_Oa:CreationDateTime;		   		   	
+				SET REF_ListToWcs.sequenceNo												= getMessageIDForKey1('CoreDC_Vendor');
+			   	
+			   	CREATE LASTCHILD OF REF_ListToWcs AS REF_vendorDelete NAME 'vendorDelete';
+			   	SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version 	= '1.0';
+			   	SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding   = 'UTF-8';
+				SET	REF_ListToWcs.(XMLNSC.NamespaceDecl)xmlns:xsi							= xsi;
+				SET REF_ListToWcs.(XMLNSC.NamespaceDecl)xsi:noNamespaceSchemaLocation		= NS_noNamespaceSchemaLocation;
+				
+				-- Creating the output structure for Vendor Delete
+				CREATE LASTCHILD OF REF_vendorDelete NAME 'sapVendorNumber' VALUE '';
+				
+				IF LENGTH(REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID) > 6 THEN
+					SET REF_vendorDelete.sapVendorNumber 									= SUBSTRING (REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID FROM (LENGTH(REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID)-5) FOR 6);
+				ELSE 
+					SET REF_vendorDelete.sapVendorNumber 									= REF_Supplier.NS_Oa:PartyIDs.NS_Oa:ID;
+				END IF;
+				
+				SET CH_Input 														   		= 'CoreDC_Vendor_Delete_Queue';
+				CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue); 
+				SET Environment.Variables.ProcessingStatus									= 'true';
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName 		= CH_OutValue;	
+			END IF;
+		ELSE 
+			SET Environment.Variables.ProcessingStatus									= 'false';
+		END IF;		
+	END;
+END MODULE;

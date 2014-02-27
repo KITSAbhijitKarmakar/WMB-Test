@@ -1,0 +1,484 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: SOL_ProductSale														*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_ProductSale				 		*
+* Description 				: Populate details for ProductSale Item									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		24-JUN-2013 	Sourav Banu 		Validated against ProcessSalesOrder xsd.			*
+* 0.3 		11-JUL-2013 	Subir Bhaumik 		Updated the code version 0.3						*
+* 0.4		11-JUL-2013 	Subir Bhaumik		Updated code for version 0.4 to populate Transaction*
+*												LineType in the ProcessSalesOrder message. 			*
+* 0.5 		02-AUG-2013 	Subir Bhaumik		Updated the code to generate Tax Amount only if 	*
+*												TaxAmount exists in input. Version 0.5				*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_ProductSale
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_ProductSale			REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader			REFERENCE TO REF_INRoot.Header;
+
+		DECLARE TS_TimeStamp			TIMESTAMP;
+		DECLARE CH_ModID,CH_DiscType	CHARACTER COALESCE(REF_POHeader.EmployeeGradeID,'');
+		DECLARE CH_Reason 				CHARACTER;
+		DECLARE CH_DateTime 			CHARACTER;
+		DECLARE CH_LineNo				CHARACTER;
+		DECLARE CH_Glreg				CHARACTER;
+		DECLARE CH_CurrencyID			CHARACTER REF_INRoot.Header.BasketCurrencyID;
+		DECLARE DC_ModifierValue		DECIMAL;
+		
+		DECLARE REF_ProdSale REFERENCE TO REF_INRoot.ProductSale;
+		
+		DECLARE CH_LineNumber CHARACTER;
+		--FOR REF_ProdSale AS REF_INRoot.ProductSale[] DO
+		
+		SOL:WHILE LASTMOVE(REF_ProdSale) DO
+			SET CH_LineNumber = REF_ProdSale.LineNumber;
+			IF REF_ProdSale.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+					
+				SET Environment.Variables.TotalDiscount	= '0';
+	
+				FOR REF_Discount AS REF_ProdSale.EmployeeDiscount[] DO
+					SET DC_ModifierValue = FUNC_ConvertPennytoPound(REF_Discount.ModifierValue,-1,2,'ROUND_HALF_UP');
+					SET Environment.Variables.TotalDiscount			= CAST(COALESCE(Environment.Variables.TotalDiscount, '0') AS DECIMAL) + DC_ModifierValue;
+				END FOR;
+	
+				CREATE LASTCHILD OF REF_OUTSalesLine AS REF_ProductSale NAMESPACE NS_dfns NAME 'SalesOrderLine';
+				
+				SET REF_ProductSale.NS_oa:LineNumber								= REF_ProdSale.LineNumber;
+				--Code change starts for version 0.4
+				SET REF_ProductSale.NS_oa:Description								= 'Item';
+				--Code change ends for version 0.4
+				SET TS_TimeStamp													= CAST(REF_ProdSale.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_ProductSale.NS_oa:DocumentReference.(XMLNSC.Attribute)type 	= 'PRODUCT SALE';
+				SET REF_ProductSale.NS_oa:DocumentReference.NS_oa:DocumentDateTime	= TS_TimeStamp;
+				
+				--Maps for Product Item 
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:UPCID	= REF_ProdSale.ProductID;
+				
+				IF COALESCE(REF_ProdSale.UnitOfMeasure,'') = '' THEN
+					SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:UOMCode							= 'each';
+				ELSE
+					SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:UOMCode							= 'unit';
+				END IF;
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:Name									= REF_ProdSale.Description;
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:Type									= 'Stock';
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_dfns:SellingRestriction.NS_oa:Code 		= REF_ProdSale.CustomerAgeRestriction;
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:ID 	= COALESCE(REF_ProdSale.MMGroupID, '');
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:Type 	= 'Department';
+				--Product Item map ends
+				
+				
+				--Calculate Amounts
+				SET Environment.Variables.quantity		= CAST(REF_ProdSale.Quantity AS DECIMAL);
+				SET Environment.Variables.netValue		= CAST(REF_ProdSale.NetValue AS DECIMAL);
+				SET Environment.Variables.effNetValue	= CAST( REF_ProdSale.EffectiveNetValue AS DECIMAL);
+					
+				IF Environment.Variables.quantity = 0 THEN
+					SET Environment.Variables.quantity 		= 1;
+					SET Environment.Variables.netValue		= CAST(REF_ProdSale.UnitPrice AS DECIMAL);
+					SET Environment.Variables.effNetValue	= CAST(REF_ProdSale.UnitPrice AS DECIMAL);
+				END IF;
+				
+				SET Environment.Variables.netValue		= ROUND( Environment.Variables.netValue / Environment.Variables.quantity, 2 MODE ROUND_HALF_UP);
+				SET Environment.Variables.netValue		= FUNC_ConvertPennytoPound(CAST(Environment.Variables.netValue AS CHARACTER),1,2,'ROUND_HALF_UP');
+				SET Environment.Variables.effNetValue 	= ROUND( Environment.Variables.effNetValue / Environment.Variables.quantity, 2 MODE ROUND_HALF_UP);
+				SET Environment.Variables.effNetValue	= FUNC_ConvertPennytoPound(CAST(Environment.Variables.effNetValue AS CHARACTER),1,2,'ROUND_HALF_UP');
+	
+				IF Environment.Variables.quantity = '0' THEN
+					SET Environment.Variables.DiscountPerUnit	= Environment.Variables.TotalDiscount;
+				ELSE
+					SET Environment.Variables.DiscountPerUnit = ROUND(CAST(Environment.Variables.TotalDiscount AS DECIMAL)/CAST(Environment.Variables.quantity AS DECIMAL), 2 MODE ROUND_HALF_UP);
+				END IF;
+				--End of calculations
+				
+				SET REF_ProductSale.NS_oa:Quantity									= REF_ProdSale.Quantity;
+				SET REF_ProductSale.NS_oa:UnitPrice.NS_oa:Amount					= FUNC_ConvertPennytoPound(REF_ProdSale.UnitPrice,1,2,'ROUND_HALF_UP');
+				SET REF_ProductSale.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID				= CH_CurrencyID;
+				IF COALESCE(REF_ProdSale.PriceEntered, '') <> '' AND REF_ProdSale.PriceEntered = '1' THEN
+					SET REF_ProductSale.NS_dfns:PriceOverriddenIndicator = 'true';
+				ELSE
+					SET REF_ProductSale.NS_dfns:PriceOverriddenIndicator = 'false';
+				END IF;
+				
+				
+				FOR REF_PriceOverride AS REF_ProdSale.PriceOverride[] DO
+					
+					IF COALESCE(REF_PriceOverride.OriginalPrice,'') <> '' THEN
+						SET REF_ProductSale.NS_dfns:PreOverriddenUnitPrice.NS_oa:Amount		= FUNC_ConvertPennytoPound(REF_PriceOverride.OriginalPrice,-1,2,NULL);
+						SET REF_ProductSale.NS_dfns:PreOverriddenUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+					END IF;
+				END FOR;
+				
+				--Code change starts for version 0.3
+				--SET REF_ProductSale.NS_dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name = REF_ProdSale.PriceType;
+				SET REF_ProductSale.NS_dfns:OverriddenUnitPrice.NS_oa:Code		= REF_ProdSale.PriceChangeID;
+				SET REF_ProductSale.NS_dfns:OverriddenUnitPrice.NS_oa:Code.(XMLNSC.Attribute)name = REF_ProdSale.PriceType;
+				--Code change ends for version 0.3
+				SET REF_ProductSale.NS_dfns:QualifiedUnitPrice.NS_oa:Amount		= CAST(Environment.Variables.netValue AS DECIMAL) + Environment.Variables.DiscountPerUnit;
+				SET REF_ProductSale.NS_dfns:QualifiedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+				SET REF_ProductSale.NS_dfns:DiscountedUnitPrice.NS_oa:Amount		= Environment.Variables.effNetValue;
+				SET REF_ProductSale.NS_dfns:DiscountedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+				SET REF_ProductSale.NS_oa:ExtendedAmount 							= FUNC_ConvertPennytoPound(REF_ProdSale.ExtendedValue,1,2,'ROUND_HALF_UP');
+				SET REF_ProductSale.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID			= CH_CurrencyID;
+				
+				--SET REF_ProductSale.NS_dfns:TotalTaxableAmount      = REF_ProdSale.NS_dfns:TaxAmountItem.NS_dfns:TaxableTotal;
+				SET REF_ProductSale.NS_dfns:TotalTaxableAmount      = FUNC_ConvertPennytoPound(REF_ProdSale.TaxAmountItem.TaxableTotal,1,2,'ROUND_HALF_UP');
+				SET REF_ProductSale.NS_dfns:TotalTaxableAmount.(XMLNSC.Attribute)currencyID				= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				
+				SET REF_ProductSale.NS_oa:TotalAmount 								= FUNC_ConvertPennytoPound(REF_ProdSale.EffectiveNetValue,1,2,'ROUND_HALF_UP');
+				SET REF_ProductSale.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID				= CH_CurrencyID;
+				SET REF_ProductSale.NS_oa:QualifiedAmount.NS_oa:Amount			= FUNC_ConvertPennytoPound(REF_ProdSale.NetValue,1,2,'ROUND_HALF_UP');
+				SET REF_ProductSale.NS_oa:QualifiedAmount.NS_oa:Amount.(XMLNSC.Attribute)currencyID			= CH_CurrencyID;
+				SET REF_ProductSale.NS_dfns:LineFilterIndicator 					= 'false';
+				IF COALESCE(REF_ProdSale.CustAgeRestrictPrompted, '') <> '' AND REF_ProdSale.CustAgeRestrictPrompted = '1' THEN
+					SET REF_ProductSale.NS_dfns:SellingRestrictionPromptIndicator = 'true';
+				ELSE
+					SET REF_ProductSale.NS_dfns:SellingRestrictionPromptIndicator = 'false';
+				END IF;
+				IF COALESCE(REF_ProdSale.CustAgeRestrictRefused, '') <> '' AND REF_ProdSale.CustAgeRestrictRefused = '1' THEN
+					SET REF_ProductSale.NS_dfns:SellingRestrictionRefusalIndicator = 'true';
+				ELSE
+					SET REF_ProductSale.NS_dfns:SellingRestrictionRefusalIndicator = 'false';
+				END IF;
+				
+				--Code change starts for ItemTaxGroupId
+				SET Environment.Variables.Condition.isJersey		= FALSE;
+				SET Environment.Variables.Condition.COUNTRYCODE		= '';
+	--			SET Environment.SQLQuery[]			= SELECT S.VPCTRADINGREGION,S.GLREGIONCOLUMN FROM 
+	--													Database.MBSTRCD AS S
+	--													WHERE S.FULLSTORECODE = REF_POHeader.OriginatedBy.StoreID;
+				
+				--Lookup done in SalesOrderHeader										
+	--			SET Environment.SQLQuery[]			= SELECT S.VPCTRADINGREGION,S.GLREGIONCOLUMN FROM 
+	--													CACHE_CONFIGDATA.MBSTRCD[] AS S
+	--													WHERE S.FULLSTORECODE = REF_POHeader.OriginatedBy.StoreID;										
+																	
+				
+				IF COALESCE(Environment.SQLQuery.GLREGIONCOLUMN,'') <> '' THEN
+					SET CH_Glreg	=	Environment.SQLQuery.GLREGIONCOLUMN;
+					IF  UPPER(CH_Glreg) = 'GLJEY' THEN
+						SET Environment.Variables.Condition.isJersey		= TRUE;
+					END IF;
+				END IF;
+				
+				IF Environment.Variables.Condition.isJersey THEN
+					SET Environment.Variables.Condition.COUNTRYCODE		= 'JS';
+				ELSEIF COALESCE(REF_INRoot.Header.BasketCountryID, '') <> '' THEN
+					SET Environment.Variables.Condition.COUNTRYCODE		= REF_INRoot.Header.BasketCountryID;
+				END IF;
+				--Code change ends for ItemTaxGroupId
+				
+				--SET Environment.Variables.TAXGroupID[] = PASSTHRU('SELECT DISTINCT GENERICVATCODE,TRFVATCODE FROM VATDATA WHERE RJVATCATEGORY = '''||REF_ProdSale.TaxCode||''''||'AND RJCOUNTRYCODE = '''||REF_POHeader.BasketCountryID||'''');
+	--			SET Environment.Variables.TAXGroupID[] = PASSTHRU('SELECT DISTINCT GENERICVATCODE,TRFVATCODE FROM VATDATA WHERE RJVATCATEGORY = '''||REF_ProdSale.TaxCode||''''||'AND RJCOUNTRYCODE = '''||Environment.Variables.Condition.COUNTRYCODE||'''');
+				
+				SET Environment.Variables.TAXGroupID[] = SELECT V.GENERICVATCODE,V.TRFVATCODE FROM CACHE_CONFIGDATA.VATDATA[] AS V WHERE V.RJVATCATEGORY = REF_ProdSale.TaxCode AND V.RJCOUNTRYCODE = Environment.Variables.Condition.COUNTRYCODE;
+				
+				SET REF_ProductSale.NS_dfns:Tax.NS_oa:BasisAmount 								= FUNC_ConvertPennytoPound(REF_ProdSale.OriginalTaxAmount,-1,10,'ROUND_HALF_UP');
+				SET REF_ProductSale.NS_dfns:Tax.NS_oa:BasisAmount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+				SET REF_ProductSale.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric 			= Environment.Variables.TAXGroupID.TRFVATCODE;
+				--Code change starts for version 0.5
+				--SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount 									= FUNC_ConvertPennytoPound(REF_ProdSale.TaxAmount,1,10,'ROUND_HALF_UP');
+				--SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID		= CH_CurrencyID;
+				IF COALESCE(REF_ProdSale.TaxAmount, '') <> '' THEN
+					SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount 								= FUNC_ConvertPennytoPound(REF_ProdSale.TaxAmount,1,10,'ROUND_HALF_UP');
+					SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+				END IF;
+				--Code change ends for version 0.5
+				SET REF_ProductSale.NS_dfns:Tax.NS_oa:Code										= Environment.Variables.TAXGroupID.GENERICVATCODE;
+				
+				CALL PROC_ProdSale_Discount(REF_ProductSale,REF_ProdSale);
+				
+				IF COALESCE(REF_POHeader.EmployeeGradeID,'') <> '' THEN
+					SET CH_ModID 	= REF_POHeader.EmployeeGradeID;
+					SET CH_DiscType	= CH_ModID;
+					SET CH_ModID	= SUBSTRING(CH_ModID FROM 1 FOR 2);
+	--				SET CH_ModID	= THE(SELECT ITEM A.MODIFIERID FROM Database.PRICEMODIFIER AS A
+	--										WHERE A.RETAILJMODIFIER = CH_ModID);
+					
+					SET CH_ModID	= THE(SELECT ITEM A.MODIFIERID FROM CACHE_CONFIGDATA.PRICEMODIFIER[] AS A
+											WHERE A.RETAILJMODIFIER = CH_ModID);
+					
+				ELSE
+					SET CH_DiscType	= '';
+					SET CH_ModID	= '';
+				END IF;
+				SET Environment.Variables.Condition.ModID		= CH_ModID;
+				SET Environment.Variables.Condition.DisType		= CH_DiscType;
+				
+				CALL PROC_ProdSale_EmpDiscount(REF_ProductSale,REF_ProdSale);
+	
+				SET CH_Reason	= CH_ModID;
+				IF EXISTS(REF_INRoot.BasketDiscount[]) THEN
+	
+					SET CH_ModID		= REF_INRoot.BasketDiscount.ReasonCodeID;
+					SET CH_LineNo		= REF_INRoot.BasketDiscount.LineNumber;
+					SET TS_TimeStamp	= CAST(REF_INRoot.BasketDiscount.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET CH_DateTime		= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET CH_Reason		= THE(SELECT ITEM A.MODIFIERID FROM CACHE_CONFIGDATA.PRICEMODIFIER[] AS A
+											WHERE A.RETAILJMODIFIER = CH_ModID);
+				ELSE
+					SET CH_ModID	= '';
+					SET CH_Reason	= '';
+					SET CH_DateTime	= '';
+				END IF;
+				
+				SET Environment.Variables.Condition.ModID		= CH_Reason;
+				SET Environment.Variables.Condition.Reason		= CH_ModID;
+				SET Environment.Variables.Condition.DateTime	= CH_DateTime;
+				
+				CALL PROC_ProdSale_BasketDiscount(REF_ProductSale,REF_ProdSale,REF_INRoot);
+				CALL PROC_ProdSale_PriceOverride(REF_ProductSale,REF_ProdSale);
+				CALL PROC_ProdSale_PromotionSaving(REF_ProductSale,REF_ProdSale);
+	
+				IF COALESCE(REF_ProdSale.HandKeyed, '') <> '' AND REF_ProdSale.HandKeyed = '1' THEN
+					SET REF_ProductSale.NS_dfns:ManualKeyingIndicator = 'true';
+				ELSE
+					SET REF_ProductSale.NS_dfns:ManualKeyingIndicator = 'false';
+				END IF;
+				
+				IF COALESCE(REF_ProdSale.VoidValue,'') <> '' THEN
+					SET REF_ProductSale.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY';
+				END IF;
+				IF COALESCE(REF_ProdSale.VoidDateTime, '') <> '' THEN
+					SET TS_TimeStamp												= CAST(REF_ProdSale.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET REF_ProductSale.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime	= TS_TimeStamp;
+				END IF;
+				
+				LEAVE SOL;
+			END IF;
+			MOVE REF_ProdSale NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		RETURN FALSE;
+	END;
+
+    /************************************************************************************
+	* Procedure Name     :PROC_ProdSale_Discount      				                    *
+	* Input Parameters   :REF_ProductSale,REF_ProdSale                                  *
+	* Output Parameters  :REF_ProductSale,REF_ProdSale                                  *
+	* Description        :Populate ProductSaleDiscount mapping for the 					*
+	*					  ProcessSalesOrder message   									*
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_ProdSale_Discount(INOUT REF_ProductSale REFERENCE, INOUT REF_ProdSale REFERENCE)
+	BEGIN
+		DECLARE REF_INRoot			REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_OUTSalesOrder	REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine	REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_Allowance		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp		TIMESTAMP;
+		DECLARE CH_CurrencyID		CHARACTER REF_INRoot.Header.BasketCurrencyID;
+
+		FOR REF_Discount AS REF_ProdSale.Discount[] DO
+			CREATE LASTCHILD OF REF_ProductSale AS REF_Allowance NAMESPACE NS_dfns NAME 'Allowance';
+			SET REF_Allowance.NS_oa:ID											= REF_Discount.ModifierReasonID;
+			SET REF_Allowance.NS_oa:Type										= REF_Discount.ModifierReasonID;
+			
+			
+			SET REF_Allowance.NS_oa:BasisAmount									= FUNC_ConvertPennytoPound(REF_Discount.ModifierValue,-1,2,NULL);
+			SET REF_Allowance.NS_oa:BasisAmount.(XMLNSC.Attribute)currencyID	= CH_CurrencyID;
+			
+			SET REF_Allowance.NS_oa:Description									= 'ItemDiscount';
+			IF COALESCE(REF_Discount.DiscountPercentage, '') <> '' THEN
+				SET REF_Allowance.NS_oa:Calculation.NS_oa:RateNumeric			= CAST(REF_Discount.DiscountPercentage AS DECIMAL) * 100;
+			END IF;
+			SET REF_Allowance.NS_oa:Calculation.NS_oa:Description				= 'Subtract';
+			SET REF_Allowance.NS_oa:ReasonCode									= REF_Discount.ModifierReasonID;
+			SET REF_Allowance.NS_oa:ReasonCode.(XMLNSC.Attribute)name			= REF_Discount.ModifierReasonDescription;
+			SET TS_TimeStamp													= CAST(REF_Discount.ModifierDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Allowance.NS_oa:LastModificationDateTime					= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Allowance.NS_dfns:AuthorizingUserID							= REF_Discount.AuthorisingUserID;
+		END FOR;
+	END;
+
+    /************************************************************************************
+	* Procedure Name     :PROC_ProdSale_BasketDiscount    			                    *
+	* Input Parameters   :REF_ProductSale,REF_ProdSale                                  *
+	* Output Parameters  :REF_ProductSale,REF_ProdSale                                  *
+	* Description        :Mapping for ProductSale Allowance mapping				        *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_ProdSale_BasketDiscount(INOUT REF_ProductSale REFERENCE, INOUT REF_ProdSale REFERENCE,INOUT REF_INRoot REFERENCE)
+	BEGIN
+		DECLARE REF_OUTSalesOrder	REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine	REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_Allowance		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp		TIMESTAMP;
+
+		FOR REF_Discount AS REF_ProdSale.BasketDiscountModifier[] DO
+			CREATE LASTCHILD OF REF_ProductSale AS REF_Allowance NAMESPACE NS_dfns NAME 'Allowance'; 
+			
+			IF EXISTS(REF_INRoot.BasketDiscount[]) THEN
+				
+				SET REF_Allowance.NS_oa:ID										= Environment.Variables.Condition.ModID;
+				SET REF_Allowance.NS_oa:Type									= Environment.Variables.Condition.Reason;
+			ELSE
+				SET REF_Allowance.NS_oa:ID										= CAST(REF_Discount.BasketDiscountLineNumber AS CHARACTER) || 'BasketDiscount';
+			END IF;
+			
+			SET REF_Allowance.NS_oa:BasisAmount									= FUNC_ConvertPennytoPound(REF_Discount.DiscountValue,-1,2,NULL);
+			SET REF_Allowance.NS_oa:BasisAmount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+			
+			SET REF_Allowance.NS_oa:Description									= 'TransactionBasketDiscount';
+			SET REF_Allowance.NS_oa:Calculation.NS_oa:Description				= 'Subtract';
+			
+			IF EXISTS(REF_INRoot.BasketDiscount[]) THEN
+				SET REF_Allowance.NS_oa:LastModificationDateTime				= Environment.Variables.Condition.DateTime;
+			END IF;
+		END FOR;
+	END;
+
+    /************************************************************************************
+	* Procedure Name     :PROC_ProdSale_PriceOverride                          			*
+	* Input Parameters   :REF_ProductSale,REF_ProdSale                                  *
+	* Output Parameters  :REF_ProductSale,REF_ProdSale                                  *
+	* Description        :Mapping for PriceOverride in ProcessSalesOrder Message        *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_ProdSale_PriceOverride(INOUT REF_ProductSale REFERENCE, INOUT REF_ProdSale REFERENCE)
+	BEGIN
+		DECLARE REF_INRoot			REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader		REFERENCE TO REF_INRoot.Header;
+		DECLARE REF_OUTSalesOrder	REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine	REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_Allowance		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp		TIMESTAMP;
+
+		FOR REF_Discount AS REF_ProdSale.PriceOverride[] DO
+			CREATE LASTCHILD OF REF_ProductSale AS REF_Allowance NAMESPACE NS_dfns NAME 'Allowance'; 
+			
+			SET REF_Allowance.NS_oa:ID										= REF_Discount.ModifierReasonID;
+			SET REF_Allowance.NS_oa:Type									= '022';
+			IF COALESCE(REF_Discount.ModifierValue, '') <> '' THEN
+				SET REF_Allowance.NS_oa:BasisAmount							= FUNC_ConvertPennytoPound(REF_Discount.ModifierValue,-1,2,NULL);
+			ELSE
+				SET REF_Allowance.NS_oa:BasisAmount							= '0';
+			END IF;
+			
+			SET REF_Allowance.NS_oa:BasisAmount.(XMLNSC.Attribute)currencyID		= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+			
+			SET REF_Allowance.NS_oa:Description									= 'Priceoverride';
+			SET REF_Allowance.NS_oa:Calculation.NS_oa:Description				= 'Subtract';
+			SET REF_Allowance.NS_oa:ReasonCode									= REF_Discount.ModifierReasonID;
+			SET REF_Allowance.NS_oa:ReasonCode.(XMLNSC.Attribute)name			= REF_Discount.ModifierReasonDescription;
+			SET TS_TimeStamp													= CAST(REF_Discount.ModifierDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Allowance.NS_oa:LastModificationDateTime					= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Allowance.NS_oa:Indicator									= 'true';
+		END FOR;
+		
+	END;
+
+    /************************************************************************************
+	* Procedure Name     :PROC_ProdSale_PromotionSaving			                        *
+	* Input Parameters   :REF_ProductSale,REF_ProdSale                                  *
+	* Output Parameters  :REF_ProductSale,REF_ProdSale                                  *
+	* Description        :Mapping for PromotionSaving in ProcessSalesOrder message      *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_ProdSale_PromotionSaving(INOUT REF_ProductSale REFERENCE, INOUT REF_ProdSale REFERENCE)
+	BEGIN
+		DECLARE REF_INRoot			REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader		REFERENCE TO REF_INRoot.Header;
+		DECLARE REF_OUTSalesOrder	REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine	REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_Allowance		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp		TIMESTAMP;
+
+		FOR REF_Discount AS REF_ProdSale.DistributedPromotionSaving[] DO
+			CREATE LASTCHILD OF REF_ProductSale AS REF_Allowance NAMESPACE NS_dfns NAME 'Allowance'; 
+			SET REF_Allowance.NS_oa:ID									= REF_Discount.PromotionID;
+			SET REF_Allowance.NS_oa:Type								= '022';
+			IF COALESCE(REF_Discount.Saving, '') <> '' THEN
+				SET REF_Allowance.NS_oa:BasisAmount						= FUNC_ConvertPennytoPound(REF_Discount.Saving,-1,2,NULL);
+			ELSE
+				SET REF_Allowance.NS_oa:BasisAmount						= '0';
+			END IF;
+			
+			SET REF_Allowance.NS_oa:BasisAmount.(XMLNSC.Attribute)currencyID		= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+			
+			SET REF_Allowance.NS_oa:Description							= 'PriceRule';
+			SET REF_Allowance.NS_oa:Calculation.NS_oa:Description		= 'Subtract';
+			SET REF_Allowance.NS_oa:ReferenceID							= REF_Discount.Hit;
+		END FOR;
+	END;
+
+    /************************************************************************************
+	* Procedure Name     :PROC_ProdSale_EmpDiscount   					                *
+	* Input Parameters   :REF_ProductSale,REF_ProdSale                                  *
+	* Output Parameters  :REF_ProductSale,REF_ProdSale                                  *
+	* Description        :Mapping for EmployeeDiscount in ProcessSalesOrdermessage      *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_ProdSale_EmpDiscount(INOUT REF_ProductSale REFERENCE, INOUT REF_ProdSale REFERENCE)
+	BEGIN
+		DECLARE REF_INRoot			REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader		REFERENCE TO REF_INRoot.Header;
+		DECLARE REF_OUTSalesOrder	REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine	REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_Allowance		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp		TIMESTAMP;
+
+		FOR REF_Discount AS REF_ProdSale.EmployeeDiscount[] DO
+			CREATE LASTCHILD OF REF_ProductSale AS REF_Allowance NAMESPACE NS_dfns NAME 'Allowance'; 
+			
+			--Code change starts for version 0.3
+			--IF COALESCE(REF_POHeader.EmployeeGradeID, '') = '' THEN
+			IF COALESCE(REF_POHeader.EmployeeGradeID, '') <> '' THEN
+			--Code change ends for version 0.3
+				SET REF_Allowance.NS_oa:ID												= Environment.Variables.Condition.ModID;
+			ELSE
+				SET REF_Allowance.NS_oa:ID												= 'StaffDiscount';
+			END IF;
+			IF COALESCE(REF_POHeader.EmployeeGradeID, '') <> '' THEN
+				SET REF_Allowance.NS_oa:Type											= Environment.Variables.Condition.DisType;
+			ELSE
+				SET REF_Allowance.NS_oa:Type											= REF_Discount.ModifierReasonID;
+			END IF;
+			
+			SET REF_Allowance.NS_oa:BasisAmount											= FUNC_ConvertPennytoPound(REF_Discount.ModifierValue,-1,2,NULL);
+			SET REF_Allowance.NS_oa:BasisAmount.(XMLNSC.Attribute)currencyID			= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+			
+			SET REF_Allowance.NS_oa:Description											= 'TransactionEmployeeDiscount';
+			IF COALESCE(REF_Discount.DiscountPercentage, '') <> '' THEN
+				SET REF_Allowance.NS_oa:Calculation.NS_oa:RateNumeric					= CAST(REF_Discount.DiscountPercentage AS DECIMAL) * 100;
+			END IF;
+			SET REF_Allowance.NS_oa:Calculation.NS_oa:Description						= 'Subtract';
+			SET REF_Allowance.NS_oa:ReasonCode											= REF_Discount.ModifierReasonID;
+			SET REF_Allowance.NS_oa:ReasonCode.(XMLNSC.Attribute)name					= REF_Discount.ModifierReasonDescription;
+			SET TS_TimeStamp															= CAST(REF_Discount.ModifierDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			SET REF_Allowance.NS_oa:LastModificationDateTime							= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		END FOR;
+	END;
+		
+END MODULE;

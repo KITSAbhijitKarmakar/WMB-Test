@@ -1,0 +1,62 @@
+**************************************************************
+**  Script	:  MQSC_PAYMENT_PROCESSPAYMENT-CHARGE.MQSC
+**  Created By  :  Sayamtan Som / Asif Hossain
+**  Modified By :  Panchanan Mandal
+**  Environment	:  D & S-tier	
+**************************************************************
+
+** Queues Script for Payment_processPayment-Charge Application
+** Payment_processPayment-Charge
+
+** Queues for ProcessPayment_Charge.msgflow
+
+DEFINE QLOCAL(SALESORDER.PAYMENT.CHARGE.WMB.TRANSIT.LOCAL) +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+DESCR('QL defination for SalesOrder payment charge') +
+REPLACE
+
+
+DEFINE QALIAS(SALESORDER.PAYMENT.CHARGE.WMB.TRANSIT.WMB) +
+TARGQ(SALESORDER.PAYMENT.CHARGE.WMB.TRANSIT.LOCAL) +
+LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+PUT(ENABLED) +
+DESCR('QA defination for SalesOrder payment charge QL') +
+REPLACE
+
+
+DEFINE QLOCAL(SALESORDER.SETTLEMENTACK.WMB.LOCAL)  +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+DESCR('QL defination for SalesOrder settlement Ack') +
+REPLACE
+
+
+DEFINE QALIAS(SALESORDER.SETTLEMENTACK.WMB.OUTBOUND.WMB) +
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+TARGQ(SALESORDER.SETTLEMENTACK.WMB.LOCAL) +
+DESCR('QL defination for SalesOrder settlement Ack outbound') +
+REPLACE
+
+
+** Queues for ProcessPayment_ConfirmORReject.msgflow
+
+DEFINE QALIAS(SALESORDER.SETTLEMENTACK.WMB.TRANSIT.WMB) +
+LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+TARGQ(SALESORDER.SETTLEMENTACK.WMB.LOCAL) +
+DESCR('QA defination for SalesOrder settlement Ack') +
+REPLACE
+
+
+DEFINE QLOCAL(SALESORDER.PAYMENT.VGIS.WMB.LOCAL) + 
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+MAXDEPTH(10000) +
+DESCR('QL defination for SalesOrder payment VGIS transit') +
+REPLACE
+
+
+DEFINE QALIAS(SALESORDER.PAYMENT.VGIS.WMB.OUTBOUND.WMB) +
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+TARGQ(SALESORDER.PAYMENT.VGIS.WMB.LOCAL) +
+DESCR('QA defination for SalesOrder payment VGIS transit QL') +
+REPLACE
+
+*************************EndScript************************

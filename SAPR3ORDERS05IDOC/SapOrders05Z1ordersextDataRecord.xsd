@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersextdatarecord" xmlns:sapasi="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:saporders05z1ordersextdatarecord="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersextdatarecord" xmlns:saporders05z1ordersexte2cucfg003="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2cucfg003" xmlns:saporders05z1ordersexte2edk01005="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk01005" xmlns:saporders05z1ordersexte2edk02="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk02" xmlns:saporders05z1ordersexte2edk03="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk03" xmlns:saporders05z1ordersexte2edk04001="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk04001" xmlns:saporders05z1ordersexte2edk05001="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk05001" xmlns:saporders05z1ordersexte2edk14="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk14" xmlns:saporders05z1ordersexte2edk17="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk17" xmlns:saporders05z1ordersexte2edk18="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk18" xmlns:saporders05z1ordersexte2edk35000="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk35000" xmlns:saporders05z1ordersexte2edk36000="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk36000" xmlns:saporders05z1ordersexte2edka1003="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edka1003" xmlns:saporders05z1ordersexte2edkt1002="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edkt1002" xmlns:saporders05z1ordersexte2edl37004="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edl37004" xmlns:saporders05z1ordersexte2edp01006="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edp01006" xmlns:saporders05z1ordersexte2eds01="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2eds01" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk01005" schemaLocation="SapOrders05Z1ordersextE2edk01005.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk14" schemaLocation="SapOrders05Z1ordersextE2edk14.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk03" schemaLocation="SapOrders05Z1ordersextE2edk03.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk04001" schemaLocation="SapOrders05Z1ordersextE2edk04001.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk05001" schemaLocation="SapOrders05Z1ordersextE2edk05001.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edka1003" schemaLocation="SapOrders05Z1ordersextE2edka1003.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk02" schemaLocation="SapOrders05Z1ordersextE2edk02.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk17" schemaLocation="SapOrders05Z1ordersextE2edk17.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk18" schemaLocation="SapOrders05Z1ordersextE2edk18.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk35000" schemaLocation="SapOrders05Z1ordersextE2edk35000.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edk36000" schemaLocation="SapOrders05Z1ordersextE2edk36000.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edkt1002" schemaLocation="SapOrders05Z1ordersextE2edkt1002.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edp01006" schemaLocation="SapOrders05Z1ordersextE2edp01006.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2cucfg003" schemaLocation="SapOrders05Z1ordersextE2cucfg003.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2edl37004" schemaLocation="SapOrders05Z1ordersextE2edl37004.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/ORDERS05/saporders05z1ordersexte2eds01" schemaLocation="SapOrders05Z1ordersextE2eds01.xsd"/>
+<xsd:import namespace="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata"/>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability">
+<info:resourceAdapter version="7.0.0.4_IF03" xmlns:info="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability"/>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="commonj.connector.asi">
+<asi:annotationSet asiNSURI="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:asi="commonj.connector.asi"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:complexType name="SapOrders05Z1ordersextDataRecord">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEBusinessObjectTypeMetadata>
+</sapasi:sapALEBusinessObjectTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:sequence maxOccurs="1" minOccurs="1">
+<xsd:element maxOccurs="1" minOccurs="1" name="SapOrders05Z1ordersextE2edk01005" nillable="true" type="saporders05z1ordersexte2edk01005:SapOrders05Z1ordersextE2edk01005">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK01005</sapasi:FieldName>
+<sapasi:SegmentHierarchy>01</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>true</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk14" nillable="true" type="saporders05z1ordersexte2edk14:SapOrders05Z1ordersextE2edk14">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK14</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk03" nillable="true" type="saporders05z1ordersexte2edk03:SapOrders05Z1ordersextE2edk03">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK03</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk04001" nillable="true" type="saporders05z1ordersexte2edk04001:SapOrders05Z1ordersextE2edk04001">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK04001</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk05001" nillable="true" type="saporders05z1ordersexte2edk05001:SapOrders05Z1ordersextE2edk05001">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK05001</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edka1003" nillable="true" type="saporders05z1ordersexte2edka1003:SapOrders05Z1ordersextE2edka1003">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDKA1003</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk02" nillable="true" type="saporders05z1ordersexte2edk02:SapOrders05Z1ordersextE2edk02">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK02</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk17" nillable="true" type="saporders05z1ordersexte2edk17:SapOrders05Z1ordersextE2edk17">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK17</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk18" nillable="true" type="saporders05z1ordersexte2edk18:SapOrders05Z1ordersextE2edk18">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK18</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk35000" nillable="true" type="saporders05z1ordersexte2edk35000:SapOrders05Z1ordersextE2edk35000">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK35000</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edk36000" nillable="true" type="saporders05z1ordersexte2edk36000:SapOrders05Z1ordersextE2edk36000">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK36000</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edkt1002" nillable="true" type="saporders05z1ordersexte2edkt1002:SapOrders05Z1ordersextE2edkt1002">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDKT1002</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edp01006" nillable="true" type="saporders05z1ordersexte2edp01006:SapOrders05Z1ordersextE2edp01006">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDP01006</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2cucfg003" nillable="true" type="saporders05z1ordersexte2cucfg003:SapOrders05Z1ordersextE2cucfg003">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2CUCFG003</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2edl37004" nillable="true" type="saporders05z1ordersexte2edl37004:SapOrders05Z1ordersextE2edl37004">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDL37004</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapOrders05Z1ordersextE2eds01" nillable="true" type="saporders05z1ordersexte2eds01:SapOrders05Z1ordersextE2eds01">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDS01</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+
+</xsd:schema>

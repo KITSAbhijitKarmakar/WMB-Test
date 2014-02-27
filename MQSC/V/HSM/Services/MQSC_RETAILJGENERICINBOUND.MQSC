@@ -1,0 +1,89 @@
+*****************************************************************
+**   Script	:  MQSC_RETAILJGENERICINBOUND.MQSC
+**   Created By	:  Sayamtan Som / Asif Hossain
+**   Modified By:  Panchanan Mandal
+**   Environment:  D & S-tier	
+*****************************************************************
+
+** Queue Scripts for RetailJGenericInbound Application
+
+
+** Queues for RetailJGenericInbound.msgflow  
+
+DEFINE QLOCAL('POSLOG.EPOS.INBOUND.LOCAL')  +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+MAXDEPTH(500000) +
+DESCR('QL defination for inbound epos messages') +
+REPLACE
+
+ 
+DEFINE QALIAS('POSLOG.EPOS.INBOUND.WMB')  +
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+DESCR('QA defination for inbound epos QL') +
+TARGQ(POSLOG.EPOS.INBOUND.LOCAL) +
+REPLACE
+
+
+DEFINE QALIAS('GENERIC.RETAILJ.INBOUND.WMB')  +
+LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+DESCR('Generic RetailJ QA defination for epos QL') +
+TARGQ(POSLOG.EPOS.INBOUND.LOCAL) +
+REPLACE
+
+
+DEFINE QLOCAL(TERMINALCM.RETAILJ.LOCAL) +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+MAXDEPTH(10000) +
+DESCR('Inbound QL for Terminal CM message') +
+REPLACE
+
+
+DEFINE QALIAS(TERMINALCM.RETAILJ.OUTBOUND.WMB) +
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+TARGQ(TERMINALCM.RETAILJ.LOCAL) +
+DESCR('QA definition for TerminalCM QL') +
+REPLACE
+
+
+DEFINE QLOCAL(SAFECM.RETAILJ.LOCAL) +
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+MAXDEPTH(10000) +
+DESCR('Inbound QL for SafeCM message') +
+REPLACE
+
+
+DEFINE QALIAS(SAFECM.RETAILJ.OUTBOUND.WMB) + 
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+TARGQ(SAFECM.RETAILJ.LOCAL) +
+DESCR('QA definition for SafeCM QL') +
+REPLACE
+
+
+DEFINE QLOCAL(POSBASKET.RETAILJ.LOCAL) + 
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+MAXDEPTH(500000) +
+DESCR('Inbound QL for PosBasket RetailJ message') +
+REPLACE
+
+
+DEFINE QALIAS(POSBASKET.RETAILJ.OUTBOUND.WMB) +
+TARGQ(POSBASKET.RETAILJ.LOCAL) +
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+DESCR('Outbound QA for PosBasket RetailJ QL') +
+REPLACE
+
+DEFINE QLOCAL ('POSLOG.WMB.OUTBOUND.LOCAL') + 
+LIKE('SERVICES.TEMPLATE.LOCAL.WMB') + 
+DESCR('Outbound local queue from RetailJ to IB') + 
+REPLACE 
+
+DEFINE QALIAS ('POSLOG.WMB.OUTBOUND.IB') + 
+LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') + 
+DESCR('WMB alias of Outbound local queue from RetailJ to IB') + 
+TARGQ('POSLOG.WMB.OUTBOUND.LOCAL') + 
+REPLACE
+
+
+****************************EndScript*************************
+
+

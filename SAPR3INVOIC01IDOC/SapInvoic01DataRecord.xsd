@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema targetNamespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01datarecord" xmlns:sapasi="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:sapinvoic01datarecord="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01datarecord" xmlns:sapinvoic01e2edk01005="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk01005" xmlns:sapinvoic01e2edk02="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk02" xmlns:sapinvoic01e2edk03="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk03" xmlns:sapinvoic01e2edk04001="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk04001" xmlns:sapinvoic01e2edk05001="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk05001" xmlns:sapinvoic01e2edk14="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk14" xmlns:sapinvoic01e2edk17="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk17" xmlns:sapinvoic01e2edk18="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk18" xmlns:sapinvoic01e2edk23001="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk23001" xmlns:sapinvoic01e2edk28="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk28" xmlns:sapinvoic01e2edk29003="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk29003" xmlns:sapinvoic01e2edka1003="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edka1003" xmlns:sapinvoic01e2edkt1002="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edkt1002" xmlns:sapinvoic01e2edp01006="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edp01006" xmlns:sapinvoic01e2eds01="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2eds01" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk01005" schemaLocation="SapInvoic01E2edk01005.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edka1003" schemaLocation="SapInvoic01E2edka1003.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk02" schemaLocation="SapInvoic01E2edk02.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk03" schemaLocation="SapInvoic01E2edk03.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk05001" schemaLocation="SapInvoic01E2edk05001.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk04001" schemaLocation="SapInvoic01E2edk04001.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk17" schemaLocation="SapInvoic01E2edk17.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk18" schemaLocation="SapInvoic01E2edk18.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk23001" schemaLocation="SapInvoic01E2edk23001.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk28" schemaLocation="SapInvoic01E2edk28.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk29003" schemaLocation="SapInvoic01E2edk29003.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edkt1002" schemaLocation="SapInvoic01E2edkt1002.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edk14" schemaLocation="SapInvoic01E2edk14.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2edp01006" schemaLocation="SapInvoic01E2edp01006.xsd"/>
+<xsd:import namespace="http://ukbq.kingfisher.com/SAPR3/INVOIC01/sapinvoic01e2eds01" schemaLocation="SapInvoic01E2eds01.xsd"/>
+<xsd:import namespace="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata"/>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability">
+<info:resourceAdapter version="7.0.0.4_IF03" xmlns:info="http://www.ibm.com/xmlns/prod/j2ca/versionCompatability"/>
+</xsd:appinfo>
+</xsd:annotation>
+
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="commonj.connector.asi">
+<asi:annotationSet asiNSURI="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata" xmlns:asi="commonj.connector.asi"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:complexType name="SapInvoic01DataRecord">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEBusinessObjectTypeMetadata>
+</sapasi:sapALEBusinessObjectTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:sequence maxOccurs="1" minOccurs="1">
+<xsd:element maxOccurs="1" minOccurs="1" name="SapInvoic01E2edk01005" nillable="true" type="sapinvoic01e2edk01005:SapInvoic01E2edk01005">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK01005</sapasi:FieldName>
+<sapasi:SegmentHierarchy>01</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>true</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edka1003" nillable="true" type="sapinvoic01e2edka1003:SapInvoic01E2edka1003">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDKA1003</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk02" nillable="true" type="sapinvoic01e2edk02:SapInvoic01E2edk02">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK02</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk03" nillable="true" type="sapinvoic01e2edk03:SapInvoic01E2edk03">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK03</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk05001" nillable="true" type="sapinvoic01e2edk05001:SapInvoic01E2edk05001">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK05001</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk04001" nillable="true" type="sapinvoic01e2edk04001:SapInvoic01E2edk04001">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK04001</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk17" nillable="true" type="sapinvoic01e2edk17:SapInvoic01E2edk17">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK17</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk18" nillable="true" type="sapinvoic01e2edk18:SapInvoic01E2edk18">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK18</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk23001" nillable="true" type="sapinvoic01e2edk23001:SapInvoic01E2edk23001">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK23001</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk28" nillable="true" type="sapinvoic01e2edk28:SapInvoic01E2edk28">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK28</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk29003" nillable="true" type="sapinvoic01e2edk29003:SapInvoic01E2edk29003">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK29003</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edkt1002" nillable="true" type="sapinvoic01e2edkt1002:SapInvoic01E2edkt1002">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDKT1002</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edk14" nillable="true" type="sapinvoic01e2edk14:SapInvoic01E2edk14">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDK14</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2edp01006" nillable="true" type="sapinvoic01e2edp01006:SapInvoic01E2edp01006">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDP01006</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+<xsd:element maxOccurs="unbounded" minOccurs="0" name="SapInvoic01E2eds01" nillable="true" type="sapinvoic01e2eds01:SapInvoic01E2eds01">
+<xsd:annotation xml:space="preserve">
+<xsd:appinfo source="http://www.ibm.com/xmlns/prod/websphere/j2ca/sap/metadata">
+<sapasi:sapALEPropertyTypeMetadata>
+<sapasi:FieldName>E2EDS01</sapasi:FieldName>
+<sapasi:SegmentHierarchy>02</sapasi:SegmentHierarchy>
+<sapasi:OffSet>0</sapasi:OffSet>
+<sapasi:PrimaryKey>false</sapasi:PrimaryKey>
+<sapasi:ForeignBOKeyRef/>
+<sapasi:MaxLength>0</sapasi:MaxLength>
+</sapasi:sapALEPropertyTypeMetadata>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+
+</xsd:schema>

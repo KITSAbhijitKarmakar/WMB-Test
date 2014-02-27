@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<messageListToWcs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="hostToWcs.xsd">
+  <datetime>2001-12-31T12:00:00</datetime>
+  <sequenceNo>1</sequenceNo>
+  <vendorUpdate>
+    <sapVendorNumber>sapVendorNumber</sapVendorNumber>
+    <vendorName>vendorName</vendorName>
+    <vendorAdd1>vendorAdd1</vendorAdd1>
+    <vendorAdd2>vendorAdd2</vendorAdd2>
+    <vendorAdd3>vendorAdd3</vendorAdd3>
+    <vendorAdd4>vendorAdd4</vendorAdd4>
+    <postcode>postcode</postcode>
+    <phone>phone</phone>
+    <fax>fax</fax>
+  </vendorUpdate>
+</messageListToWcs>

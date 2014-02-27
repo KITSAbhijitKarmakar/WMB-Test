@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author:  Anand Patil
+  Revision:    1.0
+  Date:        20 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><definitions targetNamespace="http://www.kingfisher.com/Services/PaymentService/1.0" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/PaymentService/1.0" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <documentation>
+    <appinfo source="WMQI_APPINFO">
+      <MRWSDLAppInfo imported="true">
+        <generatedXSD location="PaymentService_InlineSchema1.xsd"/>
+        <binding hasEncoding="false" imported="true" name="PaymentBinding" originalBindingStyle="document"/>
+      </MRWSDLAppInfo>
+    </appinfo>
+  </documentation>
+	<types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:include schemaLocation="PaymentService_InlineSchema1.xsd"/>
+    </xsd:schema>
+	</types>
+	<message name="Fault">
+		<part element="koa:Fault" name="parameter"/>
+	</message>
+	<message name="ProcessPayment">
+		<part element="koa:ProcessPayment" name="Message"/>
+	</message>
+	<message name="AcknowledgePayment">
+		<part element="koa:AcknowledgePayment" name="Message"/>
+	</message>
+	<portType name="PaymentPortType">
+		<operation name="ProcessPayment">
+			<input message="koaws:ProcessPayment"/>
+			<output message="koaws:AcknowledgePayment"/>
+			<fault message="koaws:Fault" name="ProcessPaymentFault"/>
+		</operation>
+	</portType>
+	<binding name="PaymentBinding" type="koaws:PaymentPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="ProcessPayment">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/PaymentService/PaymentPortType/ProcessPayment/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="ProcessPaymentFault">
+				<soap:fault name="ProcessPaymentFault" use="literal"/>
+			</fault>
+		</operation>
+	</binding>
+	<service name="PaymentService">
+		<port binding="koaws:PaymentBinding" name="PaymentBinding">
+			<soap:address location="http://www.kingfisher.com/Services/Payment/1.0"/>
+		</port>
+	</service>
+</definitions>

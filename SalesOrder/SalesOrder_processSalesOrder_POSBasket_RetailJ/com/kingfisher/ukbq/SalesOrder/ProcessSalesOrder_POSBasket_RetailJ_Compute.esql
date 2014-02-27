@@ -1,0 +1,129 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+--DECLARE CACHE_CONFIGDATA SHARED ROW;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: RemoveEscapeXML														*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_Compute				 			*
+* Description 				: Remove non xml compliant characters									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		7-MAY-2013 		Asif Hossain 		The initial version. 								*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE wholeMsgBlob BLOB ASBITSTREAM(InputRoot.XMLNSC,InputRoot.Properties.Encoding,InputRoot.Properties.CodedCharSetId );
+		DECLARE wholeMsgChar CHAR CAST(wholeMsgBlob AS CHAR CCSID InputRoot.Properties.CodedCharSetId);
+		DECLARE REF_Message REFERENCE TO Environment;		
+
+
+		SET Environment.Message 	= EscapeXML(EscapeXML(EscapeXML(EscapeXML(EscapeXML(wholeMsgChar,'Description'),'LongDescription'),'Street1'),'OrganisationName'),'OriginalTenderDescription');
+		
+		SET OutputRoot.Properties 	= InputRoot.Properties;
+		SET OutputRoot.MQMD 		= InputRoot.MQMD;
+		
+		CREATE LASTCHILD OF OutputRoot AS REF_Message DOMAIN ('XMLNSC') PARSE (Environment.Message
+		CCSID InputRoot.Properties.CodedCharSetId) ;
+		
+		
+		--Caching for the configurabale data
+		IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.VATDATA[]) = FALSE
+			OR EXISTS(CACHE_CONFIGDATA.MBCONFIG[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.PRICEMODIFIER[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBTOPICS[])=FALSE THEN
+			
+			CALL PROC_LoadCache();		
+		END IF;
+		
+		RETURN TRUE;
+	END;
+
+
+    /************************************************************************************
+	* Function Name      :EscapeXML      				            			        *
+	* Input Parameters   :InputXML,ElementName          			                    *
+	* Output Parameters  :None							                                *
+	* Description        :Convert non xml compliant characters to xml compliant 		*
+	*					  characters													*
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	============ 	================================        *
+	*  0.1   	07-MAY-2013 	Asif Hossain 	The initial version.                    *
+	************************************************************************************/
+	CREATE FUNCTION EscapeXML(InputXML CHARACTER, ElementName CHARACTER) RETURNS CHARACTER
+
+	BEGIN
+
+		DECLARE CH_ret CHARACTER '';
+		DECLARE CH_input CHARACTER InputXML;
+		DECLARE CH_elemVal CHARACTER;
+		DECLARE CH_Strt CHARACTER '<'||ElementName||'>';
+		DECLARE CH_End CHARACTER '</'||ElementName||'>';
+		DECLARE IN_Strt INTEGER 0;
+		DECLARE IN_End INTEGER 0;
+
+		SET IN_Strt = POSITION(CH_Strt IN CH_input);
+
+		WHILE IN_Strt<>0 DO
+
+			SET IN_Strt = IN_Strt + LENGTH(CH_Strt);
+			SET IN_End = POSITION(CH_End IN CH_input);
+			SET CH_elemVal = SUBSTRING(CH_input FROM IN_Strt FOR (IN_End - IN_Strt));
+			SET CH_elemVal = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(CH_elemVal,'&','&amp;'),'<','&lt;'),'>','&gt;'),'"','&quot;'),'''','&apos;');
+			SET CH_ret = CH_ret || SUBSTRING(CH_input BEFORE CH_Strt) || CH_Strt || CH_elemVal || CH_End;
+			SET CH_input = SUBSTRING(CH_input AFTER CH_End);
+			SET IN_Strt = POSITION(CH_Strt IN CH_input);
+
+		END WHILE;
+
+		SET CH_ret = CH_ret || CH_input;
+
+		RETURN CH_ret;
+
+	END;
+	
+	CREATE PROCEDURE PROC_LoadCache( )
+	BEGIN
+		
+		CACHE_CONFIGDATA:BEGIN ATOMIC
+			
+			IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.TENDERDATA[] = (SELECT * FROM Database.TENDERDATA);
+			END IF; 
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBSTRCD[] = (SELECT * FROM Database.MBSTRCD);
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.VATDATA[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.VATDATA[] = (SELECT * FROM Database.VATDATA);
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBCONFIG[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBCONFIG[] = (SELECT * FROM Database.MBCONFIG);
+			END IF;
+			
+			IF EXISTS(CACHE_CONFIGDATA.PRICEMODIFIER[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.PRICEMODIFIER[] = (SELECT * FROM Database.PRICEMODIFIER);
+			END IF;	
+			
+			IF EXISTS(CACHE_CONFIGDATA.MBTOPICS[]) = FALSE THEN
+				SET CACHE_CONFIGDATA.MBTOPICS[] = (SELECT * FROM Database.MBTOPICS);
+			END IF;
+			
+		 END;
+	END;
+	
+	
+END MODULE;

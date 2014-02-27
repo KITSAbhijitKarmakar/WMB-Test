@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmJavaCompute.msgnode="ComIbmJavaCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:com_kingfisher_ukbq_Ledger_ProcessMsg_CommIdeaGateway_RegisterToken.subflow="com/kingfisher/ukbq/Ledger/ProcessMsg_CommIdeaGateway_RegisterToken.subflow" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Ledger/RegisterToken.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Ledger_RegisterToken.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="RegisterToken" bundleName="com/kingfisher/ukbq/Ledger/RegisterToken" pluginId="Ledger_loadLedger"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Ledger_loadLedger/icons/full/obj16/RegisterToken.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Ledger_loadLedger/icons/full/obj30/RegisterToken.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="184,273">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node extracts the SOAP Header from the input message. "/>
+        <longDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node extracts the SOAP Header from the input message. "/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="301,372" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Ledger#CreateRegisterTokenRequest_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="CreateRegisterTokenRequest"/>
+        <shortDescription xmi:type="utility:ConstantString" string="CreateRegsiterTokenRequest Node creates request structure for CommIdea. "/>
+        <longDescription xmi:type="utility:ConstantString" string="CreateRegsiterTokenRequest Node creates request structure for CommIdea. "/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="712,453" dataSource="MBODS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Ledger#UpdateODS_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="UpdateODS"/>
+        <shortDescription xmi:type="utility:ConstantString" string="UpdateODS Node updates the SALES_TRANSACTION_ORDERS table with Token received from CommIdea."/>
+        <longDescription xmi:type="utility:ConstantString" string="UpdateODS Node updates the SALES_TRANSACTION_ORDERS table with Token received from CommIdea."/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="13,352" queueName="LEDGER.PAYMENTCARD.WMB.TRANSIT.WMB" messageDomainProperty="XMLNSC" validateTiming="immediate" transactionMode="automatic" orderMode="byQueueOrder">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_RegisterToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_MQInput_RegisterToken Node receives input message from LoadLedger flow. "/>
+        <longDescription xmi:type="utility:ConstantString" string="WMB_MQInput_RegisterToken Node receives input message from LoadLedger flow. "/>
+        <nsMappingTable nsPrefix="tns" namespace="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <nsMappingTable nsPrefix="Loa" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="App" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_RegisterToken.transaction.Start" eventIdentity="WMB_MQInput_RegisterToken.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/Loa:DataArea/Loa:Ledger/Loa:LedgerHeader/Loa:SalesOrderReference/Loa:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_RegisterToken.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_RegisterToken.transaction.End" eventIdentity="WMB_MQInput_RegisterToken.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/Loa:DataArea/Loa:Ledger/Loa:LedgerHeader/Loa:SalesOrderReference/Loa:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_RegisterToken.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_RegisterToken.terminal.catch" eventIdentity="WMB_MQInput_RegisterToken.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/App:ApplicationArea/App:BODID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Loa:LoadLedger/Loa:DataArea/Loa:Ledger/Loa:LedgerHeader/Loa:SalesOrderReference/Loa:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_RegisterToken.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Loa" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="195,446">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ErrorHandler Node handles the error in the flow."/>
+        <longDescription xmi:type="utility:ConstantString" string="ErrorHandler Node handles the error in the flow."/>
+      </nodes>
+      <nodes xmi:type="ComIbmJavaCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="407,262" javaClass="com.kingfisher.ukbq.Ledger.LoadLedger_RegisterToken_JavaCompute">
+        <translation xmi:type="utility:ConstantString" string="GetDecryptedAccountId"/>
+        <shortDescription xmi:type="utility:ConstantString" string="GetDecryptedAccountId Node decrypts encrypted AccountId."/>
+        <longDescription xmi:type="utility:ConstantString" string="GetDecryptedAccountId Node decrypts encrypted AccountId."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="453,442" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node adds SOAP Envelope to the CommIDea Request Structure."/>
+        <longDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node adds SOAP Envelope to the CommIDea Request Structure."/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_Ledger_ProcessMsg_CommIdeaGateway_RegisterToken.subflow:FCMComposite_1" xmi:id="FCMComposite_1_10" location="501,340">
+        <translation xmi:type="utility:ConstantString" string="ProcessMsg_CommIdeaGateway_RegisterToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ProcessMsg_CommIdeaGateway_RegisterToken is a subflow Node to hit CommIdea."/>
+        <longDescription xmi:type="utility:ConstantString" string="ProcessMsg_CommIdeaGateway_RegisterToken is a subflow Node to hit CommIdea."/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.ProcessMsgResponse" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="156,58">
+        <body xmi:type="utility:ConstantString" string="Name           :      RegisterToken&#xA;Author         :      Soutam Dutta&#xA;Date            :       09-Apr-2013&#xA;&#xA;Description  : 1. WMB_MQInput_RegisterToken Node receives input message from LoadLedger flow. &#xA;                      2. ExtractSOAPEnvelope Node extracts the SOAP Header from the input message. &#xA;                      3. CreateRegsiterTokenRequest Node creates request structure for CommIdea. &#xA;                      4. GetDecryptedAccountId Node decrypts encrypted AccountId.&#xA;                      5. AddSOAPHeader Node adds SOAP Envelope to the CommIDea Request Structure.&#xA;                      6. ProcessMsg_CommIdeaGateway_RegisterToken is a subflow Node to hit CommIdea.&#xA;                      7. UpdateODS Node updates the SALES_TRANSACTION_ORDERS table with Token received from CommIdea.&#xA;                      8. ErrorHandler Node handles the error in the flow."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

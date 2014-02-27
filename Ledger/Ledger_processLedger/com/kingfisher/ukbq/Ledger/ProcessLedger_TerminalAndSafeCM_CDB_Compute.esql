@@ -1,0 +1,316 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+DECLARE CH_DSN 			EXTERNAL NAME 'MBREPOS';
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				:	Insert_CDB																		* 
+* Interface Id 				:  																					*
+* Interface Name 			:	Ledger_processLedger															*
+* Message Flow 				:	ProcessLedger_TerminalAndSafeCM_CDB												*
+* Message Flow Description  :	The primary function of this service capability is to insert RETJCASHLD table	*
+*							 	of CDB with TerminalCM or SafeCM details.										*
+* Module Name 				: 	ProcessLedger_TerminalAndSafeCM_CDB_Compute 									*
+* Description 				: 	The module will insert TerminalCM or SafeCM details into CDB 			       	*
+* 							  																					*
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	==========================								*
+* 0.1	  	09-Apr-2013   	Sourav Banu					The initial version. 									*
+* 0.2 		24-SEP-2013 	Sourav Banu					Code for production defect #INC0120099			 		*
+*****************************************************************************************************************/
+CREATE COMPUTE MODULE ProcessLedger_TerminalAndSafeCM_CDB_Compute
+	DECLARE IBODS	EXTERNAL NAME 'MBODS';
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Input reference declaration
+		DECLARE REF_INProcessLedger          	REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessLedger;
+		DECLARE REF_INLedger 					REFERENCE TO REF_INProcessLedger.NS_dfns:DataArea.NS_dfns:Ledger;
+		DECLARE REF_INLedgerLine 				REFERENCE TO REF_INLedger.NS_dfns:LedgerLine;
+		DECLARE REF_INLedgerHeader     			REFERENCE TO REF_INLedger.NS_dfns:LedgerHeader;
+		DECLARE REF_INApplicationArea    	    REFERENCE TO REF_INProcessLedger.NS_oa:ApplicationArea;
+		
+		
+		SET Environment.Variables.TransactionID	=	InputRoot.XMLNSC.NS_dfns:ProcessLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader.NS_oa:ID;
+		
+		SET Environment.Variables.Flag[] = PASSTHRU('SELECT CCCP FROM SALES_TRANSACTIONS_COUNT WHERE TRANSACTION_ID = '''|| Environment.Variables.TransactionID ||'''' TO Database.{IBODS});
+			
+		IF Environment.Variables.Flag.CCCP = 'N' THEN	
+		
+			IF REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID 			= 'EPOSCASHO' THEN 
+				
+	--			--Loop through the LedgerLine	
+	--			WHILE LASTMOVE(REF_INLedgerLine) DO
+	--				
+	--				--Loop through the 	Description under LedgerLine
+	--				FOR REF_INLedgerDescription AS REF_INLedgerLine.NS_oa:Description[] DO
+	--					
+	--					IF REF_INLedgerDescription.(XMLNSC.Attribute)type	= 'TENDER CONTROL TYPE'  THEN
+	--						
+	--						IF FIELDVALUE(REF_INLedgerDescription) <> 'EndOfWeek' THEN
+	--							
+								--Calling the procedure PROC_InsertRetjcashld() to insert into the RETJCASHLD table	
+								CALL PROC_InsertRetjcashld(REF_INLedgerHeader,REF_INLedger);
+	--							
+	--						END IF;
+	--						
+	--					END IF;
+	--					
+	--				END FOR;
+	--				
+	--				MOVE REF_INLedgerLine NEXTSIBLING REPEAT TYPE NAME;
+	--				
+	--			END WHILE;
+				
+			END IF;
+		END IF;
+	   RETURN FALSE;
+		END;
+		
+	/*****************************************************************************************
+	* Procedure Name	: PROC_InsertRetjcashld() 									 		 *
+	* Input Parameters	: REF_INLedgerHeader, REF_INLedger									 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Inserting values into RETJCASHLD table	       	     *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	09-APR-2013 	Sourav Banu 	The initial version. 						 *
+	*****************************************************************************************/
+	
+	CREATE PROCEDURE PROC_InsertRetjcashld ( IN REF_INLedgerHeader REFERENCE,IN REF_INLedger REFERENCE )
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN
+			PASSTHRU('ROLLBACK');
+			RESIGNAL;
+		END;
+		
+		--Declaring Variables
+		DECLARE CH_TransactionId      	CHARACTER;
+		DECLARE CH_StoreCode          	CHARACTER;
+		DECLARE CH_ActionType        	CHARACTER;
+		DECLARE CH_ActionDescription 	CHARACTER;
+		DECLARE CH_UserId           	CHARACTER;
+		DECLARE CH_SessionDateTime 		CHARACTER;
+	    DECLARE CH_NextSessionDateTime 	CHARACTER;
+		DECLARE CH_CreationDte 			CHARACTER;
+		DECLARE CH_ReasonCode 			CHARACTER;
+		DECLARE CH_TenderType  			CHARACTER;
+		DECLARE CH_Target       		CHARACTER;	
+		DECLARE CH_Action       		CHARACTER;	
+		DECLARE CH_ReasonTemp   		CHARACTER;
+		DECLARE CH_ReasonType           CHARACTER;
+		DECLARE CH_ActionDateTime 	 	CHARACTER;
+		DECLARE CH_ReasonDescription 	CHARACTER;
+		DECLARE CH_Cid				 	CHARACTER;
+		DECLARE CH_ArrayVariable     	CHARACTER;
+		DECLARE CH_Till				 	CHARACTER;
+		DECLARE CH_CashValue		 	CHARACTER;
+		DECLARE TS_TimeStamp			TIMESTAMP;
+		DECLARE CH_SqlStr				CHARACTER;
+		DECLARE DC_BdAmount			 	DECIMAL;
+		DECLARE IN_PositionOfDot	 	INTEGER;
+		
+		DECLARE REF_INLedgerLine REFERENCE TO	REF_INLedger.NS_dfns:LedgerLine;
+		
+		--Updating flags
+		PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET CCCP=? WHERE TRANSACTION_ID = ?' TO Database.{IBODS} 
+																	VALUES('Y',Environment.Variables.TransactionID ); 
+		
+		--Setting the values from the input to respective variables
+	    SET CH_TransactionId								= REF_INLedgerHeader.NS_oa:ID;
+	    
+	    --Retrieves the FULLSTORECODE information from MBSTRCD table of MBREPOS database
+	  	SET CH_StoreCode 									= THE(SELECT ITEM A.FULLSTORECODE FROM Database.{CH_DSN}.MBREPOS.MBSTRCD AS A 
+	          												  WHERE A.GENERICSTORECODE = REF_INLedgerHeader.NS_oa:SourceID);
+	  	SET  CH_ActionType 									= REF_INLedgerHeader.NS_oa:ActionCodes.NS_oa:Code;
+	  	
+	  	IF COALESCE(REF_INLedgerHeader.NS_oa:ActionCodes.NS_oa:Code,'') <> '' THEN
+	  		
+		  	SET CH_Action 									= REF_INLedgerHeader.NS_oa:ActionCodes.NS_oa:Code;
+		  	
+		  	--Retrieves the ACTIONDESCRIPTION information from EPOSACTION table of MBREPOS database
+		 	SET CH_Target 									= THE(SELECT ITEM  A.ACTIONDESCRIPTION FROM Database.{CH_DSN}.MBREPOS.EPOSACTION AS A 
+		  													  WHERE A.ACTIONCODE = CH_Action );
+		  	SET CH_ActionDescription						= CH_Target;
+		  	
+	  	END IF;
+	  	
+	  	SET CH_UserId										= REF_INLedgerHeader.NS_dfns:OperatorID;
+	  	SET TS_TimeStamp									= CAST(REF_INLedgerHeader.NS_oa:EndDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+	  	--Code Change Start For Production Defect 24/09/2013 version 0.2
+        --SET CH_ActionDateTime 								= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+        SET CH_ActionDateTime 								= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+        --Code Change Start For Production Defect 24/09/2013 version 0.2
+        
+        FOR INREF_Session AS REF_INLedgerHeader.NS_dfns:Session[] DO
+        	
+        	IF INREF_Session.NS_oa:Type='CURRENT' THEN 
+        		SET TS_TimeStamp							= CAST(INREF_Session.NS_oa:StartDateTime     AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+        		--Code Change Start For Production Defect 24/09/2013 version 0.2
+	            --SET CH_SessionDateTime  					= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+	            SET CH_SessionDateTime  					= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+	            --Code Change Start For Production Defect 24/09/2013 version 0.2
+            END IF;
+        
+		  	IF INREF_Session.NS_oa:Type='NEXT' THEN
+		  		SET TS_TimeStamp							= CAST(INREF_Session.NS_oa:StartDateTime     AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		  		--Code Change Start For Production Defect 24/09/2013 version 0.2
+	            --SET CH_NextSessionDateTime					= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+	            SET CH_NextSessionDateTime					= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+	            --Code Change Start For Production Defect 24/09/2013 version 0.2
+	        END IF;
+        
+	  	END FOR;	
+	  	
+		SET CH_Cid											= REF_INLedgerHeader.NS_oa:EntryCreator.NS_oa:ID;
+		
+		IF COALESCE(CH_Cid,'')<>''  THEN
+			
+			SET IN_PositionOfDot							= POSITION ('.' IN CH_Cid REPEAT -1);
+			SET CH_Cid		   								= SUBSTRING(CH_Cid FROM IN_PositionOfDot + 1 );
+				
+			IF STARTSWITH(CH_Cid,'T') THEN
+				SET CH_Cid 									= SUBSTRING(CH_Cid FROM 2);
+			END IF;
+			
+			WHILE STARTSWITH(CH_Cid,'0') DO
+				SET CH_Cid 									= SUBSTRING(CH_Cid FROM 2);
+			END WHILE;
+			
+			SET CH_Till 									= CH_Cid;
+			
+		END IF;
+		
+		SET CH_CreationDte									= 'to_date(''' || CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+		
+		IF EXISTS(REF_INLedger.NS_dfns:LedgerLine[])= FALSE THEN
+			-- Inserting values into RETJCASHLD table of CDB
+					SET CH_SqlStr ='INSERT INTO RETJCASHLD(TRANSACTION_ID,STORE_CODE,ACTION_TYPE,ACTION_DESCRIPTION,USER_ID,ACTION_DATE_TIME,SESSION_DATE_TIME,NEXT_SESSION_DATE_TIME,
+					TILL,CREATION_DTE,REASON_CODE,REASON_DESCRIPTION,CASH_VALUE,TENDER_TYPE)
+					VALUES('''|| COALESCE(CH_TransactionId,'') ||''''
+					||','''|| COALESCE(CH_StoreCode,'') ||''''
+					||','''|| COALESCE(CH_ActionType,'') ||''''
+					||','''|| COALESCE(CH_ActionDescription,'') ||''''
+					||','''|| COALESCE(CH_UserId,'') ||''''
+					||','  || COALESCE(CH_ActionDateTime,'''''') 
+					||','  || COALESCE(CH_SessionDateTime,'''''') 
+					||','  || COALESCE(CH_NextSessionDateTime,'''''') 
+					||','''|| COALESCE(CH_Till,'') ||''''
+					||','  || COALESCE(CH_CreationDte ,'''''')
+					||','''|| COALESCE(CH_ReasonCode,'') ||''''
+					||','''|| COALESCE(CH_ReasonDescription,'') ||''''
+					||','  || COALESCE(CH_CashValue,'null')
+					||','''|| COALESCE(CH_TenderType,'') ||''''
+					||')'
+					||'';
+					
+					
+			PASSTHRU(CH_SqlStr);
+		
+			
+		END IF;
+		
+		
+		
+		--Loop through the LedgerLine	
+		WHILE LASTMOVE(REF_INLedgerLine) DO
+			
+			--Loop through the 	Description under LedgerLine
+			--FOR REF_INLedgerDescription AS REF_INLedgerLine.NS_oa:Description[] DO
+				
+				--IF REF_INLedgerDescription.(XMLNSC.Attribute)type	= 'TENDER CONTROL TYPE'  THEN
+					
+					--IF FIELDVALUE(REF_INLedgerDescription) <> 'EndOfWeek' THEN
+						
+						
+						SET CH_Target										= REF_INLedgerLine.NS_oa:ReasonCode;
+	
+						IF LENGTH(CH_Target) > 20 then
+							SET CH_Target 									= SUBSTRING(CH_Target from 1 for 20);
+						END IF;
+						
+						SET CH_ReasonCode									= CH_Target;
+						
+						SET CH_ReasonDescription 							= ''; 
+						IF COALESCE(REF_INLedgerLine.NS_oa:ReasonCode,'') <> ''  THEN
+							SET CH_ReasonTemp 								= REF_INLedgerLine.NS_oa:ReasonCode;
+							--SET CH_ReasonType 								= SUBSTRING(CH_ReasonTemp FROM LENGTH(CH_ReasonTemp)-1 FOR LENGTH(CH_ReasonTemp));
+							SET CH_ReasonType 								= SUBSTRING(CH_ReasonTemp FROM LENGTH(CH_ReasonTemp)-1 FOR 2);
+							
+							IF CH_ReasonType IN ('CI','UK','IE')THEN
+								
+								SET CH_ReasonTemp 							= SUBSTRING(CH_ReasonTemp FROM 1 FOR LENGTH(CH_ReasonTemp)-2);
+								
+								--Code Change Start For Production Defect 24/09/2013 version 0.2	
+--								--Retrieves the REASONDESCRIPTION information from REASON table of MBREPOS database
+--								SET CH_ReasonDescription 					= THE(SELECT ITEM A.REASONDESCRIPTION FROM Database.{CH_DSN}.MBREPOS.REASON AS A
+--																				WHERE A.REASONCODE = CH_ReasonTemp); 
+							END IF;
+							
+							--Retrieves the REASONDESCRIPTION information from REASON table of MBREPOS database
+							SET CH_ReasonDescription 						= THE(SELECT ITEM A.REASONDESCRIPTION FROM Database.{CH_DSN}.MBREPOS.REASON AS A
+																				WHERE A.REASONCODE = CH_ReasonTemp); 
+							--Code Change end For Production Defect 24/09/2013 version 0.2
+							
+						END IF;
+						
+						--Code Change Start For Production Defect 24/09/2013 version 0.2
+						--SET CH_CashValue 									= '0';
+						SET CH_CashValue 									= REF_INLedgerLine.NS_dfns:Payment.NS_oa:Amount;
+						--IF COALESCE(REF_INLedgerLine.NS_dfns:Payment.NS_oa:Amount,'') <> '' THEN
+						IF COALESCE(CH_CashValue,'') <> '' THEN
+						--Code Change Start For Production Defect 24/09/2013 version 0.2	
+							SET DC_BdAmount 								= CAST(REF_INLedgerLine.NS_dfns:Payment.NS_oa:Amount AS DECIMAL);	
+							SET DC_BdAmount									= DC_BdAmount * 100; 
+							SET DC_BdAmount 								= ROUND(DC_BdAmount,0 MODE ROUND_UP);
+							SET CH_CashValue								= CAST(DC_BdAmount AS CHARACTER);
+							
+						END IF;
+						
+						SET CH_TenderType									= REF_INLedgerLine.NS_dfns:Payment.(XMLNSC.Attribute)id;
+						
+						
+					-- Inserting values into RETJCASHLD table of CDB
+					SET CH_SqlStr ='INSERT INTO RETJCASHLD(TRANSACTION_ID,STORE_CODE,ACTION_TYPE,ACTION_DESCRIPTION,USER_ID,ACTION_DATE_TIME,SESSION_DATE_TIME,NEXT_SESSION_DATE_TIME,
+					TILL,CREATION_DTE,REASON_CODE,REASON_DESCRIPTION,CASH_VALUE,TENDER_TYPE)
+					VALUES('''|| COALESCE(CH_TransactionId,'') ||''''
+					||','''|| COALESCE(CH_StoreCode,'') ||''''
+					||','''|| COALESCE(CH_ActionType,'') ||''''
+					||','''|| COALESCE(CH_ActionDescription,'') ||''''
+					||','''|| COALESCE(CH_UserId,'') ||''''
+					||','  || COALESCE(CH_ActionDateTime,'''''') 
+					||','  || COALESCE(CH_SessionDateTime,'''''') 
+					||','  || COALESCE(CH_NextSessionDateTime,'''''') 
+					||','''|| COALESCE(CH_Till,'') ||''''
+					||','  || COALESCE(CH_CreationDte ,'''''')
+					||','''|| COALESCE(CH_ReasonCode,'') ||''''
+					||','''|| COALESCE(CH_ReasonDescription,'') ||''''
+					||','  || COALESCE(CH_CashValue,'null')
+					||','''|| COALESCE(CH_TenderType,'') ||''''
+					||')'
+					||'';
+					
+					
+					PASSTHRU(CH_SqlStr);
+	
+					--END IF;
+					
+				--END IF;
+				
+			--END FOR;
+			
+			MOVE REF_INLedgerLine NEXTSIBLING REPEAT TYPE NAME;
+			
+		END WHILE;
+
+	END;
+
+END MODULE;

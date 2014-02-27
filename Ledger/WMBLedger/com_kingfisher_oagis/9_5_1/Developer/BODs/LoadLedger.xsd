@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         11 May 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:include schemaLocation="../Nouns/Ledger.xsd"/>
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../WMBOAGISCanonicals/org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element ibmSchExtn:docRoot="true" name="LoadLedger" type="LoadLedgerType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The purpose of the LoadLedger is to transmit data to create a Ledger open item in a Ledger application from the billing information generated in an order management application.  The LoadLedger may also update the General Ledger, depending on the specific architecture of the accounting application.
+
+The scope of the LoadLedger is to create a BOD to recognize customer obligation (accounts asset).  Specific transactions include:
+1.	Sales Invoice
+2.	Credit Memo
+3.	Debit Memo
+4.	Charge Back
+
+The LoadLedger may also be used for transaction that do not originate from an order management application.
+
+The following two models illustrate that the LoadLedger may, in some cases, be adequate to update the financial applications, i.e., Ledgers and General Ledger, and in other cases, will also require the PostJournal Business Object Document (BOD) to assure the General Ledger account balances are updated.
+</xsd:documentation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">In the model above, the Ledger application is a sub-ledger of the general ledger.  Updates to G/L balances occur via the Ledgers module, therefore the Load Ledger contains both Ledger and general ledger transaction information.</xsd:documentation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">This other model illustrates the environment that sometime exists when General Ledger updates occur directly from the Order Management application.  The reconciliation between the Ledger and general ledger is a function within the financial applications and not of the integration space.  This model allows the G/L balances to be updated in either detail or summarized form.
+
+The scope of the role of the Ledger application includes functions such as:
+·	Allowing Cash Application
+·	Dunning
+·	Dispute management
+</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="LoadLedgerType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:BusinessObjectDocumentType">
+				<xsd:sequence>
+					<xsd:element name="DataArea" type="LoadLedgerDataAreaType">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Is where the information that the BOD message carries is provided, in this case LoadLedger. The information consists of a Verb and one or more Nouns. The verb (Load) indicates the action to be performed on the Noun (Ledger).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="LoadLedgerDataAreaType">
+		<xsd:sequence>
+			<xsd:element ref="oa:Load"/>
+			<xsd:element maxOccurs="unbounded" ref="Ledger"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

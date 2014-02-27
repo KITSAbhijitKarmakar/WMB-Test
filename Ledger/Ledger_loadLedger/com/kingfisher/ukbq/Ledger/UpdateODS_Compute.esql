@@ -1,0 +1,76 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: UpdateODS																*
+* Interface Id 				:  																		*
+* Interface Name 			: Ledger_loadLedger 													*
+* Message Flow 				: RegisterToken															*
+* Message Flow Description 	: The primary function of this message flow is to update the table  	*  						
+* 							  SALES_TRANSACTIONS_ORDERS with the Token received from CommIdea		*
+* Module Name 				: UpdateODS_Compute														*	
+* Description 				: The function of this Node is to update the ODS table     				* 
+*							  SALES_TRANSACTIONS_ORDERS	with the Token received from CommIdea 		*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		10-APR-2013 	Soutam Dutta 		The initial version. 								*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE UpdateODS_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN		
+		--Declaring reference for input
+		DECLARE REF_MsgResult 	REFERENCE TO InputRoot.XMLNSC.NS_comns:ProcessMsgResponse.NS_comns:ProcessMsgResult;
+		DECLARE REF_Payment	 	REFERENCE TO OutputRoot.XMLNSC.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE REF_EnvSuccess 	REFERENCE TO Environment;
+		DECLARE REF_EnvError	REFERENCE TO Environment;
+		DECLARE CH_SqlQuery		CHARACTER;
+		DECLARE CH_Blank		CHARACTER '';
+		
+		IF REF_MsgResult.NS_comns:MsgType <> '' AND REF_MsgResult.NS_comns:MsgType = 'ERROR' THEN
+        	CREATE LASTCHILD OF Environment.Response.Error AS REF_EnvError DOMAIN ('XMLNSC') PARSE (REF_MsgResult.NS_comns:MsgData 
+				CCSID InputRoot.Properties.CodedCharSetId) ;
+			MOVE REF_EnvError TO Environment.Response.Error.XMLNSC.NS_tns:ERROR;
+			
+		ELSE
+			CREATE LASTCHILD OF Environment.Response.Success AS REF_EnvSuccess DOMAIN ('XMLNSC') PARSE (REF_MsgResult.NS_comns:MsgData 
+				CCSID InputRoot.Properties.CodedCharSetId) ;  
+			MOVE REF_EnvSuccess TO Environment.Response.Success.XMLNSC.NS_tns:tokenregistrationresponse;
+			
+			SET Environment.CountProcessed = Environment.CountProcessed+1;
+			
+		END IF;	
+			
+		--Checking the message type
+		IF REF_MsgResult.NS_comns:MsgType <> 'ERROR' THEN
+			--SQL Query To Update TOKEN Field in SALES_TRANSACTIONS_ORDERS Table
+			SET CH_SqlQuery = 'UPDATE SALES_TRANSACTIONS_ORDERS SET TOKEN =''' ||REF_EnvSuccess.NS_tns:tokenid ||''''
+						||', IV_DATA = ''' || CH_Blank || '''' 
+						||', ENCRYPTED_ACCOUNT_ID = ''' || CH_Blank || '''' 
+						|| ' WHERE TRANSACTION_ID = ''' || Environment.Variables.TransactionID || ''''
+						|| ' AND HASHED_ACCOUNT_ID = '''|| Environment.Variables.HashedAccountId || ''''
+						|| ''; 			
+			PASSTHRU(CH_SqlQuery);
+			PASSTHRU('COMMIT');
+			
+		END IF;
+		
+		IF Environment.CountRequest <> Environment.CountProcessed THEN
+			--Throw exception with error code and error message
+			THROW USER EXCEPTION VALUES('Vanguard/CommIdea sent ERROR message for token with ErrorCode :' || Environment.Response.Error.XMLNSC.ERROR.CODE ||' and Messge text :' || Environment.Response.Error.XMLNSC.ERROR.MSGTXT);
+		END IF;
+		
+		SET Environment.Response = NULL;
+		
+		RETURN FALSE;
+	END;
+
+END MODULE;

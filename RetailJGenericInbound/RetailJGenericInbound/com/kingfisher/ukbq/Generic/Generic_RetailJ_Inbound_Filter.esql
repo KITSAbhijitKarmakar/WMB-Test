@@ -1,0 +1,82 @@
+BROKER SCHEMA com.kingfisher.ukbq.Generic
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Filter_Transaction													*
+* Interface Id 				:  																		*
+* Interface Name 			: RetailJGenericInbound													*
+* Message Flow 				: Generic_RetailJ_Inbound												*
+* Message Flow Description  : The primary function of this message flow is to receive the JMS input *
+* 							  and check if the transaction is valid or not. If valid it routes the  *
+* 							  based on the message type to SafeCM or TerminalCM or POSBasket flows  *
+* Module Name 				: Generic_RetailJ_Inbound_Filter				 						*
+* Description 				: The primary function of this node is to receive the JMS input and     *
+*                             check if the transaction is valid or not.			                    *
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		14-MAR-2013 	Sayantan Som		The initial version. 								*
+****************************************************************************************************/
+CREATE FILTER MODULE Generic_RetailJ_Inbound_Filter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_POBasket			REFERENCE TO Root.XMLNSC.*;
+		DECLARE CH_StoreID				CHARACTER;
+		DECLARE CH_DateTime				CHARACTER;
+		DECLARE CH_TransAge				CHARACTER;
+		DECLARE CH_StoreOpenDateTime	CHARACTER;
+		DECLARE TS_HeaderDateTime		TIMESTAMP;
+		DECLARE TS_StoreOpenDateTime	TIMESTAMP;
+		
+		-- Based on the message type find out the Header Date and Transaction Age if required
+		
+		IF FIELDNAME(REF_POBasket) = 'POSBasket' THEN
+			SET CH_DateTime				= REF_POBasket.Header.DateTimeCreated;
+			
+			-- Obtain the transaction age from the Database
+			SET CH_TransAge				= THE(SELECT ITEM P.CONFIGVALUE FROM Database.MBCONFIG AS P
+										WHERE P.CANVAL = 'EPOSTransAge');
+			
+			IF COALESCE(CH_TransAge,'') = '' THEN
+				THROW USER EXCEPTION VALUES('Transaction Age not found');
+			END IF;
+			
+			-- Find the Store Open DateTime of the particular store
+			SET CH_StoreOpenDateTime	= THE(SELECT ITEM S.STOREOPENDATETIME FROM Database.MBSTRCD AS S
+										WHERE S.FULLSTORECODE = REF_POBasket.Header.OriginatedBy.StoreID);
+			SET TS_HeaderDateTime		= CAST(CH_DateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+			
+			-- If the transaction age is over the transaction time limit
+			IF (TS_HeaderDateTime + CAST(CH_TransAge AS INTERVAL DAY)) < CURRENT_TIMESTAMP THEN
+				RETURN FALSE;
+			END IF; 
+		ELSE
+			-- Find the Store Open DateTime of the particular store
+			SET CH_StoreOpenDateTime	= THE(SELECT ITEM S.STOREOPENDATETIME FROM Database.MBSTRCD AS S
+										WHERE S.FULLSTORECODE = REF_POBasket.StoreID);
+			
+			-- Find the time when the transaction was generated
+			SET CH_DateTime				= REF_POBasket.CreationDate;
+			SET TS_HeaderDateTime		= CAST(CH_DateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		END IF;
+		
+		IF COALESCE(CH_StoreOpenDateTime,'') = '' THEN
+			RETURN FALSE;
+		END IF;
+		
+		-- Check for the validity of the transaction
+		SET TS_StoreOpenDateTime		= CAST(CH_StoreOpenDateTime AS TIMESTAMP FORMAT 'yyyyMMdd HH:mm:ss');
+		
+		IF TS_HeaderDateTime >= TS_StoreOpenDateTime THEN
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;
+		END IF;
+	END;
+END MODULE;

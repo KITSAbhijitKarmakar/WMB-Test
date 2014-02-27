@@ -1,0 +1,135 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateGetTokenRequest			 										*
+* Interface Id 				:  																		*
+* Interface Name 			: Payment_getToken 														*
+* Message Flow 				: GetToken																*
+* Message Flow Description 	: The primary function of this message flow is to receieve SOAP input	*
+* 							  from the calling service and use that input to create request			* 
+*							  structure for Vanguard to exchange offline token with the Online		* 
+*  							  token and send back the response to the calling service				*											
+* Module Name 				: CreateGetTokenRequest_Compute					 						*
+* Description 				: The primary function of this Node is to propagate each request 		*
+*							  for CommIdea to the  the subflow.										*
+*               																	 				*
+* Version 	Date Author 		Author 				Description										*
+* ======= 	=========== 		================ 	=================== 							*
+* 0.1 		11-MAR-2013 		Asif Hossain 		The initial version. 							*
+* 0.2 		01-JUL-2013 		Asif Hossain 		Dynamic webservice url fetched from MBCONFIG	*
+****************************************************************************************************/
+CREATE COMPUTE MODULE CreateGetTokenRequest_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Declaring input referneces
+		DECLARE REF_GetPayment	 	REFERENCE TO InputRoot.XMLNSC.NS_dfns:GetPayment;
+		DECLARE REF_AppArea 		REFERENCE TO REF_GetPayment.NS_oa:ApplicationArea;
+		DECLARE REF_DataArea		REFERENCE TO REF_GetPayment.NS_dfns:DataArea;
+		DECLARE REF_Payment			REFERENCE TO REF_DataArea.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth		REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		--Storing values in Environment for future use
+		SET Environment.Common.releaseID 				= REF_GetPayment.(XMLNSC.Attribute)releaseID;
+		SET Environment.Common.languageCode 			= REF_GetPayment.(XMLNSC.Attribute)languageCode;
+		SET Environment.Common.CreationDateTime 		= REF_AppArea.NS_oa:CreationDateTime;
+		SET Environment.Common.LogicalID 				= REF_AppArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET Environment.Common.ComponentID 				= REF_AppArea.NS_oa:Sender.NS_oa:ComponentID; 
+					
+		--DataBaselookUp to read data from MBCONFIG table
+	    SET Environment.Variables.MBconfig[] = SELECT M.CANVAL ,M.CONFIGVALUE 
+	    FROM Database.MBCONFIG AS M WHERE M.CANVAL LIKE 'PCI_COMMIDEA_%'; 
+			
+		--Loop thorugh the 'MBCONFIG' tree structure to set some variables which will be used in request structure.
+	 	FOR REF_mbConfig AS Environment.Variables.MBconfig[]  DO
+	       	CASE REF_mbConfig.CANVAL
+	       	WHEN 'PCI_COMMIDEA_WS_SYSTEMID'		THEN
+	       		SET Environment.Variables.SystemID		= REF_mbConfig.CONFIGVALUE;
+	       	WHEN 'PCI_COMMIDEA_WS_SYSTEMGUID'	THEN		
+				SET Environment.Variables.SystemGUID	= REF_mbConfig.CONFIGVALUE;
+	       	WHEN 'PCI_COMMIDEA_WS_PASSCODE'		THEN	
+				SET Environment.Variables.Passcode		= REF_mbConfig.CONFIGVALUE; 
+			WHEN 'PCI_COMMIDEA_WS_DESTINATION_EPOS'  THEN    
+               	SET Environment.Variables.URL 			= REF_mbConfig.CONFIGVALUE;
+			END CASE;	 
+		END FOR;
+		
+		--Code change starts for version 0.2
+		--Setting WS url in the SOAP Request Node
+		SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.Variables.URL;
+		--Code change starts for version 0.2
+		
+		
+		--Iterating each Payment to create request structure for each offline token
+		--FOR REF_Payment AS REF_DataArea.NS_dfns:Payment[] DO
+			
+			--Calling procedure to create Vanguard request Structure
+			CALL PROC_CreateVanguardRequest(REF_PaymentAuth);
+			--MOVE REF_PaymentAuth TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+			
+			--PROPAGATE TO TERMINAL 'out1';
+		--END FOR;
+		
+		RETURN TRUE;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_CreateVanguardRequest 										 *
+	* Input Parameters	: REF_PaymentAuth													 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to Create Request Structure for CommIdea webservice    	 *
+	*					  call																 *
+	* Version 	Date 			Author 				Description                              *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	*  0.1   	11-MAR-2013 	Asif Hossain 		The initial version. 				 	 *
+	*****************************************************************************************/
+	CREATE PROCEDURE PROC_CreateVanguardRequest( IN REF_PaymentAuth REFERENCE)
+	BEGIN
+
+		--Declaring refernece for Vangurd Request structure
+	    DECLARE REF_Message 			REFERENCE TO OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message; 
+	    DECLARE REF_Header 				REFERENCE TO REF_Message.NS_comns:ClientHeader;
+	    DECLARE REF_MsgData 			REFERENCE TO REF_Message.NS_comns:MsgData;
+	    DECLARE REF_TEXRequest			REFERENCE TO REF_MsgData.NS_token:offlinetoonlinerequest;
+	    
+	    --Setting NameSpace to CommIdea Request Structure
+		SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+	    
+	    --Creating fileds for request structure
+	    CREATE FIELD OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message AS REF_Message;
+	    CREATE FIELD REF_Message.NS_comns:ClientHeader 						AS REF_Header;
+		
+		SET REF_Message.NS_comns:MsgType 					= 'OFFLINETOONLINEREQUEST';
+		
+		CREATE FIELD REF_Message.NS_comns:MsgData 							AS REF_MsgData;
+		CREATE FIELD REF_MsgData.NS_token:offlinetoonlinerequest 			AS REF_TEXRequest;
+		
+		--Creating the request structure for Vanguard
+	    SET REF_Header.NS_comns:SystemID 					= Environment.Variables.SystemID;
+		SET REF_Header.NS_comns:SystemGUID					= Environment.Variables.SystemGUID;
+		SET REF_Header.NS_comns:Passcode 					= Environment.Variables.Passcode;
+		SET REF_Header.NS_comns:SendAttempt 				= '0';
+		
+		SET REF_TEXRequest.(XMLNSC.NamespaceDecl)xmlns:ns	= NS_token;
+			
+		SET REF_TEXRequest.NS_token:mkofflineid 			= REF_PaymentAuth.NS_dfns:Token;
+		SET REF_TEXRequest.NS_token:mksystemid				= Environment.Variables.SystemID;
+		
+		--Calling to create CDATA section of Vanguard Request Structure(function present in GenericNamespaces.esql)
+		CALL CreateCDATAMessage(REF_MsgData,InputRoot);
+		
+		--Deleting the extra elements from MsgData
+		SET REF_MsgData.NS_token:offlinetoonlinerequest 	= NULL;
+		
+	END;
+	
+	
+END MODULE;

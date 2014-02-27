@@ -1,0 +1,15 @@
+**************************************************************
+**   Script	:  ReceiverChannelBQGateway
+**   Created By	:  Ipsita Sahoo
+**   Environment:  X-tier	
+**************************************************************
+
+
+DEFINE CHANNEL('UNXS385TOBQ.GATEWAY') + 
+		CHLTYPE(RCVR) +
+		TRPTYPE(TCP) +
+		DESCR('Receiver channel to MQ Gateway QM')  +
+		REPLACE
+
+   
+**************************EndScript***************************

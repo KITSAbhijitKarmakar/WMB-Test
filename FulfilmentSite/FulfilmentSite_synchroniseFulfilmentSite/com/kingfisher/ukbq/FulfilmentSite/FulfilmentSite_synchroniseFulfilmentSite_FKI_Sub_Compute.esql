@@ -1,0 +1,174 @@
+BROKER SCHEMA com.kingfisher.ukbq.FulfilmentSite
+PATH com.kingfisher.ukbq.WMBFunctions;
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *                             
+****************************************************************************************************/
+ 
+/****************************************************************************************************
+* Node Name 	      	    :	Main                                                                *
+* Interface Id 	 			:														                *
+* Interface Name 			:	FulfilmentSite_synchroniseFulfilmentSite						    *
+* Message Flow 				: 	FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub					*
+* Message Flow Description 	: 	The flow retrieves the FulfilmentSite canonical from the queue used	*
+*								for subscription and map it to the required FKI XML structure and	*
+*								transfer the message to FKI QM.                               		*
+* Module Name               :   FulfilmentSite_notifyFulfilmentSite_FKI_Sub_Compute                 * 
+* Description               :   This module retrieves the FulfilmentSite Canonical from the queue   *
+*                               used for subscription and is mapped to the required FKI XML 		*
+*                               structure and transfer the message to FKI QM.  						*
+*																									*	
+* Version   Date	   		Author			Description                    	                        *
+* ======= 	=========== 	=========== 	================================		                *
+*  0.1  	05-APR-2013     Ipsita Sahoo    The initial version.         			                *
+****************************************************************************************************/
+--Namespace declaration
+DECLARE xsi								NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';
+
+CREATE COMPUTE MODULE FulfilmentSite_synchroniseFulfilmentSite_FKI_Sub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Call SynchroniseFulfilmentSiteFKI procedure
+		CALL SynchroniseFulfilmentSiteFKI();
+		IF Environment.variable.ProcessingStatus = 'true' THEN
+				RETURN TRUE;
+			ELSE
+				RETURN FALSE;
+			END IF;	
+	END;
+	
+	/****************************************************************************************************
+	* Procedure Name	: SynchroniseFulfilmentSiteFKI() 												*
+	* Input Parameters	: None		     																*
+	* Output Parameters	: None 																			*
+	* Description		: The FulfilmetSite Canonical is mapped to the required FKI structure			*
+											   	                                                        *
+	* Version 	Date 			Author 					Description                                 	*
+	* ======= 	=========== 	=============== 		================================ 			    *
+	*  0.1   	05-APR-2013 	Ipsita Sahoo			The initial version. 						    *
+	****************************************************************************************************/
+
+	CREATE PROCEDURE SynchroniseFulfilmentSiteFKI() BEGIN
+		
+		--Declare Variables 
+		DECLARE CH_spaceField      	CHARACTER;
+		DECLARE CH_storeAdd1 		CHARACTER;
+		DECLARE CH_Flag 			CHARACTER;
+		DECLARE CH_TableName 		CHARACTER;  
+		DECLARE CH_Input 			CHARACTER;   
+		DECLARE CH_OutCol 			CHARACTER;  
+		DECLARE CH_OutValue 		CHARACTER; 	
+		
+		--Declare Input References
+		DECLARE REF_In            	REFERENCE TO InputRoot.XMLNSC;
+		DECLARE REF_FulfilmentSite  REFERENCE TO REF_In.NS_dns:SynchroniseFulfilmentSite.NS_dns:DataArea.NS_dns:FulfilmentSite;
+		DECLARE REF_LocAddr			REFERENCE TO REF_FulfilmentSite.NS_dns:Contact.NS_dns:Location.NS_oa:Address;
+		
+	
+		SET CH_spaceField			=  ' ';
+		
+		--Checking the initial condition and setting flag value
+		IF STARTSWITH(REF_FulfilmentSite.NS_oa:PartyIDs.NS_oa:ID,'R') THEN
+			SET CH_Flag = 'false';
+		ELSE
+			SET CH_Flag = 'true';
+		END IF;
+		
+		-- If flag value = true then do the mapping as per the below logic
+		IF CH_Flag = 'true' THEN
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version		= '1.0';
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding 		= 'UTF-8';
+			SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version		= '1.0';
+			
+		--Declare Output References  
+		DECLARE REF_MsgListToWcs    REFERENCE TO OutputRoot.XMLNSC.messageListToWcs;
+		DECLARE REF_SiteUpdate 		REFERENCE TO REF_MsgListToWcs.siteUpdate;
+		
+			-- Output feild creation
+			CREATE FIELD OutputRoot.XMLNSC.messageListToWcs AS REF_MsgListToWcs;
+			
+			SET OutputRoot.XMLNSC.messageListToWcs.(XMLNSC.NamespaceDecl)xsi:noNamespaceSchemaLocation	= '/home/bandq/host/hostToWcs.xsd';
+			SET REF_MsgListToWcs.datetime														= REF_In.NS_dns:SynchroniseFulfilmentSite.NS_oa:ApplicationArea.NS_oa:CreationDateTime;
+			SET REF_MsgListToWcs.sequenceNo														= com.kingfisher.ukbq.WMBFunctions.getMessageIDForKey1('CoreDC_Site_Update');
+			CREATE FIELD REF_MsgListToWcs.siteUpdate AS REF_SiteUpdate;
+			
+			-- Creating the output structure for Site Update
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'sapSiteCode' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'bnqStoreCode' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'distChannel' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'storeName' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'storeAdd1' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'storeAdd2' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'storeAdd3' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'storeAdd4' 	VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'postcode' 		VALUE '';
+			CREATE LASTCHILD OF REF_SiteUpdate NAME 'phone' 		VALUE '';
+			
+			SET REF_SiteUpdate.sapSiteCode = REF_FulfilmentSite.NS_oa:PartyIDs.NS_oa:ID;
+			FOR REF_Desc AS REF_FulfilmentSite.NS_oa:Description[] DO
+				IF FIELDVALUE(REF_Desc.(XMLNSC.Attribute)type) = 'BQSiteRef' THEN
+					SET REF_SiteUpdate.bnqStoreCode 	= FIELDVALUE(REF_Desc);
+				END IF;
+			END FOR;
+			FOR REF_Desc AS REF_FulfilmentSite.NS_oa:Description[] DO
+				IF FIELDVALUE(REF_Desc.(XMLNSC.Attribute)type) = 'DistributionChannel' THEN
+					SET REF_SiteUpdate.distChannel 		= FIELDVALUE(REF_Desc);
+				END IF;
+			END FOR;
+			
+			SET REF_SiteUpdate.storeName = REF_FulfilmentSite.NS_oa:Name;
+			IF LENGTH(REF_FulfilmentSite.NS_oa:Name) > 25 THEN
+					SET REF_SiteUpdate.storeName 		= SUBSTRING(REF_FulfilmentSite.NS_oa:Name FROM 1 FOR 25);
+			END IF;
+			
+			IF REF_LocAddr.NS_oa:BuildingNumber = '0' THEN
+				SET CH_storeAdd1 						= REF_LocAddr.NS_oa:StreetName;
+			ELSE
+				SET CH_storeAdd1 = REF_LocAddr.NS_oa:BuildingNumber || CH_spaceField || REF_LocAddr.NS_oa:StreetName;
+			END IF;
+			
+			IF LENGTH(CH_storeAdd1) > 35 THEN
+					SET REF_SiteUpdate.storeAdd1 		= SUBSTRING(CH_storeAdd1 FROM 1 FOR 35);
+				ELSE 
+					SET REF_SiteUpdate.storeAdd1 		= CH_storeAdd1;
+				END IF;
+			
+			FOR REF_AddrLine AS REF_LocAddr.NS_oa:CitySubDivisionName[] DO
+				IF REF_AddrLine.(XMLNSC.Attribute)sequenceName = 'Street2' THEN 
+					SET REF_SiteUpdate.storeAdd2 		= FIELDVALUE(REF_AddrLine);
+					IF LENGTH(REF_SiteUpdate.storeAdd2) > 35 THEN
+						SET REF_SiteUpdate.storeAdd2 	= SUBSTRING(REF_SiteUpdate.storeAdd2 FROM 1 FOR 35);
+					END IF;
+				END IF;
+			END FOR;
+			
+			SET REF_SiteUpdate.storeAdd3 				= THE(SELECT ITEM(FIELDVALUE(A)) FROM REF_LocAddr.NS_oa:CitySubDivisionName[] AS A WHERE A.(XMLNSC.Attribute)sequenceName = 'Street3');
+			IF LENGTH(REF_SiteUpdate.storeAdd3) > 35 THEN
+				SET REF_SiteUpdate.storeAdd3 			= SUBSTRING(REF_SiteUpdate.storeAdd3 FROM 1 FOR 35);
+			END IF;	
+			
+			SET REF_SiteUpdate.storeAdd4				= REF_LocAddr.NS_oa:CityName;
+			IF LENGTH(REF_SiteUpdate.storeAdd4) > 35 THEN
+				SET REF_SiteUpdate.storeAdd4 			= SUBSTRING(REF_SiteUpdate.storeAdd4 FROM 1 FOR 35);
+			END IF;	
+			SET REF_SiteUpdate.postcode 				= REF_FulfilmentSite.NS_dns:Contact.NS_dns:Location.NS_oa:Address.NS_oa:PostalCode;
+			IF REF_FulfilmentSite.NS_dns:Contact.NS_oa:TelephoneCommunication.NS_oa:FormattedNumber IS NOT NULL THEN
+				SET REF_SiteUpdate.phone				= REF_FulfilmentSite.NS_dns:Contact.NS_oa:TelephoneCommunication.NS_oa:FormattedNumber;
+			END IF;
+			
+			--Retriving the destination Queue name from the database--		
+			SET CH_TableName 							        					= 'MBCONFIG';
+			SET CH_OutCol															= 'CONFIGVALUE';		
+			SET CH_OutValue 														= '';
+			SET CH_Input 														   	= 'CoreDC_Site_Update_Queue';
+			CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue); 
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName 	= CH_OutValue;
+			SET Environment.variable.ProcessingStatus								= 'true';	
+		ELSE
+			SET Environment.variable.ProcessingStatus								= 'false';	
+		END IF;
+	END;
+
+END MODULE;

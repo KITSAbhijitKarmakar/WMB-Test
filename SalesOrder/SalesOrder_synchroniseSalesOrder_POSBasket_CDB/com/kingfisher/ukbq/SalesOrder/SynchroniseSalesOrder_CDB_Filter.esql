@@ -1,0 +1,43 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: ProcessMessageFilter													*
+* Interface Id 				:  																		*
+* Interface Name 			: SalesOrder_synchroniseSalesOrder_POSBasket							*
+* Message Flow 				: SalesOrder_synchroniseSalesOrder_CDB_Sub								*
+* Message Flow Description 	: The primary function of this message flow is to receive canonical from*
+* 							  Orchestrator service and updates CDB table							*
+* Module Name 				: SynchroniseSalesOrder_CDB_Filter										*	
+* Description 				: The function of this Node is to filter the input message going into 	* 
+							  the CDB based on Receiver ID.								            *
+*																									*
+* Version   Date	   		Author							Description                 			*
+* ======= 	=========== 	==========================  	======================================	*
+*  0.1      22-MAY-2013   	Sourav Banu  	     	        The initial version.		        	*
+****************************************************************************************************/
+CREATE FILTER MODULE SynchroniseSalesOrder_CDB_Filter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Loop through  the IDs
+		FOR REF_ReceiverID AS Root.XMLNSC.NS_Dfns:SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[] DO
+			--Checking whether  REF_ReceiverID equal to  CDB or not  
+			IF  FIELDVALUE(REF_ReceiverID) = 'CDB' THEN
+				RETURN TRUE;	
+			END IF;
+			
+		END FOR;
+		RETURN FALSE;
+	END;
+
+END MODULE;
+
+
+

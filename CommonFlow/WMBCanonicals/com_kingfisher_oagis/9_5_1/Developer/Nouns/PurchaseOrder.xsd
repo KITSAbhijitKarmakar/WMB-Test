@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd"/>
+	<xsd:element name="PurchaseOrder" type="PurchaseOrderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The purpose of the PurchaseOrder Business Object Document is to communicate an order to purchase goods from a buyer to a supplier. The PurchaseOrder carries information to and from the buyer and supplier. The PurchaseOrder is a legally binding document once both Parties agree to the contents and the specified terms and conditions of the order.  </xsd:documentation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The Process PurchaseOrder sends the electronic form of a purchase order document from a customer to a supplier in order to purchase n-number of Lines each of which containes an Ordered Item. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PurchaseOrderHeader" type="PurchaseOrderHeaderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The Purchase Order Header contains information that applies to the entire purchase order.  This Component is required.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PurchaseOrderLine" type="PurchaseOrderLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The Purchase Order Line indicates the ordered item or product ordered along with the quantity, price and other descriptive information. It is also possible to provide additional Parties, PaymentTerms, Charge, and Attachment information as needed at the line level.
+
+At least one occurrence of this Component is required for each occurrence of the Purchase Order.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PurchaseOrderSubLine" type="PurchaseOrderSubLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The Component Subline represents any additional information concerning the product on the Line.  The Subline can be used to describe a specific configuration of the ordered item.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PurchaseOrderSchedule" type="PurchaseOrderScheduleType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The Component Schedule  represents the requested ship or delivery dates for goods ordered.  The Schedule is an optional Component.  The Schedule can not be associated with a Subline.  It is only associated with a Line.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="PurchaseOrderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The schema type for PurchaseOrder. PurchaseOrder's  base abstract type, Order, is shared between PurchaseOrder and SalesOrder. SalesOrder is essentially an extension of PurchaseOrder, but in order to use the local-global design pattern, each of PO and SO needs to instantiate its own Header and Line elements.To do this, we factored out the PO content models, instantiated both PO and SO from Order.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="PurchaseOrderHeader"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="PurchaseOrderLine"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="PurchaseOrderHeaderType">
+		<xsd:complexContent>
+			<xsd:extension base="OrderHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:Type">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">A code type specifying a type of Purchase Order.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:TaxExemptCodes"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Event"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Classification"/>
+					<xsd:element minOccurs="0" ref="oa:OrderDateTime"/>
+					<xsd:element minOccurs="0" ref="SupplierParty"/>
+					<xsd:element minOccurs="0" ref="BuyerParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipFromParty"/>
+					<xsd:element minOccurs="0" ref="oa:AcceptByDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:ReleaseNumber"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:RequisitionReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:QuoteReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:SalesOrderReference"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+					<xsd:element minOccurs="0" ref="BrandChannel"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PurchaseOrderLineType">
+		<xsd:complexContent>
+			<xsd:extension base="OrderLineType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:TaxExemptIndicator"/>
+					<xsd:element minOccurs="0" ref="oa:TaxExemptCodes"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Event"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipFromParty"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Organisation"/>
+					<xsd:element minOccurs="0" ref="oa:BackOrderedQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:ReceivedQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:OpenQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:QuoteReference"/>
+					<xsd:element minOccurs="0" ref="oa:SalesOrderReference"/>
+					<xsd:element minOccurs="0" ref="BuyerParty"/>
+					<xsd:element minOccurs="0" ref="oa:MaterialRequiredCertificationIndicator"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="PurchaseOrderSubLine"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="PurchaseOrderSchedule"/>
+					<xsd:element minOccurs="0" ref="oa:CategoryCodes"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PurchaseOrderSubLineType">
+		<xsd:complexContent>
+			<xsd:extension base="RequestSubLineType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:OpenQuantity"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:TransportationTerm"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Event"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Party"/>
+					<xsd:element minOccurs="0" ref="oa:ShippingInstructions"/>
+					<xsd:element minOccurs="0" ref="oa:Status"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:UnitPrice"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PurchaseOrderScheduleType">
+		<xsd:complexContent>
+			<xsd:extension base="ProcurementScheduleType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:Status"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+</xsd:schema>

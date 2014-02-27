@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmPublication.msgnode="ComIbmPublication.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Supplier/Supplier_notifySupplier_SAP_Pub.msgflow"
+    nsPrefix="com_kingfisher_ukbq_Supplier_Supplier_notifySupplier_SAP_Pub.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="Supplier_notifySupplier_SAP_Pub" bundleName="com/kingfisher/ukbq/Supplier/Supplier_notifySupplier_SAP_Pub" pluginId="Supplier_notifySupplier"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Supplier_notifySupplier/icons/full/obj16/Supplier_notifySupplier_SAP_Pub.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Supplier_notifySupplier/icons/full/obj30/Supplier_notifySupplier_SAP_Pub.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="232,233" queueName="ZCREMAS04.SAP.INBOUND.WMB" messageDomainProperty="DataObject" messageTypeProperty="{http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04}:SapCremas04Zcremas04" messageFormatProperty="SAP ALE IDoc" validateTiming="immediate" orderMode="byQueueOrder" validateMaster="contentAndValue">
+        <translation xmi:type="utility:ConstantString" string="SAP_MQInput_Supplier"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Receives data from SAP and start the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="Receives input from SAP (ZCREMAS_CP) through SAP Generic Inbound flow and start the flow"/>
+        <nsMappingTable nsPrefix="sap" namespace="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="SAP_MQInput_Supplier.transaction.Start" eventIdentity="SAP_MQInput_Supplier.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapCremas04Zcremas04/SapCremas04Zcremas04IDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapCremas04Zcremas04/SapCremas04Zcremas04IDocBO/SapCremas04Zcremas04DataRecord/SapCremas04Zcremas04E2lfa1m001/SapCremas04Zcremas04Z2lfa1m000/LIFNR" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_Supplier.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="SAP_MQInput_Supplier.transaction.End" eventIdentity="SAP_MQInput_Supplier.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapCremas04Zcremas04/SapCremas04Zcremas04IDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapCremas04Zcremas04/SapCremas04Zcremas04IDocBO/SapCremas04Zcremas04DataRecord/SapCremas04Zcremas04E2lfa1m001/SapCremas04Zcremas04Z2lfa1m000/LIFNR" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_Supplier.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="SAP_MQInput_Supplier.terminal.catch" eventIdentity="SAP_MQInput_Supplier.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/DataObject/sap:SapCremas04Zcremas04/SapCremas04Zcremas04IDocBO/SapIDocControlRecord/DOCNUM" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/DataObject/sap:SapCremas04Zcremas04/SapCremas04Zcremas04IDocBO/SapCremas04Zcremas04DataRecord/SapCremas04Zcremas04E2lfa1m001/SapCremas04Zcremas04Z2lfa1m000/LIFNR" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SAP_MQInput_Supplier.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="sap" nsURI="http://ukbq.kingfisher.com/SAPR3/sapcremas04zcremas04"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="401,233" dataSource="MBREPOS" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.Supplier#Supplier_notifySupplier_SAP_Pub_Compute.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Supplier_Notify_Mapping_Compute"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Converts to canonical and publish the message to a topic"/>
+        <longDescription xmi:type="utility:ConstantString" string="Transform the SAP Idoc ZCREMAS_CP message into the Supplier canonical and publish it to the topic string. Get the topic name from MBTOPICS table of the MBREPOS Database"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPublication.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="714,238">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQPub_Supplier"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Input Message from SAP is published onto a topic for subscribers."/>
+        <longDescription xmi:type="utility:ConstantString" string="Input Message from SAP is published onto a topic for subscribers."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="606,234" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope"/>
+        <longDescription xmi:type="utility:ConstantString" string="Add SOAP Envelope to the outgoing message"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_4" location="450,316">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="247,32">
+        <body xmi:type="utility:ConstantString" string="Name     : Supplier_notifySupplier_SAP_Pub&#xA;Author   : Panchanan Mandal&#xA;Date       : 25-03-2013&#xA;&#xA;Description:&#xA;1. Receives the ZCREMAS_CP IDOC from the queue into which SAP Generic Inbound flow puts the message&#xA;2. Transforms the SAP IDOC message into Supplier canonical&#xA;3. Adds SOAP envelope&#xA;4. Publish the message on to the specified topic"/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

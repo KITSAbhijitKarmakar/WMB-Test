@@ -1,0 +1,14 @@
+****************************************************************************************
+**   Script	:  WMBHSMForEPOSLink.MQSC: Sets up connectiviyt from EPOS to WMB	
+**   Created By	:  Ashwin Pai
+**   Modified By:  Ashwin Pai
+**   Environment:  PVT-tier	
+****************************************************************************************
+
+
+***Create Sender Channel to WMB
+DEFINE CHANNEL('UNXA0059.TO.UNXS0462') + 
+		CHLTYPE(RCVR) +
+		TRPTYPE(TCP) +
+		DESCR('Receiver channel from UNXS0462.MB.QM1')  +
+		REPLACE

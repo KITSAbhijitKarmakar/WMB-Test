@@ -1,0 +1,20 @@
+BROKER SCHEMA com.kingfisher.ukbq.Product
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2013> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *                           	
+****************************************************************************************************/
+
+/****************************************************************************************************	
+* Interface Name 			:	ProductService												        *
+*																									*
+* Version      Date	   		   Author									Description                 *
+* ======= 	=========== 	==========================  	======================================	*
+*  1.00       25-MAR-2013   Panchanan Mandal  	     	           The initial version.		        *
+****************************************************************************************************/
+		--Declaring Namespaces
+		DECLARE NS_Dfns 						NAMESPACE 'http://www.kingfisher.com/oagis/9';
+		DECLARE NS_Oa 							NAMESPACE 'http://www.openapplications.org/oagis/9';
+		DECLARE xsi								NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';
+		DECLARE NS_noNamespaceSchemaLocation 	NAMESPACE '/home/bandq/host/hostToWcs.xsd';

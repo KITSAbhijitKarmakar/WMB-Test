@@ -1,0 +1,351 @@
+BROKER SCHEMA com.kingfisher.ukbq.WMBFunctions
+
+/**
+This function receives date as character and sends the date after transforming it to yyyy-MM-dd format.
+The function accepts Date in formats like "yyyy-MM-dd" or "yyyyMMdd". If the input date is having blank 
+spaces they are trimmed. It also handles the case where the input date has all 0's, in which case it will
+return NULL
+**/
+/************************************************************************************************
+* Method Name																					*
+*	1. 	ValidateDate																			*
+*	2. 	getCurrentTimeStampZone																	*
+*	3.	RemoveNonNeumeric 																		*
+*	4.	PadLeadingCharacters																	*
+*	5.	CannonicaltoSAPDate  																	*
+*	6.	SAPIdocCreationDateTime																	*
+*	7.	PadTrailingCharacters																	*
+*	8.	CannonicaltoSAPTime																		*
+*	9.	Func_calcLengthDimension																*
+*  10.	Func_calcWeightDimension																*
+*  11.	FUNC_GetLastDayOfMonth																	*
+*  12.	FUNC_DBSpecialCharHandling																*
+*  13.  FUNC_ConvertPennytoPound															    *
+*  14.  FUNC_XMLSpecialCharHandling															    *
+*************************************************************************************************/
+
+
+CREATE FUNCTION ValidateDate (IN inputDate CHARACTER) RETURNS CHARACTER
+BEGIN
+	DECLARE resultDate  CHARACTER;
+	DECLARE inDate		INTEGER;
+	
+	SET inDate 	= CAST(COALESCE(REPLACE(TRIM(inputDate),'-',''), '0') AS INTEGER);
+	IF(inDate <> 0 ) THEN
+		SET resultDate	= CAST(CAST(CAST(inDate AS CHARACTER) AS TIMESTAMP FORMAT 'yyyyMMdd') AS CHARACTER FORMAT 'yyyy-MM-dd');
+	ELSE
+        SET resultDate = NULL;
+	END IF;
+	RETURN resultDate;  
+END;
+
+
+/**
+**This Function will Return Curent Timestamp with TimeZone in Character format**
+**/
+CREATE FUNCTION  getCurrentTimeStampZone() RETURNS CHARACTER
+BEGIN
+		
+	DECLARE CurrentTimeStampZone CHARACTER;
+	SET CurrentTimeStampZone=CAST(CURRENT_TIMESTAMP AS CHARACTER format 'yyyy-MM-dd''T''HH:mm:ss.SSSZZZ');	
+	RETURN CurrentTimeStampZone;
+END;
+
+/**
+**This Function will Remove Non-Numeric CharacterFrom input String and return as Character format**
+**/
+CREATE FUNCTION RemoveNonNeumeric(InputString CHARACTER) RETURNS CHARACTER
+BEGIN
+	DECLARE OutputString CHARACTER '';
+	WHILE(LENGTH(InputString) > 0) DO
+		IF SUBSTRING(InputString FROM 1 FOR 1) IN ('0','1','2','3','4','5','6','7','8','9') THEN
+			SET OutputString = OutputString || SUBSTRING(InputString FROM 1 FOR 1);
+		END IF;
+			SET InputString = COALESCE(SUBSTRING(InputString FROM 2),'');
+		END WHILE;
+	RETURN OutputString;
+END;
+
+	
+/**
+This Function will add the padding characters specified in "PaddingCharacter" as parameter to the function
+If the length of the input field exceeds that of the desired length, the function throws USER EXCEPTION
+**/	
+CREATE FUNCTION PadLeadingCharacters(lengthRequired INTEGER, inputField CHARACTER, PaddingCharacter CHARACTER) RETURNS CHARACTER 
+BEGIN
+    DECLARE outputField CHARACTER;
+    DECLARE lenOfInputField INTEGER;
+    
+    IF (lengthRequired < LENGTH(inputField) ) THEN
+    	THROW USER EXCEPTION CATALOG 'VAL0002' MESSAGE 0003
+			VALUES('PadLeadingZeros: Length of Field having the value ' || inputField || ' is greater than required length ' || CAST(lengthRequired AS CHARACTER));
+    ELSE
+    	SET outputField		= REPLICATE(PaddingCharacter, (lengthRequired - LENGTH(inputField))) || inputField;
+    END IF;
+	
+	RETURN outputField;	
+END;
+	
+/**
+This Function will convert CannonicalDate input String and return as SAP Date as character format. The date field
+length must be 10 or more, failing which a USER EXCEPTION is thrown. 
+The input date can be of the following format :
+								yyyy-MM-dd
+								yyyy.MM.dd
+								yyyy/MM/dd
+
+The function returns the date in the SAP required format "yyyyMMdd"
+**/	
+CREATE FUNCTION CannonicaltoSAPDate(IN CannonicalDate CHARACTER) RETURNS CHARACTER
+BEGIN
+	DECLARE SAPDate		CHARACTER;
+	IF (LENGTH(CannonicalDate) < 10) THEN
+    	THROW USER EXCEPTION CATALOG 'VAL0002' MESSAGE 0004
+			VALUES('CannonicaltoSAPDate: Length of Field having the value ' || CannonicalDate || ' is less than required length 10');
+	ELSE
+		SET CannonicalDate		= SUBSTRING(CannonicalDate FROM 1 FOR 10);
+		IF POSITION('/' IN CannonicalDate) <> 0 THEN
+			SET SAPDate				= REPLACE(CannonicalDate,'/','');
+		ELSEIF POSITION('-' IN CannonicalDate) <> 0 THEN
+			SET SAPDate				= REPLACE(CannonicalDate,'-','');
+		ELSE
+			SET SAPDate				= REPLACE(CannonicalDate,'.','');
+		END IF;
+	END IF;
+	RETURN SAPDate;
+END;
+/**
+This Function will recieve SAP Idoc Cretaion Date , Time and Offset value. The function will return concatenated 
+date, time and offset in Cannonical Timestamp format (CCYY-MM-DDThh:mm:ss.nnn+00:00)
+**/
+
+CREATE FUNCTION SAPIdocCreationDateTime(IN CH_CreateDate CHARACTER,IN CH_CreateTime CHARACTER,IN CH_Offset CHARACTER) RETURNS CHARACTER
+BEGIN
+	DECLARE CH_BrokerZone				CHARACTER;
+	DECLARE CH_SAPIdocCreationDateTime 	CHARACTER;	
+	
+	SET CH_SAPIdocCreationDateTime = ValidateDate(CH_CreateDate) ||'T'|| CAST(CAST(CH_CreateTime AS TIME FORMAT 'HHmmss') AS CHARACTER FORMAT 'HH:mm:ss');
+	
+	-- Change for Defect#234 start
+
+	IF COALESCE(CH_Offset,'') <> ''  THEN
+--		SET CH_BrokerZone = CAST(CAST(CH_Offset AS TIME FORMAT 'SSSSSS') AS CHARACTER FORMAT 'ZZZ');
+		-- Concatenate Sign, hour and minute offset 
+		SET CH_BrokerZone = SUBSTRING(CH_Offset FROM 1 FOR 3) || ':' || SUBSTRING(CH_Offset FROM 4 FOR 2);
+	ELSE
+	  	SET CH_BrokerZone = CAST(CURRENT_TIMESTAMP AS CHARACTER format 'ZZZ');
+	END IF;
+	
+	SET CH_SAPIdocCreationDateTime = CH_SAPIdocCreationDateTime || '.000' || CH_BrokerZone;
+	
+	-- Change for Defect#234 end
+	
+	RETURN CH_SAPIdocCreationDateTime;
+END;
+/**
+This Function will add the trailing padding characters specified in "PaddingCharacter" as parameter to the function
+If the length of the input field exceeds that of the desired length, the function throws USER EXCEPTION
+**/	
+CREATE FUNCTION PadTrailingCharacters(lengthRequired INTEGER, inputField CHARACTER, PaddingCharacter CHARACTER) RETURNS CHARACTER 
+BEGIN
+    DECLARE outputField CHARACTER;
+    DECLARE lenOfInputField INTEGER;
+    
+    IF (lengthRequired < LENGTH(inputField) ) THEN
+    	THROW USER EXCEPTION CATALOG 'VAL0002' MESSAGE 0003
+			VALUES('PadTrailingZeros: Length of Field having the value ' || inputField || ' is greater than required length ' || CAST(lengthRequired AS CHARACTER));
+    ELSE
+    	SET outputField	= inputField || REPLICATE(PaddingCharacter, (lengthRequired - LENGTH(inputField))) ; 
+    END IF;
+    
+	RETURN outputField;	
+END;
+
+/**
+This Function will convert CannonicalDateTime input String and return as SAP Time as character format. The date field
+length must be 19 or more, failing which a USER EXCEPTION is thrown. 
+The function returns the date in the SAP required format "HHmmss"
+**/	
+
+CREATE FUNCTION CannonicaltoSAPTime(IN CannonicalTime CHARACTER) RETURNS CHARACTER
+BEGIN
+	DECLARE SAPTime	CHARACTER;
+	IF (LENGTH(CannonicalTime) < 19) THEN
+    	THROW USER EXCEPTION CATALOG 'VAL0002' MESSAGE 0004
+			VALUES('CannonicaltoSAPTime: Length of Field having the value ' || CannonicalTime || ' is less than required length 19');
+	ELSE
+		SET CannonicalTime = SUBSTRING(CannonicalTime AFTER 'T' FOR 8);
+		SET SAPTime = RemoveNonNeumeric(CannonicalTime);
+	END IF;
+	RETURN SAPTime;
+END;
+
+/*
+The Below functions convert the dimensions from meter to centemeter and gram to kilogram
+The input parameters are FromUnit,ToUnit and InputValue. The function returns the calculated value
+*/
+	
+--Fuction to convert dimension from Meter(M) to Centimetere(CM)
+CREATE FUNCTION Func_calcLengthDimension(IN CH_FromUnit CHARACTER, IN CH_ToUnit CHARACTER , IN CH_InputValue CHARACTER) RETURNS DECIMAL
+BEGIN
+		DECLARE DE_CalculatedValueTemp  DECIMAL;
+		DECLARE CH_CalculatedValue 		DECIMAL;
+		DECLARE CH_CheckValid      		CHARACTER CH_InputValue;		
+			IF CH_InputValue = '' THEN
+				SET CH_CalculatedValue = 1.00;		
+			ELSE	
+				WHILE LENGTH(CH_CheckValid) > 0 DO
+					IF SUBSTRING(CH_CheckValid FROM 1 FOR 1) NOT IN ('0','1','2','3','4','5','6','7','8','9','.') THEN
+						THROW USER EXCEPTION VALUES ('Unable to Convert :Input Dimension value should be either integer or decimal');
+					END IF;
+					SET CH_CheckValid = COALESCE(SUBSTRING(CH_CheckValid FROM 2),'');
+				END WHILE;									
+				
+				SET DE_CalculatedValueTemp = ROUND(CAST(CH_InputValue AS DECIMAL), 2 MODE ROUND_DOWN);
+				IF CH_FromUnit = 'M' AND CH_ToUnit = 'CM' THEN
+					SET CH_CalculatedValue = DE_CalculatedValueTemp*100;			
+				ELSEIF CH_FromUnit = CH_ToUnit THEN
+					SET CH_CalculatedValue = DE_CalculatedValueTemp;
+				END IF;
+				IF CH_CalculatedValue = 0.00  THEN
+					SET CH_CalculatedValue = 1.00;
+				ELSEIF CH_CalculatedValue > 9999.99 THEN
+					SET CH_CalculatedValue = 9999.99;
+				END IF;
+			END IF;	
+	RETURN CH_CalculatedValue;	
+END;
+
+--Fuction  to convert dimension from Gram(G) to KiloGram(KG)
+CREATE FUNCTION Func_calcWeightDimension(IN CH_FromUnit CHARACTER, IN CH_ToUnit CHARACTER , IN CH_InputValue CHARACTER) RETURNS DECIMAL
+BEGIN
+		DECLARE DE_CalculatedValueTemp DECIMAL;
+		DECLARE DE_CalculatedValue 	   DECIMAL;
+		DECLARE CH_CheckValid      	   CHARACTER CH_InputValue;		
+			IF CH_InputValue = '' THEN
+				SET DE_CalculatedValue = 1.00;		
+			ELSE	
+				WHILE LENGTH(CH_CheckValid) > 0 DO
+					IF SUBSTRING(CH_CheckValid FROM 1 FOR 1) NOT IN ('0','1','2','3','4','5','6','7','8','9','.') THEN
+						THROW USER EXCEPTION VALUES ('Unable to Convert :Input Dimension value should be either integer or decimal');
+					END IF;
+					SET CH_CheckValid = COALESCE(SUBSTRING(CH_CheckValid FROM 2),'');
+				END WHILE;
+								
+				SET DE_CalculatedValueTemp = ROUND(CAST(CH_InputValue AS DECIMAL), 2 MODE ROUND_DOWN);
+				IF CH_FromUnit = 'G' AND CH_ToUnit = 'KG' THEN
+					SET DE_CalculatedValue = DE_CalculatedValueTemp/1000;
+				ELSEIF CH_FromUnit = CH_ToUnit THEN
+					SET DE_CalculatedValue = DE_CalculatedValueTemp;			
+				END IF;
+				IF DE_CalculatedValue = 0.00  THEN
+					SET DE_CalculatedValue = 1.00;
+				ELSEIF DE_CalculatedValue > 99999.99 THEN
+					SET DE_CalculatedValue = 99999.99;
+				END IF;
+		    END IF;	
+	RETURN DE_CalculatedValue;	
+END;
+
+--Function to retrieve last day of the month
+CREATE FUNCTION FUNC_GetLastDayOfMonth(IN CH_Date CHARACTER, IN CH_Format CHARACTER NULLABLE) RETURNS CHARACTER 
+BEGIN 
+    DECLARE TS_Date TIMESTAMP; 
+    DECLARE IN_Month INTEGER; 
+    DECLARE CH_Days CHARACTER; 
+
+    SET TS_Date         = CAST(CH_Date AS TIMESTAMP FORMAT CH_Format); 
+    SET IN_Month        = EXTRACT(MONTH FROM TS_Date); 
+
+    IF IN_Month = 2 THEN 
+        IF EXTRACT(ISLEAPYEAR FROM TS_Date) THEN 
+        	SET CH_Days = '29'; 
+        ELSE 
+            SET CH_Days = '28'; 
+        END IF; 
+    ELSEIF IN_Month IN(1,3,5,7,8,10,12) THEN 
+        SET CH_Days 	= '31'; 
+    ELSE 
+        SET CH_Days 	= '30'; 
+    END IF; 
+    RETURN CH_Days; 
+END; 
+
+
+/*
+The Below function handle special charcters before generating database query
+The input parameters is InputValue. The function replaces single quote with double quote
+*/
+
+--Function to handle special charcters before generating database query 
+CREATE FUNCTION FUNC_DBSpecialCharHandling(IN CH_Input CHARACTER) RETURNS CHARACTER
+		BEGIN
+		IF CONTAINS(CH_Input,'''') THEN
+			SET CH_Input	=	REPLACE(CH_Input,'''','''''');
+		END IF;	
+		RETURN CH_Input;
+END;
+
+/*
+The Below function converts Penny to Pound
+he input parameters  are CH_Value,IN_Sign,IN_Decimal, CH_Mode and returns DC_Return
+*/
+
+CREATE FUNCTION FUNC_ConvertPennytoPound(CH_Value CHARACTER NULLABLE, IN_Sign INTEGER, IN_Decimal INTEGER, CH_Mode CHARACTER NULLABLE) RETURNS DECIMAL
+BEGIN
+	SET CH_Mode = COALESCE(CH_Mode, 'ROUND_HALF_EVEN');
+	DECLARE DC_Return DECIMAL;
+	IF COALESCE(DC_Return,'') = '' THEN
+		SET DC_Return		= '0.00';
+	END IF;
+	SET DC_Return			= CAST(CH_Value AS DECIMAL) * IN_Sign * 0.01;
+	CASE CH_Mode
+		WHEN 'ROUND_HALF_UP' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_HALF_UP);
+		WHEN 'ROUND_CEILING' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_CEILING);
+		WHEN 'ROUND_DOWN' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_DOWN);
+		WHEN 'ROUND_FLOOR' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_FLOOR);
+		WHEN 'ROUND_HALF_DOWN' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_HALF_DOWN);
+		WHEN 'ROUND_HALF_EVEN' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_HALF_EVEN);
+		WHEN 'ROUND_UP' THEN
+			SET DC_Return 	= ROUND(DC_Return, IN_Decimal MODE ROUND_UP);
+		ELSE
+			SET DC_Return 	= ROUND(DC_Return,2);
+	END CASE;
+	IF COALESCE(DC_Return,'') = '' THEN
+		--Code change starts for version 0.2
+		--SET DC_Return = 0;
+		SET DC_Return = 0.00;
+		--Code change ends for version 0.2
+	END IF;
+	RETURN DC_Return;	
+END;
+
+/*
+The Below functions handle special charcters in xml file
+The input parameters is InputValue. The function replaces &,<,>," with &amp;,&lt;,&gt;&quot;
+*/
+
+-- Function to handle special characters in xml file
+CREATE FUNCTION FUNC_XMLSpecialCharHandling(IN CH_Input CHARACTER) RETURNS CHARACTER
+	BEGIN
+		
+		IF CONTAINS(CH_Input,'&') THEN
+			SET CH_Input	=	REPLACE(CH_Input,'&', '&amp;');
+		END IF;
+		IF CONTAINS(CH_Input,'<') THEN
+			SET CH_Input	=	REPLACE(CH_Input,'<', '&lt;');
+		END IF;
+		IF CONTAINS(CH_Input,'>') THEN
+			SET CH_Input	=	REPLACE(CH_Input,'>', '&gt;');
+		END IF;
+		IF CONTAINS(CH_Input,'"') THEN
+			SET CH_Input	=	REPLACE(CH_Input,'"', '&quot;');
+		END IF;
+		RETURN CH_Input;
+	END;

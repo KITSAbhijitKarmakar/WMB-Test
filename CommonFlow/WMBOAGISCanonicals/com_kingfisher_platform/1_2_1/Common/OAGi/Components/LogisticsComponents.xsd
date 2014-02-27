@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         24 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="Components.xsd"/>
+	<xsd:include schemaLocation="PIMComponents.xsd"/>
+	<xsd:element name="Container" type="ContainerType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Uniquely identifies a shipping container</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="CustomsExport" type="oa:CustomsExportType"/>
+	<xsd:element name="ExportLicense" type="oa:ExportLicenseType"/>
+	<xsd:element name="HazardousMaterialShipmentContainer" type="oa:HazardousMaterialShipmentContainerType"/>
+	<xsd:element name="ImportLicense" type="oa:ExportLicenseType"/>
+	<xsd:element name="ItemSubLine">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the lot number and serial number details for a specific quantity of items. This can be used to identify either all the serial numbers within a given lot, or lot numbers and serial numbers independent of each other</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:complexContent>
+				<xsd:extension base="ItemSubLineType">
+					<xsd:sequence>
+						<xsd:element minOccurs="0" ref="oa:PurchaseOrderReference"/>
+						<xsd:element minOccurs="0" ref="LoadingMethodCode"/>
+						<xsd:element minOccurs="0" ref="FulfilmentSiteID"/>
+						<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:UPCPackagingLevelCode"/>
+					</xsd:sequence>
+				</xsd:extension>
+			</xsd:complexContent>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LoadingMethodCode" type="oa:CodeType"/>
+	<xsd:element name="PortInformation" type="oa:PortInformationType"/>
+	<xsd:element name="RouteStop" type="RouteStopType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Provides information pertaining to a particular pickup or delivery stop along the journey of a routed shipment.
+
+Each instance of the RouteStop pertains to a single physical destination shipping location and requires a subordinate ShipToParty.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="RouteType" type="oa:CodeType"/>
+	<xsd:element name="RoutingInformation" type="oa:RoutingInformationType"/>
+	<xsd:element name="ShipmentUnit" type="ShipmentUnitType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The ShipmentUnit represents a single trackable, uniquely identifiable assembly or container containing a specific collection of goods inventory that is packaged by a supplier for carrier transportation to a customer business partner destination
+
+The ShipmentUnit component identifies and describes the physical shipping container(s) and internal packaging structure of the delivered goods.  The ShipmentUnit component is typically constructed to describe the result of an inventory picking and packing operation. 
+
+A ShipmentUnit is generally the smallest "thing" that can be individually moved and tracked throughout a carrier's transportation network.  The physical size, inventory, content and internal nested container complexity within a ShipUnit is arbitrary.  The ShipUnit component was specifically designed to be transportation mode independent.  It may be used to represent any uniquely identifiable and trackable assembly, container or vessel including, but not limited to: a parcel express package; a pallet of identical or mixed items; a truck trailer, rail car or an ocean cargo container.
+
+The ShipmentUnit complements the line-item oriented summary information provided in the Shipment's ShipmentItem and InventoryDetail component with detailed information to accurately describe complex shipping unit assemblies and item packaging.  </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ShipmentUnitContainer" type="ShipmentUnitContainerType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The ShipmentUnitContainer represents information about an intermediate packaging level within the shipping unit.  A ShipmentUnitContainer may or may not have ShipmentUnitItem associated with it</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ShipmentUnitItem" type="ShipmentUnitItemType"/>
+	<xsd:element name="ShippingLabel" type="oa:ShippingLabelType"/>
+	<xsd:element name="StopDetail" type="StopDetailType"/>
+	<xsd:complexType name="CommercialInvoiceHeaderBaseType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The Warehouse Location identifies the place from where the goods are shipped</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:GrossWeightMeasure"/>
+					<xsd:element minOccurs="0" ref="CustomsExport"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RoutingInformation"/>
+					<xsd:element minOccurs="0" ref="oa:ContainerQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:ShipFromParty"/>
+					<xsd:element minOccurs="0" ref="oa:ShipToParty"/>
+					<xsd:element minOccurs="0" ref="oa:SupplierParty"/>
+					<xsd:element minOccurs="0" ref="oa:SoldToParty"/>
+					<xsd:element minOccurs="0" ref="oa:UltimateRecipientParty"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="CommercialInvoiceItemBaseType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:Item"/>
+			<xsd:element minOccurs="0" ref="ExportLicense"/>
+			<xsd:element minOccurs="0" ref="oa:HarmonizedTariffScheduleCode"/>
+			<xsd:element minOccurs="0" ref="oa:ShippedQuantity"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ShipmentContainerContent"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ContainerBaseType">
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="ContainerInstanceIDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:ContainerGroupID"/>
+			<xsd:element minOccurs="0" ref="oa:Type">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">Code type specifing the type of Container.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DocumentReference"/>
+			<xsd:element minOccurs="0" ref="oa:GrossWeightMeasure"/>
+			<xsd:element minOccurs="0" ref="oa:PackingMaterial"/>
+			<xsd:element minOccurs="0" ref="oa:ShippingMaterial"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Quantity"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="ContainerType">
+		<xsd:complexContent>
+			<xsd:extension base="ContainerBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ExportDeclarationHeaderBaseType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The Warehouse Location identifies the place from where the goods are shipped</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:GrossWeightMeasure"/>
+					<xsd:element minOccurs="0" ref="CustomsExport"/>
+					<xsd:element minOccurs="0" ref="PortInformation"/>
+					<xsd:element minOccurs="0" ref="oa:ActualShipDate"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RoutingInformation"/>
+					<xsd:element minOccurs="0" ref="oa:IntraCompanyTransferIndicator"/>
+					<xsd:element minOccurs="0" ref="oa:ContainerQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:ShipToParty"/>
+					<xsd:element minOccurs="0" ref="oa:SupplierParty"/>
+					<xsd:element minOccurs="0" ref="oa:UltimateRecipientParty"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ExportDeclarationItemBaseType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="ExportLicense"/>
+			<xsd:element minOccurs="0" ref="oa:HarmonizedTariffScheduleCode"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="HazardousMaterialHeaderBaseType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The Warehouse Location identifies the place from where the goods are shipped</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:ContainerQuantity"/>
+					<xsd:element minOccurs="0" ref="PortInformation"/>
+					<xsd:element minOccurs="0" ref="oa:ActualShipDate"/>
+					<xsd:element minOccurs="0" ref="oa:GrossWeightMeasure"/>
+					<xsd:element minOccurs="0" ref="oa:TotalVolumeMeasure"/>
+					<xsd:element minOccurs="0" ref="oa:IntraCompanyTransferIndicator"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RoutingInformation"/>
+					<xsd:element minOccurs="0" ref="oa:ShipFromParty"/>
+					<xsd:element minOccurs="0" ref="oa:ShipToParty"/>
+					<xsd:element minOccurs="0" ref="oa:ShipperParty"/>
+					<xsd:element minOccurs="0" ref="oa:DeclarantParty"/>
+					<xsd:element minOccurs="0" ref="oa:TransportID"/>
+					<xsd:element minOccurs="0" ref="oa:EmergencyContact"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="HazardousMaterialShipmentLineBaseType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:LineNumber"/>
+			<xsd:element minOccurs="0" ref="oa:ContainsHazardousMaterialIndicator"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:HazardousMaterialCodes"/>
+			<xsd:element minOccurs="0" ref="oa:Item"/>
+			<xsd:element minOccurs="0" ref="oa:CountryOfOriginCode"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="HazardousMaterialShipmentContainer"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ItemSubLineType">
+		<xsd:sequence>
+			<xsd:group minOccurs="0" ref="oa:ItemInstanceIDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:Quantity"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="oa:UserArea"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="RouteStopType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID"/>
+			<xsd:element minOccurs="0" ref="oa:Type">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/oagis/9">Code type specifing the type of route stop.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element minOccurs="0" ref="oa:SequenceCode"/>
+			<xsd:element minOccurs="0" ref="oa:TrackingID"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ContainerID"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:group minOccurs="0" ref="oa:ShippingWeightAndVolumeGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="HazardousMaterial"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Charge"/>
+			<xsd:element minOccurs="0" ref="CarrierParty"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DocumentReference"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="StopDetail"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="ShipItemBaseType">
+		<xsd:complexContent>
+			<xsd:extension base="ProductItemType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:LineNumber"/>
+					<xsd:element minOccurs="0" ref="oa:Status"/>
+					<xsd:element minOccurs="0" ref="DeliveryReversedIndicator"/>
+					<xsd:element minOccurs="0" ref="DeliveryRecycledIndicator"/>
+					<xsd:element minOccurs="0" ref="ExportLicense"/>
+					<xsd:element minOccurs="0" ref="ImportLicense"/>
+					<xsd:element minOccurs="0" ref="oa:ContainsHazardousMaterialIndicator"/>
+					<xsd:element minOccurs="0" ref="oa:CountryOfOriginCode"/>
+					<xsd:element minOccurs="0" ref="oa:ImportLicenseRequiredIndicator"/>
+					<xsd:element minOccurs="0" ref="oa:OrderQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:ShippedQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:OpenQuantity"/>
+					<xsd:element minOccurs="0" ref="oa:BackOrderedQuantity"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="QualifiedUnitPrice"/>
+					<xsd:element minOccurs="0" ref="oa:TotalAmount"/>
+					<xsd:element minOccurs="0" ref="oa:OwnershipCode"/>
+					<xsd:element minOccurs="0" ref="oa:EstimatedWeightMeasure">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The estimated weight of an item or container.  An estimate is provided as a processing alternative when the actual weight of an item is not known or cannot be calculated exactly.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The estimated weight of an item or container.  An estimate is provided as a processing alternative when the actual weight of an item is not known or cannot be calculated exactly.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:LoadingWeightMeasure">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">This is the net weight at loading time of the container in which the materials are being shipped.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:group ref="oa:ShippingWeightAndVolumeGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:RequisitionReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:PurchaseOrderReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SalesOrderReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DocumentReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ItemSubLine"/>
+					<xsd:element minOccurs="0" ref="oa:DistributionCenterCode"/>
+					<xsd:element minOccurs="0" ref="oa:PointOfStagingCode"/>
+					<xsd:element minOccurs="0" ref="LoadingMethodCode">
+						<xsd:annotation>
+							<xsd:documentation>Identifies the method of Loading the good such as Crane, Lift etc</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:ScheduledShipDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:ActualShipDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:ScheduledDeliveryDateTime"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShipmentHeaderBaseType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The Warehouse Location identifies the place from where the goods are shipped</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:ShipUnitQuantity">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Contains the quantity of units or things shipped. This represents the container(s), not the product shipped.  An example of this is "4 truck loads" or "2 wooden crates".</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:WarehouseLocation">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Is the storage facility for inventory.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Is the storage facility for inventory.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:CarrierRouteReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:BillOfLadingReference"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DeliveryReference"/>
+					<xsd:element minOccurs="0" ref="oa:ActualShipDateTime">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Is the date that is used to identify the actual date and time a shipment occurs.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Is the date that is used to identify the actual date and time a shipment occurs.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:ScheduledDeliveryDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:ActualDeliveryDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:EstimatedWeightMeasure">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The estimated weight of an item or container.  An estimate is provided as a processing alternative when the actual weight of an item is not known or cannot be calculated exactly.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The estimated weight of an item or container.  An estimate is provided as a processing alternative when the actual weight of an item is not known or cannot be calculated exactly.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:LoadingWeightMeasure">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">This is the net weight at loading time of the container in which the materials are being shipped.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:group minOccurs="0" ref="oa:ShippingWeightAndVolumeGroup"/>
+					<xsd:element minOccurs="0" ref="oa:HazardousMaterialCodes"/>
+					<xsd:element minOccurs="0" ref="oa:CountryOfOriginCode"/>
+					<xsd:element minOccurs="0" ref="oa:DistributionCenterCode"/>
+					<xsd:element minOccurs="0" ref="oa:TransportationMethodCode">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Identifies the general type of carrier transportation used to deliver goods.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:SpecialHandlingNote"/>
+					<xsd:element minOccurs="0" ref="oa:DockID"/>
+					<xsd:element minOccurs="0" ref="ShipFromParty"/>
+					<xsd:element minOccurs="0" ref="CustomerParty"/>
+					<xsd:element minOccurs="0" ref="CarrierParty"/>
+					<xsd:element minOccurs="0" ref="PurchasingParty"/>
+					<xsd:element minOccurs="0" ref="SupplierParty"/>
+					<xsd:element minOccurs="0" ref="SoldToParty"/>
+					<xsd:element minOccurs="0" ref="oa:FreightTermCode"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Organisation"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DistributedCharge"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipToParty"/>
+					<xsd:element minOccurs="0" ref="oa:SalesOrganizationIDs"/>
+					<xsd:element minOccurs="0" ref="oa:RouteReference"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShipmentUnitContainerType">
+		<xsd:complexContent>
+			<xsd:extension base="ContainerBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:ParentContainerID">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">Is the identifier of the container that physically holds other subordinate containers.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipmentUnitItem"/>
+					<xsd:element minOccurs="0" ref="oa:Dimensions"/>
+					<xsd:element minOccurs="0" ref="oa:UserArea"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShipmentUnitItemType">
+		<xsd:complexContent>
+			<xsd:extension base="ShipItemBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:UnitSalePriceAmount"/>
+					<xsd:element minOccurs="0" ref="oa:ExtendedSalePriceAmount"/>
+					<xsd:group minOccurs="0" ref="FreightItemGroup"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShippingLabel"/>
+					<xsd:element minOccurs="0" ref="DeliveryGroupCode"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShipmentUnitType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The Amount contains the total sales price for the contents of the shipping unit.
+
+
+The TotalAmount contains the sum of the FreightCharges and the Sales price (Amount) for the shipping unit.  If C.O.D. (Collect On Delivery) freight terms were specified for the transaction, this is monetary amount that the carrier is to collect as payment from the customer upon shipment of the shipping unit.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="ShipUnitBaseType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:EstimatedFreightChargeAmount"/>
+					<xsd:element minOccurs="0" ref="oa:FreightChargeAmount"/>
+					<xsd:element minOccurs="0" ref="oa:SalePriceAmount"/>
+					<xsd:element minOccurs="0" ref="oa:ShipmentTotalAmount"/>
+					<xsd:element minOccurs="0" ref="oa:LoadingDateTime"/>
+					<xsd:element minOccurs="0" ref="oa:EstimatedWeightMeasure">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The estimated weight of an item or container.  An estimate is provided as a processing alternative when the actual weight of an item is not known or cannot be calculated exactly.</xsd:documentation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">The estimated weight of an item or container.  An estimate is provided as a processing alternative when the actual weight of an item is not known or cannot be calculated exactly.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:LoadingWeightMeasure">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/platform/1">This is the net weight at loading time of the container in which the materials are being shipped.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="oa:Dimensions"/>
+					<xsd:element minOccurs="0" ref="oa:CountryOfOriginCode"/>
+					<xsd:element minOccurs="0" ref="oa:DestinationCountryCode"/>
+					<xsd:element minOccurs="0" ref="oa:HazardousMaterialCodes"/>
+					<xsd:element minOccurs="0" ref="oa:TransportationMethodCode"/>
+					<xsd:element minOccurs="0" ref="oa:ShipmentServiceLevelCode"/>
+					<xsd:element minOccurs="0" ref="oa:PointOfStagingCode"/>
+					<xsd:element minOccurs="0" ref="oa:TransportationTerm"/>
+					<xsd:element minOccurs="0" ref="ExportLicense"/>
+					<xsd:element minOccurs="0" ref="oa:ShipToLocation"/>
+					<xsd:element minOccurs="0" ref="oa:PackingMaterial"/>
+					<xsd:element minOccurs="0" ref="oa:ShippingMaterial"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipmentUnitContainer"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipmentUnitItem"/>
+					<xsd:element minOccurs="0" ref="oa:ContainerQuantity"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShippersLetterOfInstructionHeaderBaseType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">The Warehouse Location identifies the place from where the goods are shipped</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="oa:GrossWeightMeasure"/>
+					<xsd:element minOccurs="0" ref="CustomsExport"/>
+					<xsd:element minOccurs="0" ref="PortInformation"/>
+					<xsd:element minOccurs="0" ref="oa:ActualShipDate"/>
+					<xsd:element minOccurs="0" ref="oa:ShippingInstructions"/>
+					<xsd:element minOccurs="0" ref="oa:InsuranceRequiredIndicator"/>
+					<xsd:element minOccurs="0" ref="oa:IntraCompanyTransferIndicator"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RoutingInformation"/>
+					<xsd:element minOccurs="0" ref="oa:ShipToParty"/>
+					<xsd:element minOccurs="0" ref="oa:SupplierParty"/>
+					<xsd:element minOccurs="0" ref="oa:UltimateRecipientParty"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="ShippersLetterOfInstructionItemBaseType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="ExportLicense"/>
+			<xsd:element minOccurs="0" ref="oa:DeclaredValueAmount"/>
+			<xsd:element minOccurs="0" ref="oa:HarmonizedTariffScheduleCode"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ShipUnitBaseType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:ID">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">The identifier identifying the Ship Unit.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:group minOccurs="0" ref="TrackingIDGroup"/>
+			<xsd:group minOccurs="0" ref="ContainerInstanceIDsGroup"/>
+			<xsd:element minOccurs="0" ref="oa:Type">
+				<xsd:annotation>
+					<xsd:documentation source="http://www.openapplications.org/platform/1">Code type specifing the type of Ship Unit.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:group ref="oa:FreeFormTextGroup"/>
+			<xsd:group ref="oa:ReferencesGroup"/>
+			<xsd:element minOccurs="0" ref="CarrierParty"/>
+			<xsd:element minOccurs="0" ref="ShipFromParty"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShipToParty"/>
+			<xsd:element minOccurs="0" ref="oa:DeclaredValueAmount"/>
+			<xsd:element minOccurs="0" ref="oa:ShipmentDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:ContainsHazardousMaterialIndicator"/>
+			<xsd:element minOccurs="0" ref="oa:ExportLicenseRequiredIndicator"/>
+			<xsd:element minOccurs="0" ref="oa:ImportLicenseRequiredIndicator"/>
+			<xsd:element minOccurs="0" ref="oa:ScheduledDeliveryDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:ActualDeliveryDateTime"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:SpecialHandlingNote"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+			<xsd:group minOccurs="0" ref="oa:ShippingWeightAndVolumeGroup"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:DistributedCharge"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="StopDetailType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:BillOfLadingID"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ContainerID"/>
+			<xsd:group minOccurs="0" ref="oa:FreeFormTextGroup"/>
+			<xsd:element minOccurs="0" ref="oa:TrackingID"/>
+			<xsd:element minOccurs="0" ref="ShipToParty"/>
+			<xsd:element minOccurs="0" ref="ShipFromParty"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Party"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ShipUnitReference"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ShipmentReference"/>
+			<xsd:group minOccurs="0" ref="oa:ReferencesGroup"/>
+			<xsd:element minOccurs="0" ref="oa:BillOfLadingReference"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:group name="CatchWeightGroup">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:CatchWeightQuantity"/>
+			<xsd:element minOccurs="0" ref="oa:CatchWeightConversionFactor"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:group name="ContainerInstanceIDsGroup">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:ContainerID"/>
+			<xsd:element minOccurs="0" ref="oa:RFID"/>
+			<xsd:element minOccurs="0" ref="oa:SealID"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:group name="FreightItemGroup">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:FreightItemID"/>
+			<xsd:element minOccurs="0" ref="oa:FreightClassificationCode"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:complexType name="DeliveryDetailsType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:PromisedDeliveryDateTime"/>
+			<xsd:element minOccurs="0" ref="DeliveryTimeSlot"/>
+			<xsd:element minOccurs="0" ref="RouteType"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TimeSlotType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="oa:StartDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:EndDateTime"/>
+			<xsd:element minOccurs="0" ref="oa:Description"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:element name="DeliveryTimeSlot" type="TimeSlotType"/>
+	<xsd:element name="DeliveryDetails" type="DeliveryDetailsType"/>
+	<xsd:group name="TrackingIDGroup">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/platform/1">Contains the TrackingID and the two optional elements that uniquely identify a ship unit</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:TrackingID"/>
+			<xsd:element minOccurs="0" ref="oa:ShipUnitSequenceID"/>
+			<xsd:element minOccurs="0" ref="oa:ShipUnitTotalID"/>
+			<xsd:element minOccurs="0" ref="oa:ContainerGroupID"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:element name="LoadingTimeSlot" type="TimeSlotType"/>
+</xsd:schema>

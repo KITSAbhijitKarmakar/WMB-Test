@@ -1,0 +1,392 @@
+
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: TransformToCanonical													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_LegacySAP											*
+* Message Flow Description 	: Create ProcessSalesOrder message										*
+* Module Name 				: ProcessSalesOrder_LegacySAP_Compute			 						*
+* Description 				: Create ProcessSalesOrder message and response for Generic RFC call	*
+*																									*
+* Version 	Date 		 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		01-APR-2013 	Sayantan Som 		The initial version. 								*
+* 0.2 		19-JUN-2013 	Sourav Banu 		Condition added to populate TENDERID if				* 
+*												sap tender id is 'VISA'								*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_LegacySAP_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET Environment.Variables.SuccessFlag = TRUE;
+		CALL PROC_CreatePublicationHeader();
+		CALL SalesOrderSAPRFCMapping();
+		IF Environment.Variables.SuccessFlag THEN
+			CALL CopyMessageHeaders();
+			SET OutputRoot.DataObject.ns3:SapZRetCcardPaymentsWrapper.SapZRetCcardPayments.PI_RETURN = 'X';
+			PROPAGATE TO TERMINAL 'out2';
+		END IF;
+		RETURN FALSE;
+	END;
+	
+	/************************************************************************************
+	* Procedure Name     :CopyMessageHeaders	             	    					*
+	* Input Parameters   :None          			                                    *
+	* Output Parameters  :None			            	                                *
+	* Description        :Procedure to copy message header from input		            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+	
+	/************************************************************************************
+	* Procedure Name     :SalesOrderSAPRFCMapping	             	    				*
+	* Input Parameters   :None          			                                    *
+	* Output Parameters  :None			            	                                *
+	* Description        :Procedure to create ProcessSalesOrder message		            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE SalesOrderSAPRFCMapping() BEGIN
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN
+			SET Environment.Variables.SuccessFlag 	= FALSE;
+			SET Environment.Variables.SQLSTATE 		= SQLSTATE;
+			PROPAGATE TO TERMINAL 'out1';
+		END;
+		
+		-- Input Reference
+		DECLARE REF_INP 			REFERENCE TO InputRoot.XMLNSC.ns3:SapZRetCcardPaymentsWrapper;
+		MOVE REF_INP				TO REF_INP.SapZRetCcardPayments;
+		MOVE REF_INP 				TO REF_INP.SapPtZpayments;
+		
+		-- Output Reference
+		DECLARE REF_Synch 			REFERENCE TO OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_Synchr_Sales 	REFERENCE TO OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_Proc 			REFERENCE TO REF_Synch.NS_dfns:DataArea.NS_oa:Process;
+		DECLARE REF_SynCH_Sales 	REFERENCE TO REF_Synch.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_AppArea 		REFERENCE TO REF_Synch.NS_oa:ApplicationArea;
+		DECLARE REF_Synch_Header 	REFERENCE TO REF_SynCH_Sales.NS_dfns:SalesOrderHeader;
+		DECLARE REF_Synch_Line 		REFERENCE TO REF_SynCH_Sales.NS_dfns:SalesOrderLine;
+
+		DECLARE IN_Card 			INTEGER;
+		DECLARE BOOL_Range 			BOOLEAN;
+		DECLARE BOOL_VPCRule 		BOOLEAN;
+		DECLARE CH_AUTWRAmount 		CHARACTER;
+		DECLARE DT_DATE 			DATE;
+		DECLARE TS_TEMP 			TIMESTAMP;
+		
+		-- Obtaining the Encryption values from JCN
+		SET Environment.Variables.MaskedAccountId 		= Environment.MaskedAccountId;
+		SET Environment.Variables.HashedAccountId 		= Environment.HashedAccountId;
+		SET Environment.Variables.IVData 				= Environment.IVData;
+		SET Environment.Variables.EncryptedAccountId 	= Environment.EncryptedAccountId;
+
+		CREATE LASTCHILD OF OutputRoot AS REF_Synch DOMAIN('XMLNSC') NAME 'XMLNSC';
+		CREATE LASTCHILD OF REF_Synch AS REF_Synchr_Sales NAMESPACE NS_dfns NAME 'ProcessSalesOrder';
+
+		SET REF_Synchr_Sales.(XMLNSC.Attribute)releaseID 	= '1.0';
+		SET REF_Synchr_Sales.(XMLNSC.Attribute)languageCode = 'en';
+
+		SET REF_Synchr_Sales.(XMLNSC.NamespaceDecl)xmlns 	= NS_dfns;
+		SET REF_Synchr_Sales.(XMLNSC.NamespaceDecl)xmlns:oa = NS_oa;
+
+		CREATE LASTCHILD OF REF_Synchr_Sales AS REF_AppArea NAMESPACE NS_oa NAME 'ApplicationArea';
+		SET REF_AppArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO';
+		SET REF_AppArea.NS_oa:CreationDateTime = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''hh:mm:ssZZZ');
+
+--		SET TS_TEMP 						= CAST(REF_INP.AUDAT_CC AS TIMESTAMP FORMAT 'yyyy-MM-dd');
+		SET Environment.Variables.AUDATDate = CAST(REF_INP.AUDAT_CC AS CHARACTER FORMAT 'yyyy-MM-dd');
+
+--		SET TS_TEMP 						= CAST(REF_INP.AUTIM AS TIME FORMAT 'hh:mm:ss');
+		SET Environment.Variables.AUTime 	= CAST(REF_INP.AUTIM AS CHARACTER FORMAT 'hh:mm:ss');
+
+		IF LENGTH(REF_INP.CCNUM) = 16 THEN
+			SET IN_Card = CAST(SUBSTRING(REF_INP.CCNUM FROM 1 FOR 6) AS INTEGER);
+		ELSE
+			SET IN_Card = CAST(SUBSTRING(REF_INP.ZCC_MASKED FROM 1 FOR 6) AS INTEGER);
+		END IF;
+
+		IF (((IN_Card >= 448400) AND (IN_Card <= 448699)) OR ((IN_Card >= 471500) AND (IN_Card <= 471599))) THEN
+			SET BOOL_Range = true;
+		END IF;
+
+		SET Environment.sqlSTRCD[] = SELECT MB.MCSTORE,MB.VPCTRADINGREGION FROM Database.MBSTRCD AS MB
+										WHERE MB.GENERICSTORECODE = REF_INP.VKBUR;
+
+		IF Environment.sqlSTRCD.VPCTRADINGREGION IN ('IE', 'CI', 'EX') THEN
+			SET BOOL_VPCRule = true;
+		ELSE
+			SET BOOL_VPCRule = false;
+		END IF;
+
+		SET Environment.sql[] = SELECT MB.TENDERID, MB.ACQUIRERID from Database.TENDERDATA AS MB
+									WHERE MB.SAPCARDTYPE = REF_INP.CCINS;
+		
+		
+		--Code change starts for version 0.2
+		IF REF_INP.CCINS = 'VISA' THEN
+			SET Environment.sql.TENDERID 			= 'Visa';
+		END IF;
+		--Code change ends for version 0.2
+		
+		IF ((ENDSWITH(REF_INP.AUTWR, '-')) AND (Environment.sqlSTRCD.MCSTORE = 'Y') AND (BOOL_Range = true) AND (Environment.sql.TENDERID = 'Visa') AND (BOOL_VPCRule = false)) THEN
+			--Change the values of the variables for Visa Procurement Card
+			SET Environment.sql.TENDERID 			= 'VisaProcurementCardP';
+			SET Environment.sql.ACQUIRERID 			= 'C';
+			SET Environment.sql.TAXPROFILE 			= 'UKVATSTD';
+		ELSE
+			SET Environment.sql.TAXPROFILE 			= 'UKVATEXEMPT';
+		END IF;
+		
+		IF REF_INP.CCINS = 'TRAD' THEN
+			SET Environment.sql.TENDERID 			= 'Tradecard';
+		END IF;
+		
+		
+		CREATE LASTCHILD OF REF_Synchr_Sales AS REF_Synchr_Sales NAMESPACE NS_dfns NAME 'DataArea';
+		CREATE LASTCHILD OF REF_Synchr_Sales AS REF_Proc NAMESPACE NS_oa NAME 'Process';
+
+		CREATE LASTCHILD OF REF_Synchr_Sales AS REF_SynCH_Sales NAMESPACE NS_dfns NAME 'SalesOrder';
+		CREATE FIELD REF_SynCH_Sales.NS_dfns:SalesOrderHeader AS REF_Synch_Header;
+
+		CALL PROC_MapSOHeader(REF_Synch_Header);		
+
+		--Sales Order Line[0] Start
+		CREATE LASTCHILD OF REF_SynCH_Sales AS REF_Synch_Line NAMESPACE NS_dfns NAME 'SalesOrderLine';
+
+		SET REF_Synch_Line.NS_oa:LineNumber 								= '1';
+		SET REF_Synch_Line.NS_oa:DocumentReference.NS_oa:DocumentDateTime 	= Environment.Variables.AUDATDate || 'T' || Environment.Variables.AUTime || CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ZZZ'); 
+
+		IF ENDSWITH (REF_INP.AUTWR, '-') THEN
+			SET REF_Synch_Line.NS_oa:DocumentReference.(XMLNSC.Attribute)type = 'CONTACT CENTRE PRODUCT RETURN';
+		ELSE
+			SET REF_Synch_Line.NS_oa:DocumentReference.(XMLNSC.Attribute)type = 'CONTACT CENTRE PRODUCT SALE';
+		END IF;
+
+		--Sales Order Line Product Item Start
+		SET REF_Synch_Line.NS_dfns:ProductItem.NS_oa:UPCID 					= SUBSTRING(REF_INP.KUNNR FROM 3 FOR 9) || SUBSTRING(REF_INP.VBELN FROM 3 FOR 9);
+		SET REF_Synch_Line.NS_dfns:ProductItem.NS_oa:UOMCode 				= 'each';
+		SET REF_Synch_Line.NS_dfns:ProductItem.NS_oa:Type 					= 'Other';
+		SET REF_Synch_Line.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:Type = 'DEPARTMENT';
+		--Sales Order Line Product Item End
+
+		IF ENDSWITH (REF_INP.AUTWR, '-') THEN
+			SET REF_Synch_Line.NS_oa:Quantity = '-1';
+			SET CH_AUTWRAmount 			= '-' || TRIM(LEADING ' ' FROM TRIM(TRAILING '-' FROM REF_INP.AUTWR));
+		ELSE
+			SET REF_Synch_Line.NS_oa:Quantity = '1';
+			SET CH_AUTWRAmount 			= TRIM(BOTH ' ' FROM REF_INP.AUTWR);
+		END IF;
+		
+		SET REF_Synch_Line.NS_oa:UnitPrice.NS_oa:Amount 					= '0.00';
+		SET REF_Synch_Line.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Line.NS_dfns:QualifiedUnitPrice.NS_oa:Amount 			= CH_AUTWRAmount;
+		SET REF_Synch_Line.NS_dfns:QualifiedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Line.NS_dfns:DiscountedUnitPrice.NS_oa:Amount 		= CH_AUTWRAmount;
+		SET REF_Synch_Line.NS_dfns:DiscountedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Line.NS_oa:ExtendedAmount 							= CH_AUTWRAmount;
+		SET REF_Synch_Line.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Line.NS_oa:TotalAmount 								= CH_AUTWRAmount;
+		SET REF_Synch_Line.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID 	= REF_INP.CCWAE;
+		SET REF_Synch_Line.NS_dfns:LineFilterIndicator 						= 'false';
+		SET REF_Synch_Line.NS_dfns:Tax.NS_oa:Amount 						= '0.00';
+		SET REF_Synch_Line.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Line.NS_dfns:Tax.NS_oa:Code 							= Environment.sql.TAXPROFILE;
+		--Sales Order Line[0] End
+		--Sales Order Line[1] Start
+		CREATE LASTCHILD OF REF_SynCH_Sales AS REF_Synch_Line NAMESPACE NS_dfns NAME 'SalesOrderLine';
+		SET REF_Synch_Line.NS_oa:LineNumber 								= '3';
+		SET REF_Synch_Line.NS_oa:DocumentReference.(XMLNSC.Attribute)type 	= 'Tax';
+		SET REF_Synch_Line.NS_oa:DocumentReference.NS_oa:DocumentDateTime 	= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:MM:ssZZZ');
+		--Sales Order Line[1] End
+		----------------------------------------------------------------------------------------------------
+		PROPAGATE TO TERMINAL 'out';
+	END;
+	
+	/************************************************************************************
+	* Procedure Name     :PROC_CreatePublicationHeader             	    				*
+	* Input Parameters   :None          			                                    *
+	* Output Parameters  :None			            	                                *
+	* Description        :Procedure to create PublicationHeader				            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_CreatePublicationHeader()
+	BEGIN
+		DECLARE CH_TabName CHARACTER;
+		DECLARE CH_Input CHARACTER;
+		DECLARE CH_OutCol CHARACTER;
+		DECLARE CH_OutValue CHARACTER;
+
+		SET CH_TabName = 'MBTOPICS';
+		SET CH_OutCol = 'TOPICSTRING';
+		SET CH_OutValue = '';
+		SET CH_Input = 'SAPCOTopic';
+		
+		CALL RetrieveValuesLookup(CH_TabName,CH_OutCol,CH_Input,CH_OutValue);
+		-- Create the synchronize header
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.MQMD = InputRoot.MQMD;
+
+		SET OutputRoot.MQRFH2.psc.Command = 'Publish';
+		SET OutputRoot.MQRFH2.psc.Topic = CH_OutValue;
+
+	END;
+	
+	/************************************************************************************
+	* Procedure Name     :PROC_MapSOHeader                      	    				*
+	* Input Parameters   :REF_Synch_Header                                              *
+	* Output Parameters  :REF_Synch_Header                                              *
+	* Description        :Procedure to create SalesOrderHeader				            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_MapSOHeader(INOUT REF_Synch_Header REFERENCE)
+	BEGIN
+		DECLARE REF_INP 			REFERENCE TO InputRoot.XMLNSC.ns3:SapZRetCcardPaymentsWrapper.SapZRetCcardPayments.SapPtZpayments;
+		DECLARE REF_Payment 		REFERENCE TO REF_Synch_Header.NS_dfns:Payment;
+		DECLARE REF_PaymentCard 	REFERENCE TO REF_Payment.NS_dfns:PaymentCard;
+		DECLARE REF_PaymentAuth 	REFERENCE TO REF_PaymentCard.NS_dfns:PaymentAuthorization;		
+
+		DECLARE CH_AUTWRAmount	CHARACTER;
+
+		--Sales Order Header Start
+		IF ENDSWITH (REF_INP.AUTWR, '-') THEN
+			SET CH_AUTWRAmount = '-' || TRIM(LEADING ' ' FROM TRIM(TRAILING '-' FROM REF_INP.AUTWR));
+		ELSE
+			SET CH_AUTWRAmount = TRIM(BOTH ' ' FROM REF_INP.AUTWR);
+		END IF;
+		SET REF_Synch_Header.NS_oa:SourceID 								= REF_INP.VKBUR;
+		SET REF_Synch_Header.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Header.NS_oa:ExtendedAmount 							= CH_AUTWRAmount;
+		SET REF_Synch_Header.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Synch_Header.NS_oa:TotalAmount 								= CH_AUTWRAmount;
+
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:ID 				= 'Z278R' || REF_INP.VKBUR || REF_INP.VBELN || TRIM(LEADING '0' FROM REF_INP.ZZCREF);
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:Type 			= 'RetailTransactionStockView';
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:StartDateTime 	= Environment.Variables.AUDATDate || 'T' || Environment.Variables.AUTime || CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ZZZ');
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:EndDateTime 	= Environment.Variables.AUDATDate || 'T' || Environment.Variables.AUTime || CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ZZZ');
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_dfns:WeekNumber 	= REF_INP.ZZWEEK;
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_dfns:WorkstationID = 'SCO.1.1';
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_dfns:OperatorID 	= '001';
+		--SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_Dfns:FullOperatorID= '001';
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_dfns:FullOperatorID= '001';
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_dfns:BusinessDayID = getNextBusinessDayDate('NonEposBDD' || REF_INP.VKBUR);
+		
+
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:LastModificationDateTime = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:MM:ssZZZ');
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:CurrencyCode 	= REF_INP.CCWAE;
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_oa:Sequence 		= getMessageIDForKey1('Z278R_SAPCO');
+		SET REF_Synch_Header.NS_dfns:SalesTransaction.NS_dfns:SuspendedTransactionIndicator = 'false';
+
+		CREATE LASTCHILD OF REF_Synch_Header AS REF_Payment NAMESPACE NS_dfns NAME 'Payment';
+		SET REF_Synch_Header.NS_dfns:Payment.(XMLNSC.Attribute)id 			= Environment.sql.TENDERID;
+
+		CREATE LASTCHILD OF REF_Payment AS REF_PaymentCard NAMESPACE NS_dfns NAME 'PaymentCard';	 	
+--		IF UPPER(REF_INP.CCINS) = 'TRAD' THEN
+--			SET REF_PaymentCard.NS_oa:Type 									= 'TRAD';
+--			SET REF_PaymentCard.NS_dfns:CleartextNumber 					= REF_INP.CCNUM;
+--		ELSE
+		IF UPPER(REF_INP.CCINS) = 'TRAD' THEN
+		    SET REF_PaymentCard.NS_oa:Type 									= 'TRAD';	
+		END IF;
+		--IF UPPER(REF_INP.CCINS) <> 'TRAD' THEN
+--			IF COALESCE(Environment.Variables.AccountID,'') <> '' THEN
+--				--SET REF_PaymentCard.NS_oa:Number 							= Environment.Variables.AccountID;
+--				SET REF_PaymentCard.NS_dfns:CleartextNumber 				= Environment.Variables.AccountID;
+--			END IF;
+			IF COALESCE(Environment.Variables.MaskedAccountId,'') <> '' THEN
+				SET REF_PaymentCard.NS_oa:Number 							= Environment.Variables.MaskedAccountId;
+			END IF;
+		--END IF;
+
+		SET REF_PaymentCard.NS_oa:NameOnAccount 							= REF_INP.CCNAME;
+		SET REF_PaymentCard.NS_dfns:HashedNumber 							= Environment.Variables.HashedAccountId;
+		SET REF_PaymentCard.NS_dfns:EncryptedNumber 						= Environment.Variables.EncryptedAccountId;
+		SET REF_PaymentCard.NS_dfns:IVData 									= Environment.Variables.IVData;
+		-- Expected Data format for DATB and DATBI are 'mm.yy'
+		--SET REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month 				= SUBSTRING(REF_INP.DATAB FROM 1 FOR 2);
+		--SET REF_PaymentCard.NS_dfns:StartDate.NS_oa:Year 					= '20' || SUBSTRING(REF_INP.DATAB FROM 4 FOR 2);
+		
+		--Code change start for handling if input month come as 00		
+		IF SUBSTRING(REF_INP.DATAB FROM 1 FOR 2) = '00' THEN
+			SET REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month				= '12';
+			SET REF_PaymentCard.NS_dfns:StartDate.NS_oa:Year				= '1999';
+		ELSE
+			SET REF_PaymentCard.NS_dfns:StartDate.NS_oa:Month 				= SUBSTRING(REF_INP.DATAB FROM 1 FOR 2);
+			SET REF_PaymentCard.NS_dfns:StartDate.NS_oa:Year 				= '20' || SUBSTRING(REF_INP.DATAB FROM 4 FOR 2);
+		
+		END IF;
+		--Code change end for handling if input month come as 00
+		
+		SET REF_PaymentCard.NS_oa:Expiration.NS_oa:Month 					= SUBSTRING(REF_INP.DATBI FROM 1 FOR 2);
+		SET REF_PaymentCard.NS_oa:Expiration.NS_oa:Year 					= '20' || SUBSTRING(REF_INP.DATBI FROM 4 FOR 2);
+
+		CREATE LASTCHILD OF REF_PaymentCard AS REF_PaymentAuth NAMESPACE NS_dfns NAME 'PaymentAuthorization';
+		SET REF_PaymentAuth.NS_oa:ResponseCode 								= REF_INP.AUNUM;
+		SET REF_PaymentAuth.NS_dfns:AuthorizationDateTime 					= Environment.Variables.AUDATDate || 'T' || Environment.Variables.AUTime || CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ZZZ');
+
+		SET REF_PaymentAuth.NS_oa:Amount 									= CH_AUTWRAmount;
+		SET REF_PaymentAuth.NS_oa:Amount.(XMLNSC.Attribute)currencyID 		= REF_INP.CCWAE;
+		
+		SET REF_PaymentAuth.NS_dfns:Token 									= Environment.Token;
+		SET REF_PaymentAuth.NS_oa:TransactionID 							= REF_INP.SDTRANSID;
+		
+		SET REF_PaymentAuth.NS_oa:Result 									= REF_INP.SDRESULT;
+		SET REF_PaymentAuth.NS_dfns:ProtocolName 							= REF_INP.SDNAME;
+		SET REF_PaymentAuth.NS_dfns:ElectronicCommerceIndicatorID 			= REF_INP.SDECI;
+		SET REF_PaymentAuth.NS_dfns:MDStatusCode 							= REF_INP.SDMDSTATUS;
+		SET REF_PaymentAuth.NS_dfns:OverallResponseCode 					= REF_INP.ZAUTHRSPCODE;
+		SET REF_PaymentAuth.NS_dfns:HostAuthorizationIndicator 				= 'true';
+		SET REF_PaymentAuth.NS_dfns:Terminal.NS_dfns:EFTID 					= REF_INP.ZTERMID;
+		
+		SET REF_PaymentAuth.NS_dfns:CAVCode 								= REF_INP.SDCAV;
+		
+		SET REF_PaymentCard.NS_dfns:IssueNumber 							= REF_INP.ZISSUE;
+		SET REF_PaymentCard.NS_dfns:MerchantNumber 							= REF_INP.ZMERCHANT;
+		
+		IF UPPER(REF_INP.CCINS) = 'TRAD' THEN
+--		   SET REF_PaymentCard.NS_oa:Type 									= 'TRAD';
+		   SET REF_PaymentCard.NS_dfns:CleartextNumber 						= REF_INP.CCNUM;
+		   
+		ELSE
+			IF COALESCE(Environment.Variables.AccountID,'') <> '' THEN
+				--SET REF_PaymentCard.NS_oa:Number 							= Environment.Variables.AccountID;
+				SET REF_PaymentCard.NS_dfns:CleartextNumber 				= Environment.Variables.AccountID;
+			END IF;   
+		END IF;
+		
+		SET REF_PaymentCard.NS_dfns:CashBackAmount 							= '0';
+		SET REF_PaymentCard.NS_dfns:CashBackAmount.(XMLNSC.Attribute)currencyID = REF_INP.CCWAE;
+		SET REF_Payment.NS_oa:LineNumber 									= '2';
+		SET REF_Payment.NS_oa:Amount 										= CH_AUTWRAmount;
+		SET REF_Payment.NS_oa:Amount.(XMLNSC.Attribute)currencyID 			= REF_INP.CCWAE;
+		SET REF_Payment.NS_oa:EndDateTime 									= Environment.Variables.AUDATDate || 'T' || Environment.Variables.AUTime || CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ZZZ');
+		SET REF_Payment.NS_dfns:EntryType 									= 'keyed';
+		SET REF_Payment.NS_dfns:EntryType.(XMLNSC.Attribute)name 			= 'keyed';
+		SET REF_Payment.NS_dfns:CustomerPresentIndicator 					= 'false';
+		
+	END;
+END MODULE;

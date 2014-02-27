@@ -1,0 +1,99 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Create Output Canonical												*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket											*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_Create_Output_Canonical	 		*
+* Description 				: This node will create ProcessSalesOrder output message from			*
+*							  Environment and publish it to a topic									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som		The initial version. 								*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_Create_Output_Canonical
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_OUTSalesOrder			REFERENCE TO OutputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+		CALL PROC_CreatePublicationHeader();
+		
+		DECLARE REF_Payment	REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:Payment;
+		
+		Payment:WHILE LASTMOVE(REF_Payment)DO
+					IF EXISTS(REF_Payment.NS_dfns:PaymentCard[]) THEN
+						CALL PROC_OutputCanonical(REF_OUTSalesOrder);
+						PROPAGATE TO TERMINAL 'out1';
+						RETURN FALSE;
+						LEAVE Payment;
+						
+					END IF;
+					MOVE REF_Payment NEXTSIBLING;
+				END WHILE;
+
+		CALL PROC_OutputCanonical(REF_OUTSalesOrder);
+		SET Environment			= NULL;
+		RETURN TRUE;
+	END;
+	
+    /************************************************************************************
+	* Procedure Name     :PROC_CreatePublicationHeader			                        *
+	* Input Parameters   :None                                                          *
+	* Output Parameters  :None                                                          *
+	* Description        :Set publication topic into MQRFH2 header			            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_CreatePublicationHeader()
+	BEGIN
+		 DECLARE CH_TabName 	CHARACTER; 
+		 DECLARE CH_Input 		CHARACTER; 
+		 DECLARE CH_OutCol 		CHARACTER; 
+		 DECLARE CH_OutValue 	CHARACTER;          
+
+		 SET CH_TabName							= 'MBTOPICS';
+		 SET CH_OutCol							= 'TOPICSTRING';
+		 SET CH_OutValue 						= '';
+		 SET CH_Input							= 'EPOSTopic';
+				
+		--CALL RetrieveValuesLookup(CH_TabName,CH_OutCol,CH_Input,CH_OutValue);
+		
+		SET CH_OutValue = THE(SELECT ITEM(MT.TOPICSTRING) FROM CACHE_CONFIGDATA.MBTOPICS[] AS MT WHERE MT.CANVAL=CH_Input);     
+		 
+         -- Create the synchronize header 
+         SET OutputRoot.Properties              = InputRoot.Properties;
+         SET OutputRoot.MQMD                    = InputRoot.MQMD;
+         SET OutputRoot.MQRFH2.psc.Command   	= 'Publish';
+         SET OutputRoot.MQRFH2.psc.Topic        = CH_OutValue;
+	END;	
+	
+	/************************************************************************************
+	* Procedure Name     :PROC_OutputCanonical					                        *
+	* Input Parameters   :REF_OUTSalesOrder                                             *
+	* Output Parameters  :REF_OUTSalesOrder                                             *
+	* Description        :Create output message from Environment			            *
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-JUL-2013 	Asif Hossain 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_OutputCanonical (INOUT REF_OUTSalesOrder REFERENCE )
+	BEGIN
+		CREATE LASTCHILD OF OutputRoot AS REF_OUTSalesOrder DOMAIN('XMLNSC') NAME 'XMLNSC';
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding = 'UTF-8';
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version = '1.0';
+		CREATE LASTCHILD OF REF_OUTSalesOrder AS REF_OUTSalesOrder NAMESPACE NS_dfns NAME 'ProcessSalesOrder';
+		SET REF_OUTSalesOrder	= Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+	END;
+	
+END MODULE;

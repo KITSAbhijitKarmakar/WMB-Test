@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         10 May 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:include schemaLocation="../Nouns/Customer.xsd"/>
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element ibmSchExtn:docRoot="true" name="GetCustomer" type="GetCustomerType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The purpose of the GetCustomer is to facilitate keeping Customer information synchronized that exists on separate data bases.  The GetCustomer allows a business application to request information about a given party. The ShowCustomer is the response to this request providing the specific information requested.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="GetCustomerType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:BusinessObjectDocumentType">
+				<xsd:sequence>
+					<xsd:element name="DataArea" type="GetCustomerDataAreaType">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Is where the information that the BOD message carries is provided, in this case GetCustomer. The information consists of a Verb and one or more Nouns. The verb (Get) indicates the action to be performed on the Noun (Customer).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="GetCustomerDataAreaType">
+		<xsd:sequence>
+			<xsd:element ref="oa:Get"/>
+			<xsd:element maxOccurs="unbounded" ref="Customer"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

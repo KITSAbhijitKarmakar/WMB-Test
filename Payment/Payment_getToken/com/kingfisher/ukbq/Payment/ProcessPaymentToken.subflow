@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmSOAPEnvelope.msgnode="ComIbmSOAPEnvelope.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:gen_com_kingfisher_ukbq_Payment_CommIdeaGatewayProcessToken.subflow="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessToken.subflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/Payment/ProcessPaymentToken.subflow"
+    nsPrefix="com_kingfisher_ukbq_Payment_ProcessPaymentToken.subflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="ProcessPaymentToken" bundleName="com/kingfisher/ukbq/Payment/ProcessPaymentToken" pluginId="Payment_getToken"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_getToken/icons/full/obj16/ProcessPaymentToken.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_getToken/icons/full/obj30/ProcessPaymentToken.gif"/>
+    <composition>
+      <nodes xmi:type="eflow:FCMSource" xmi:id="InTerminal.Input" location="114,300">
+        <translation xmi:type="utility:TranslatableString" key="InTerminal.Input_GetToken" bundleName="com/kingfisher/ukbq/Payment/ProcessPaymentToken" pluginId="Payment_getToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Input_GetToken input terminal Node receives the CommIdea request structure from the main flow."/>
+        <longDescription xmi:type="utility:ConstantString" string="Input_GetToken input terminal Node receives the CommIdea request structure from the main flow."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPEnvelope.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="236,300" createEnvelope="true">
+        <translation xmi:type="utility:ConstantString" string="AddSOAPHeader"/>
+        <shortDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node will wrap the incoming message to a SOAP message. "/>
+        <longDescription xmi:type="utility:ConstantString" string="AddSOAPHeader Node will wrap the incoming message to a SOAP message. "/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="561,312" computeExpression="esql://routine/com.kingfisher.ukbq.Payment#MapGetTokenResponseToCanonical_Compute.Main">
+        <translation xmi:type="utility:ConstantString" string="MapGetTokenResponseToCanonical"/>
+        <shortDescription xmi:type="utility:ConstantString" string="MapGetTokenResponseToCanonical Node will parse the CommIdea response and create canonical structure for SOAP Reply and save it to the environment."/>
+        <longDescription xmi:type="utility:ConstantString" string="MapGetTokenResponseToCanonical Node will parse the CommIdea response and create canonical structure for SOAP Reply and save it to the environment."/>
+      </nodes>
+      <nodes xmi:type="gen_com_kingfisher_ukbq_Payment_CommIdeaGatewayProcessToken.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="370,304">
+        <translation xmi:type="utility:ConstantString" string="CommIdeaGatewayProcessToken"/>
+        <shortDescription xmi:type="utility:ConstantString" string="CommIdeaGatewayProcessToken subflow is used to communicate with CommIdea."/>
+        <longDescription xmi:type="utility:ConstantString" string="CommIdeaGatewayProcessToken subflow is used to communicate with CommIdea."/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_3" sourceNode="InTerminal.Input" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.ProcessMsgResponse" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="93,98">
+        <body xmi:type="utility:ConstantString" string="Name          : ProcessPaymentToken&#xA;Author        : Asif Hossain&#xA;Date           : 10-Apr-2013&#xA;&#xA;Description : 1. This sub flow is used to communicate with CommIdea and save the response from CommIdea into environment.&#xA;                     2. Input_GetToken input terminal Node receives the CommIdea request structure from the main flow.&#xA;                     3. AddSOAPHeader Node will wrap the incoming message to a SOAP message.                     &#xA;                     4. CommIdeaGatewayProcessToken subflow is used to communicate with CommIdea.&#xA;                     5. MapGetTokenResponseToCanonical Node will parse the CommIdea response and &#xA;                         create canonical structure for SOAP Reply and save it to the environment."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

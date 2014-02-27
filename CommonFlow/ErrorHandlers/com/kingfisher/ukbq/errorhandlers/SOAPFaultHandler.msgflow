@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmSOAPReply.msgnode="ComIbmSOAPReply.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/errorhandlers/SOAPFaultHandler.msgflow"
+    nsPrefix="com_kingfisher_ukbq_errorhandlers_SOAPFaultHandler.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.CH_Separator" name="CH_Separator" lowerBound="1" defaultValueLiteral="|">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="SOAPFaultHandler" bundleName="com/kingfisher/ukbq/errorhandlers/SOAPFaultHandler" pluginId="ErrorHandlers"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/ErrorHandlers/icons/full/obj16/SOAPFaultHandler.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/ErrorHandlers/icons/full/obj30/SOAPFaultHandler.gif"/>
+    <composition>
+      <nodes xmi:type="eflow:FCMSource" xmi:id="InTerminal.Input" location="16,255">
+        <translation xmi:type="utility:TranslatableString" key="InTerminal.WMB_Input_SOAPError" bundleName="com/kingfisher/ukbq/errorhandlers/SOAPFaultHandler" pluginId="ErrorHandlers"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Input received from Catch terminal of the main flow - to be used for SOAP synchronous flows only"/>
+        <longDescription xmi:type="utility:ConstantString" string="Input received from Catch terminal of the main flow - to be used for SOAP synchronous flows only"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="148,255" dataSource="MBREPOS" computeExpression="esql://routine/com.kingfisher.ukbq.errorhandlers#SOAPFaultHandler_SOAPMessage.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Format_SOAP_Message"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Format_SOAP_Message"/>
+        <longDescription xmi:type="utility:ConstantString" string="Format_SOAP_Message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="280,256">
+        <translation xmi:type="utility:ConstantString" string="WMB_SOAPReply_Fault"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_SOAPReply_Fault"/>
+        <longDescription xmi:type="utility:ConstantString" string="SOAPReply node is used to send SOAP messages from the broker to the originating client in response to a message received by a SOAPInput node."/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="547,261" queueName="ERRORS.WMB.SOAPFAULT.WMB" transactionMode="no" persistenceMode="yes" newCorrelId="true">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_SourceMsg"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Send the source message to an archive queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Send the source message to an archive queue"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="709,265" computeExpression="esql://routine/com.kingfisher.ukbq.errorhandlers#SOAPFaultHandler_ErrorLogMessage.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Format_ErrorLog_Message"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Format Error Log message using the ErrorLog DFDL schema"/>
+        <longDescription xmi:type="utility:ConstantString" string="Format Error Log message using the ErrorLog DFDL schema"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="421,260" computeExpression="esql://routine/com.kingfisher.ukbq.errorhandlers#SOAPFaultHandler_Format_MQ_Messages.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Format_MQ_Message"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Format SOAP Message so it can be output to an MQ queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Format SOAP Message so it can be output to an MQ queue"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="864,266" queueName="ERRORS.WMB.SOAPFAULT.INPROGRESS.WMB" transactionMode="no" persistenceMode="yes">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_SOAPFaultErrorLog"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Send the DFDL output to a staging MQ queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Send the DFDL output to a staging MQ queue"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="InTerminal.Input" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.CH_Separator">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.CH_Separator" bundleName="com/kingfisher/ukbq/errorhandlers/SOAPFaultHandler" pluginId="ErrorHandlers"/>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard>
+      <stickyNote location="281,29">
+        <body xmi:type="utility:ConstantString" string="Name:Generic SOAPFaultHandler for Synchronous Flows&#xA;Author:Chris Russell (based upon IBM supplied WMBv7 flow provided by Tony Cox)&#xA;Date:09Mar2012&#xA;Description:&#xA;1, Takes InputRoot (and ExceptionList) from Main SOAP flow&#xA;2, Sends a generic sensible reply to the calling application (without the error stack)&#xA;3, Puts Original SOAP data, message property details and exception list to MQ (ERRORS.WMB.SOAPFAULT.WMB)&#xA;4, Formats the error log data and hands off to MQ (ERRORS.WMB.SOAPFAULT.INPROGRESS.WMB)"/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

@@ -1,0 +1,90 @@
+BROKER SCHEMA com.kingfisher.ukbq.WMBFunctions
+
+
+CREATE PROCEDURE RetrieveValuesLookup(
+IN tabName CHARACTER,
+IN outCol CHARACTER,
+IN input CHARACTER,
+OUT outValue CHARACTER
+)
+BEGIN
+	DECLARE refSql CHARACTER;
+	SET refSql = 'SELECT '||outCol||' from '||tabName||' WHERE CANVAL = '||''''||input||'''';
+	DECLARE output ROW;
+
+	SET output.rows[] = PASSTHRU(refSql);
+	SET outValue = output.rows[1].{outCol};
+	IF (SQLCODE < 0)
+		THEN
+		THROW USER EXCEPTION CATALOG 'VAL0002' MESSAGE 0002
+		VALUES('RetrieveValuesLookup: The SQL State ', SQLSTATE, SQLCODE, SQLNATIVEERROR, SQLERRORTEXT);
+	END IF;
+
+END;
+
+
+CREATE PROCEDURE RetrieveValues(
+IN QueryRoot REFERENCE
+)
+BEGIN
+	DECLARE canval CHARACTER;
+	DECLARE ids ROW;
+	DECLARE refSql CHARACTER 'SELECT ';
+	DECLARE m,n,o INTEGER;
+	SET m=CARDINALITY(QueryRoot.INPUT.SELECT_CLAUSE.*[]);
+	SET n=CARDINALITY(QueryRoot.INPUT.WHERE_CLAUSE.*[]);
+	SET o=1;
+	IF FIELDVALUE(QueryRoot.TABLE_NAME) IS NULL OR FIELDVALUE(QueryRoot.TABLE_NAME)='' THEN
+		THROW USER EXCEPTION CATALOG 'GEN0001' MESSAGE 0001
+		VALUES('Method RetrieveGenericValue:', '', '', '', 'TABLE_NAME should exist at Environment.Variables.SQLQuery.TABLE_NAME!');
+	END IF;
+
+
+	IF EXISTS(QueryRoot.INPUT.SELECT_CLAUSE.*[]) AND FIELDVALUE(QueryRoot.INPUT.SELECT_CLAUSE.*[>1]) IS NOT NULL AND FIELDVALUE(QueryRoot.INPUT.SELECT_CLAUSE.*[>1]) <> '' THEN
+
+		WHILE m >= o DO
+			SET refSql=refSql||COALESCE(QueryRoot.INPUT.SELECT_CLAUSE.*[o],'');
+			
+			IF TRIM(QueryRoot.INPUT.SELECT_CLAUSE.*[o])='' OR QueryRoot.INPUT.SELECT_CLAUSE.*[o] IS NULL THEN
+				SET refSql=TRIM(TRAILING ',' FROM TRIM(refSql));
+			END IF;	
+			IF m > o AND TRIM(QueryRoot.INPUT.SELECT_CLAUSE.*[o]) <>'' THEN
+				SET refSql=refSql||', ';
+			END IF;
+			SET o=o+1;
+		END WHILE;
+
+	ELSE
+		SET refSql=refSql||'* ';
+	END IF;
+
+	IF EXISTS(QueryRoot.INPUT.WHERE_CLAUSE.*[]) AND FIELDVALUE(QueryRoot.INPUT.WHERE_CLAUSE.*[>1]) IS NOT NULL AND FIELDVALUE(QueryRoot.INPUT.WHERE_CLAUSE.*[>1])<>'' THEN
+		SET refSql =refSql||' from '||QueryRoot.TABLE_NAME||' WHERE ';
+		WHILE n > 0 DO
+			SET refSql=refSql||FIELDNAME(QueryRoot.INPUT.WHERE_CLAUSE.*[n])||' = '||''''||FIELDVALUE(QueryRoot.INPUT.WHERE_CLAUSE.*[n])||'''';
+			SET n=n-1;
+			IF n > 0 THEN
+				SET refSql=refSql||' AND ';
+			END IF;
+		END WHILE;
+	ELSE
+		SET refSql =refSql||' from '||QueryRoot.TABLE_NAME;
+	END IF;
+
+
+
+
+	SET ids.rows[] = PASSTHRU(refSql);
+	SET canval = ids.rows[1].CANVAL;
+
+	SET QueryRoot.OUTPUT[] = PASSTHRU(refSql);
+	--SET QueryRoot.OUTPUT.Result=FIELDVALUE(QueryRoot.OUTPUT[1].*[>1]);
+
+	IF (SQLCODE < 0)
+		THEN
+		THROW USER EXCEPTION CATALOG 'GEN0001' MESSAGE 0001
+		VALUES('RetrieveValues: The SQL State ', SQLSTATE, SQLCODE, SQLNATIVEERROR, SQLERRORTEXT);
+	END IF;
+
+
+END;

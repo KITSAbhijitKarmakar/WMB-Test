@@ -1,0 +1,89 @@
+**************************************************************
+**   Script	:  MQSC_PRODUCT_SYNCHRONISEPRODUCT_v1.1.MQSC	
+**   Created By	:  Ipsita Sahoo
+**   Environment:  X-tier	
+**************************************************************
+
+
+DEFINE QLOCAL ('PRODUCT.FKI.TRANSIT.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input queue(Local) for SynchroniseProduct(FKI)') +
+       REPLACE
+
+	   
+DEFINE QALIAS ('PRODUCT.FKI.TRANSIT.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       DESCR('WMB alias of QL for SynchroniseProduct(FKI)') +
+       TARGQ('PRODUCT.FKI.TRANSIT.LOCAL') +
+       REPLACE
+
+
+DEFINE QLOCAL ('PRODUCT.RP.TRANSIT.LOCAL') +
+       LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+       DESCR('Input queue(Local) for SynchroniseProduct(RP)') +
+       REPLACE 
+
+ 
+DEFINE QALIAS ('PRODUCT.RP.TRANSIT.WMB') +
+       LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+       PUT(ENABLED) +
+       DESCR('WMB alias of QL for SynchroniseProduct(RP)') +
+       TARGQ('PRODUCT.RP.TRANSIT.LOCAL') +
+       REPLACE
+
+DEFINE QALIAS ('PRODUCT.UPDATE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Outbound queue for SynchroniseProduct(FKI)') +
+	   TARGQ('COREDC.MASTER.ARTICLE.UPDATE.REMOTE') +
+       REPLACE
+
+	   
+DEFINE QALIAS ('PRODUCT.DELETE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Inbound queue for SynchroniseProduct(FKI)') +
+	   TARGQ('COREDC.MASTER.ARTICLE.DELETE.REMOTE') +
+       REPLACE
+
+
+**
+** Define Remote queues for Product Service
+**
+
+DEFINE QREMOTE('COREDC.MASTER.ARTICLE.UPDATE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('BQ.GATEWAY.PRD') +
+		RNAME('COREDC.MASTERDATA.ARTICLE.UPDATE.PRD') +
+		RQMNAME('BQ.GATEWAY.PRD') +
+		DEFPSIST(YES) +
+		REPLACE 
+
+DEFINE QREMOTE('COREDC.MASTER.ARTICLE.DELETE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('BQ.GATEWAY.PRD') +
+		RNAME('COREDC.MASTERDATA.ARTICLE.DELETE.PRD') +
+		RQMNAME('BQ.GATEWAY.PRD') +
+		DEFPSIST(YES) +
+		REPLACE 
+**
+** Define Subscriptions
+**
+
+DEFINE SUB('MASTERDATA.PRODUCT.RP') +
+       DEST('PRODUCT.RP.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.PRODUCT.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+
+
+DEFINE SUB('MASTERDATA.PRODUCT.FKI') +
+       DEST('PRODUCT.FKI.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.PRODUCT.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+	   
+**************************EndScript***************************

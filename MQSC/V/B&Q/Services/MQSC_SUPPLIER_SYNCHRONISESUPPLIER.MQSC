@@ -1,0 +1,134 @@
+**************************************************************
+**   Script	:  MQSC_SUPPLIER_SYNCHRONISESUPPLIER.MQSC
+**   Modified By:  Vineet More
+**   Environment:  V-tier	
+**************************************************************
+
+
+DEFINE QLOCAL ('SUPPLIER.FKI.TRANSIT.LOCAL') +
+      LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+      DESCR('Input queue(Local) for SynchroniseSupplier(FKI)') +
+      REPLACE
+
+   
+DEFINE QALIAS ('SUPPLIER.FKI.TRANSIT.WMB') +
+      LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+      PUT(ENABLED) +
+      DESCR('WMB alias of QL for SynchroniseSupplier(FKI)') +
+      TARGQ('SUPPLIER.FKI.TRANSIT.LOCAL') +
+      REPLACE
+
+
+DEFINE QLOCAL ('SUPPLIER.RP.TRANSIT.LOCAL') +
+      LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+      DESCR('Input queue(Local) for SynchroniseSupplier(RP)') +
+      REPLACE
+
+
+DEFINE QALIAS ('SUPPLIER.RP.TRANSIT.WMB') +
+      LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+      PUT(ENABLED) +
+      DESCR('WMB alias of QL for SynchroniseSupplier(RP)') +
+      TARGQ('SUPPLIER.RP.TRANSIT.LOCAL') +
+      REPLACE
+
+
+DEFINE QLOCAL ('SUPPLIER.VCT.TRANSIT.LOCAL') +
+      LIKE('SERVICES.TEMPLATE.LOCAL.WMB') +
+      DESCR('Input queue(Local) for SynchroniseSupplier(VCT)') +
+      REPLACE
+
+  
+DEFINE QALIAS ('SUPPLIER.VCT.TRANSIT.WMB') +
+      LIKE('SERVICES.TEMPLATE.INPUT.ALIAS.WMB') +
+      PUT(ENABLED) +
+      DESCR('WMB alias of QL for SynchroniseSupplier(VCT)') +
+      TARGQ('SUPPLIER.VCT.TRANSIT.LOCAL') +
+      REPLACE
+
+   
+DEFINE QALIAS ('SUPPLIER.UPDATE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Outbound queue for SynchroniseSupplier(FKI)') +
+	   TARGQ('COREDC.MASTER.VENDOR.UPDATE.REMOTE') +
+       REPLACE
+
+
+DEFINE QALIAS ('SUPPLIER.DELETE.FKI.OUTBOUND.WMB') +
+       LIKE('SERVICES.TEMPLATE.OUTPUT.ALIAS.WMB') +
+       DESCR('Outbound queue for SynchroniseSupplier(FKI)') +
+	   TARGQ('COREDC.MASTER.VENDOR.DELETE.REMOTE') +
+       REPLACE
+
+**
+** Define Xmit queue for SupplierService
+**
+
+DEFINE QLOCAL('TQ.BQ.GATEWAY.TST') +
+		DESCR('Transmission queue to GHA MB QM') +
+		USAGE(XMITQ) +
+		PUT(ENABLED) +
+		GET(DISABLED) +
+		DEFPSIST(YES) +
+		MAXDEPTH(5000) +
+		TRIGGER TRIGTYPE(FIRST) +
+		TRIGDATA(UNXS387TOBQ.GATEWAY) +
+		INITQ(SYSTEM.DEFAULT.INITQ) +
+		REPLACE
+		
+DEFINE CHANNEL('UNXS387TOBQ.GATEWAY') + 
+		CHLTYPE(SDR) +
+		TRPTYPE(TCP) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		CONNAME('gbbqpwh001ap128') +
+		DESCR('Sender channel to MQ Gateway QM')  +
+		REPLACE
+
+**
+** Define Remote queues for SupplierService
+**
+
+DEFINE QREMOTE('COREDC.MASTER.VENDOR.UPDATE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		RNAME('COREDC.MASTERDATA.VENDOR.UPDATE.QM3') +
+		RQMNAME('BQ.GATEWAY.TST') +
+		DEFPSIST(YES) +
+		REPLACE 
+	
+	
+DEFINE QREMOTE('COREDC.MASTER.VENDOR.DELETE.REMOTE') +
+		DESCR('Remote queue to BQ  Gateway') +
+		PUT(ENABLED) +
+		XMITQ('TQ.BQ.GATEWAY.TST') +
+		RNAME('COREDC.MASTERDATA.VENDOR.DELETE.QM3') +
+		RQMNAME('BQ.GATEWAY.TST') +
+		DEFPSIST(YES) +
+		REPLACE 
+
+
+DEFINE SUB('MASTERDATA.SUPPLIER.RP') +
+       DEST('SUPPLIER.RP.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.SUPPLIER.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+
+
+DEFINE SUB('MASTERDATA.SUPPLIER.FKI') +
+       DEST('SUPPLIER.FKI.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.SUPPLIER.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+
+
+DEFINE SUB('MASTERDATA.SUPPLIER.VCT') +
+       DEST('SUPPLIER.VCT.TRANSIT.WMB') +
+       TOPICOBJ('MASTERDATA.SUPPLIER.WMSINDC') +
+       DESTCLAS(PROVIDED) +
+       EXPIRY(UNLIMITED) +
+       REPLACE
+   
+**************************EndScript***************************

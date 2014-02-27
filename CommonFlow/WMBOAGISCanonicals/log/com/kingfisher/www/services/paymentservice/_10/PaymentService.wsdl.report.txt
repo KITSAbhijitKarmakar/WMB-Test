@@ -1,0 +1,47 @@
+
+
+Importing file: C:\Users\575497\Desktop\KITS-SOA_ServiceDefinitions-master\KITS-SOA_ServiceDefinitions-master\com_kingfisher_oagis\9_5_1\Services\WebServices\WSDL\PaymentService.wsdl
+
+Copying source WSDL PaymentService.wsdl to PaymentService.wsdl.
+The WSDL import will proceed with bindings PaymentBinding.
+Creating wsdl schema document for file:///C:/Users/575497/Desktop/KITS-SOA_ServiceDefinitions-master/KITS-SOA_ServiceDefinitions-master/com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentService.wsdl.
+Parsing wsdl binding {http://www.kingfisher.com/Services/PaymentService/1.0}PaymentBinding.
+Parsing wsdl binding input ProcessPayment.
+Parsing wsdl binding output ProcessPayment.
+Parsing wsdl binding fault ProcessPaymentFaultData.
+Parsing wsdl binding input GetPayment.
+Parsing wsdl binding output GetPayment.
+Parsing wsdl binding fault GetPaymentFaultData.
+Processing doc style for operation ProcessPayment.
+Processing doc style for operation GetPayment.
+Populating WSDL schema com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentService.xsd.
+Creating file com_kingfisher_oagis/9_5_1/Services/WebServices/WSDL/PaymentService.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/PaymentService_InlineSchema1.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/ProcessPayment.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/Components.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/Meta.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/Fields.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/UnqualifiedDataTypes.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/CodeLists.xsd in the workspace.
+Creating file /WMBOAGISCanonicals/CodeList_CurrencyCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_LanguageCode_ISO_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_MIMEMediaTypeCode_IANA_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/CodeList_UnitCode_UNECE_7_04.xsd in the workspace.
+Creating file org_openapplications_platform/1_2_1/Common/UNCEFACT/ATG/CoreComponents/QualifiedDataTypes.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/Nouns/SalesOrder.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd in the workspace.
+Creating file com_kingfisher_platform/1_2_1/Common/OAGi/Components/LogisticsComponents.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/AcknowledgePayment.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/GetPayment.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/ShowPayment.xsd in the workspace.
+Creating file com_kingfisher_oagis/9_5_1/Developer/BODs/FaultData.xsd in the workspace.
+
+Elapsed time processing this message definition file: 4.992 seconds
+Number of warnings for this message definition file: 0
+
+
+Number of files processed: 1
+
+

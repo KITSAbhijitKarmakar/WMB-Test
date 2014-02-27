@@ -1,0 +1,100 @@
+BROKER SCHEMA com.kingfisher.ukbq.Generic
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Routes_EPOS_Messages													*
+* Interface Id 				:  																		*
+* Interface Name 			: RetailJGenericInbound													*
+* Message Flow 				: Generic_RetailJ_Inbound												*
+* Message Flow Description  : The primary function of this message flow is to receive the JMS input *
+* 							  and check if the transaction is valid or not. If valid it routes the  *
+* 							  based on the message type to SafeCM or TerminalCM or POSBasket flows  *
+* Module Name 				: Generic_RetailJ_Inbound_Route				 							*
+* Description 				: The primary function of this node is to routes the input message      *
+* 							  based on the message type to SafeCM or TerminalCM or POSBasket flows  *
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		14-MAR-2013 	Sayantan Som		The initial version. 								*
+* 0.2 		23-JUN-2013 	Asif Hossain		Code changes for ROLLOUT approch to support			*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE Generic_RetailJ_Inbound_Route
+	DECLARE CH_RollOutIndicator EXTERNAL NAME 'NO';
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Generates the routing destination based on the message type
+		CALL PROC_RouteMessage();
+		--Copies the entire message to the destination target
+		CALL CopyEntireMessage();
+		SET OutputRoot.MQMD.UserIdentifier	= 'wmbadmin';
+		RETURN TRUE;
+	END;
+	
+	CREATE PROCEDURE PROC_RouteMessage()
+	BEGIN
+		DECLARE CH_RootElement CHARACTER;
+		
+		--Gets the name of the top level element
+		SET CH_RootElement	= FIELDNAME(InputRoot.XMLNSC.*);		
+		
+		--Code change starts for version 0.2 for ROLLOUT approach		
+		DECLARE CH_ReadyForRollout	 	CHARACTER;
+		DECLARE CH_StoreCode 			CHARACTER;
+		
+		--Retrieving store code for each type of mesage
+		CASE CH_RootElement
+		WHEN 'TerminalCMAction' THEN
+			SET CH_StoreCode 	= InputRoot.XMLNSC.TerminalCMAction.StoreID;
+		WHEN 'SafeCMAction' THEN
+			SET CH_StoreCode 	= InputRoot.XMLNSC.SafeCMAction.StoreID;
+		WHEN 'POSBasket' THEN
+			SET CH_StoreCode 	= InputRoot.XMLNSC.POSBasket.Header.OriginatedBy.StoreID;
+		END CASE;
+		
+		IF CH_RollOutIndicator = 'YES' THEN
+			
+			SET CH_ReadyForRollout 	= THE(SELECT ITEM(R.READY_FOR_ROLLOUT) FROM Database.ROLLOUT AS R WHERE R.STORE_CODE = CH_StoreCode);
+			--Checking if it is eligible for ROLLOUT or not and based on that routes the message to either BROKER queue or IB queue to process
+			IF CH_ReadyForRollout = 'N' OR COALESCE(CH_ReadyForRollout,'') = '' THEN
+				
+				--Writing message to the outbound alias queue which in pointing to a remote queue which intern point to IB queue
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'POSLOG.WMB.OUTBOUND.IB';
+			ELSEIF CH_ReadyForRollout = 'Y' THEN
+			--Code change for version 0.2 ends for ROLLOUT approach
+				
+				--Routes the messages to the corresponding destinations
+				CASE CH_RootElement
+				WHEN 'TerminalCMAction' THEN
+					SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'TERMINALCM.RETAILJ.OUTBOUND.WMB';
+				WHEN 'SafeCMAction' THEN
+					SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'SAFECM.RETAILJ.OUTBOUND.WMB';
+				WHEN 'POSBasket' THEN
+					SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'POSBASKET.RETAILJ.OUTBOUND.WMB';
+				END CASE;
+			END IF;
+		ELSEIF CH_RollOutIndicator='NO' THEN
+			--Routes the messages to the corresponding destinations
+			CASE CH_RootElement
+			WHEN 'TerminalCMAction' THEN
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'TERMINALCM.RETAILJ.OUTBOUND.WMB';
+			WHEN 'SafeCMAction' THEN
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'SAFECM.RETAILJ.OUTBOUND.WMB';
+			WHEN 'POSBasket' THEN
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'POSBASKET.RETAILJ.OUTBOUND.WMB';
+			END CASE;
+		END IF;
+	END;
+	
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot 		= InputRoot;
+	END;
+END MODULE;
+

@@ -1,0 +1,570 @@
+BROKER SCHEMA com.kingfisher.ukbq.Supplier
+PATH com.kingfisher.ukbq.WMBFunctions;
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      :	Supplier_Notify_Mapping_Compute								  	  			  	                  *									
+* Interface Id 	 :																				  			  	      *
+* Interface Name :	Supplier_notifySupplier                                                           			      *															
+* Message Flow 	 : 	Supplier_notifySupplier_SAP_Pub																	  *
+* Message Flow 																						  			      *
+* Description 	 : 	The primary function of this message flow is to transform the SAP Idoc ZCREMAS_CP message into    * 
+*					Supplier canonical and publish it to the topic SupplierTopic     								  *
+* Module Name  	 :	Supplier_notifySupplier_SAP_Pub_Compute     			  		        						  *            				  	  
+* Description  	 :	This module transforms the SAP Idoc ZCREMAS_CP message into the Supplier canonical and publish    *
+*					it to the topic SupplierTopic   	  				  									          *                                         
+*																									  				  *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+*  0.1  	25-Mar-2013   	Panchanan Mandal	The initial version.                			  				  	  * 
+*																													  *
+**********************************************************************************************************************/
+
+
+CREATE COMPUTE MODULE Supplier_notifySupplier_SAP_Pub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Call the procedure NotifySupplierMapping()
+		CALL NotifySupplierMapping();
+		RETURN TRUE;
+	END;
+	
+	/***********************************************************************************************************************
+	* Procedure Name	: NotifySupplierMapping() 										 								   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: Transforms the SAP Idoc ZCREMAS_CP message into the Supplier canonical and publish it to the 	   *
+	*					  topic string      	                                                                           *
+	* Version 		Date 		Author 					Description                                                        *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	25-MAR-2013 	Panchanan Mandal 		The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE NotifySupplierMapping() BEGIN
+		
+		--Declaring Variables
+		DECLARE CH_TableName 			CHARACTER;  
+		DECLARE CH_Input 				CHARACTER;   
+		DECLARE CH_OutCol 				CHARACTER;  
+		DECLARE CH_OutValue 			CHARACTER; 	
+			
+		--Declaring Input References			
+		DECLARE REF_Zcremeas04 			REFERENCE TO InputRoot.DataObject.NS_SapZcremasCp:SapCremas04Zcremas04.SapCremas04Zcremas04IDocBO;				
+		DECLARE REF_DataRecord 			REFERENCE TO REF_Zcremeas04.SapCremas04Zcremas04DataRecord;
+		DECLARE REF_ControlRecord 		REFERENCE TO REF_Zcremeas04.SapIDocControlRecord;
+		DECLARE REF_E2lfa1m001 			REFERENCE TO REF_DataRecord.SapCremas04Zcremas04E2lfa1m001;
+		DECLARE REF_E2lfb1m 			REFERENCE TO REF_E2lfa1m001.SapCremas04Zcremas04E2lfb1m004;
+		DECLARE REF_Zvenclf 			REFERENCE TO REF_E2lfa1m001.SapCremas04Zcremas04Zvenclf000;		
+		DECLARE REF_E1lfbkm 			REFERENCE TO REF_E2lfa1m001.SapCremas04Zcremas04E2lfbkm003;
+		DECLARE REF_E1lfm1m 			REFERENCE TO REF_E2lfa1m001.SapCremas04Zcremas04E2lfm1m004;
+		DECLARE REF_E1wyt3m 			REFERENCE TO REF_E1lfm1m.SapCremas04Zcremas04E2wyt3m001;
+		DECLARE REF_Wyt3m000			REFERENCE TO REF_E1wyt3m.SapCremas04Zcremas04Z2wyt3m000;
+		DECLARE REF_Zz1wyt3mx 			REFERENCE TO REF_Wyt3m000.SapCremas04Zcremas04Zz1wyt3mx000;
+		DECLARE REF_Zknvk2				REFERENCE TO REF_DataRecord.SapCremas04Zcremas04E2lfa1m001.SapCremas04Zcremas04E2lfm1m004.SapCremas04Zcremas04E2wyt3m001.SapCremas04Zcremas04Z2wyt3m000.SapCremas04Zcremas04Zknvk2000;
+		DECLARE REF_E1wyt1m				REFERENCE TO REF_E2lfa1m001.SapCremas04Zcremas04E2wyt1m;		
+		DECLARE REF_Z1z007f				REFERENCE TO REF_E2lfa1m001.SapCremas04Zcremas04Z2z007f000;
+		DECLARE REF_E1lfm2m				REFERENCE TO REF_E1lfm1m.SapCremas04Zcremas04E2lfm2m003;
+		 
+		--Declaring Output Refernces
+		DECLARE REF_Outref 				REFERENCE TO OutputRoot.XMLNSC.NS_Dfns:SynchroniseSupplier;
+		DECLARE REF_ApplicationArea 	REFERENCE TO REF_Outref.oa:ApplicationArea;
+		DECLARE REF_DataArea 			REFERENCE TO REF_Outref.NS_Dfns:DataArea;
+		DECLARE REF_Synchronise 		REFERENCE TO REF_DataArea.NS_Dfns:Synchronise;
+		DECLARE REF_Supplier 			REFERENCE TO REF_DataArea.NS_Dfns:Supplier;
+		DECLARE REF_ID 					REFERENCE TO REF_Supplier.oa:AccountIDs.oa:ID;
+		DECLARE REF_ActionCriteria		REFERENCE TO REF_Synchronise.oa:ActionCriteria;
+		DECLARE REF_ActionExpression 	REFERENCE TO REF_ActionCriteria.oa:ActionExpression;
+		DECLARE REF_SupplContact 		REFERENCE TO REF_Supplier.NS_Dfns:Contact;
+		DECLARE REF_FaxTelephoneComm 	REFERENCE TO REF_SupplContact.oa:FaxTelephoneCommunication;
+		DECLARE REF_TelephoneComm 		REFERENCE TO REF_SupplContact.oa:TelephoneCommunication;
+		DECLARE REF_AddrsLine 			REFERENCE TO REF_SupplContact.NS_Dfns:Location.oa:Address.oa:AddressLine;
+		DECLARE REF_FinancialParty 		REFERENCE TO REF_Supplier.NS_Dfns:FinancialParty;
+		DECLARE REF_PurchaParty 		REFERENCE TO REF_Supplier.NS_Dfns:PurchasingParty;
+		DECLARE REF_BuyerParty			REFERENCE TO REF_Supplier.NS_Dfns:BuyerParty;
+		DECLARE REF_BranchSubrangeParty REFERENCE TO REF_PurchaParty.NS_Dfns:BranchSubrangeParty;			
+		DECLARE REF_FulfilmentSite		REFERENCE TO REF_BranchSubrangeParty.NS_Dfns:FulfilmentSite;
+		DECLARE DT_Date					DATE CAST(REF_ControlRecord.CREDAT AS DATE FORMAT 'yyyyMMdd');
+		DECLARE TM_Time					TIME CAST(REF_ControlRecord.CRETIM AS TIME FORMAT 'HHmmss'); 
+		
+		--Retriving the topic and topic name from the database--		
+		SET CH_TableName 														= 'MBTOPICS';
+		SET CH_OutCol															= 'TOPICSTRING';
+		SET CH_Input 															= 'SupplierTopic';
+		SET CH_OutValue 														= '';
+			
+		--Calling the generic WMB function--
+		CALL RetrieveValuesLookup(CH_TableName,CH_OutCol,CH_Input,CH_OutValue);
+			
+		--Publishing the message to the topic--
+		SET OutputRoot.Properties												= InputRoot.Properties;
+		SET OutputRoot.MQMD 													= InputRoot.MQMD;
+		SET OutputRoot.MQRFH2.psc.Command 										= 'Publish';
+		SET OutputRoot.MQRFH2.psc.Topic 										= CH_OutValue;
+			
+		--Crteating field of references
+		CREATE FIELD OutputRoot.XMLNSC.NS_Dfns:SynchroniseSupplier 				 AS REF_Outref;
+		CREATE FIELD REF_Outref.oa:ApplicationArea 								 AS REF_ApplicationArea;
+		CREATE FIELD REF_Outref.NS_Dfns:DataArea 								 AS REF_DataArea;
+		CREATE FIELD REF_DataArea.NS_Dfns:Synchronise                            AS REF_Synchronise;
+		CREATE FIELD REF_Synchronise.oa:ActionCriteria							 AS REF_ActionCriteria;	
+		CREATE FIELD REF_DataArea.NS_Dfns:Supplier 								 AS REF_Supplier;
+
+		--Set namespace values
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)version	= '1.0';
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)encoding 	= 'UTF-8';
+		SET REF_Outref.(XMLNSC.NamespaceDecl)xmlns 									= NS_Dfns;
+		SET REF_Outref.(XMLNSC.NamespaceDecl)xmlns:oa 								= oa;
+		
+		--Do the mapping
+		SET REF_Outref.(XMLNSC.Attribute)releaseID 								= '1.0';
+		SET REF_Outref.(XMLNSC.Attribute)languageCode 							= 'EN';
+		SET REF_ApplicationArea.oa:Sender.oa:LogicalID	 						= 'SAP';
+		SET REF_ApplicationArea.oa:Sender.oa:ComponentID 						= 'SAP_IB_MD_VENDOR';
+		SET REF_ApplicationArea.oa:Sender.oa:ReferenceID 						= REF_E2lfa1m001.LIFNR;
+		SET REF_ApplicationArea.oa:CreationDateTime 							= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');		
+		SET REF_ApplicationArea.oa:BODID 										= REF_ControlRecord.DOCNUM;
+		
+		
+		IF REF_E2lfa1m001.MSGFN = '009' THEN
+			CREATE LASTCHILD OF REF_ActionCriteria AS REF_ActionExpression NAMESPACE oa NAME 'ActionExpression';
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Add';
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+		ELSEIF REF_E2lfa1m001.MSGFN = '003' THEN
+			CREATE LASTCHILD OF REF_ActionCriteria AS REF_ActionExpression NAMESPACE oa NAME 'ActionExpression';
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Delete';
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+		ELSEIF REF_E2lfa1m001.MSGFN = '018' THEN
+			CREATE LASTCHILD OF REF_ActionCriteria AS REF_ActionExpression NAMESPACE oa NAME 'ActionExpression';
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+		ELSEIF 	REF_ControlRecord.MESTYP	= 'ZCREMAS_INI' THEN
+			CREATE LASTCHILD OF REF_ActionCriteria AS REF_ActionExpression NAMESPACE oa NAME 'ActionExpression';
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Replace';
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+		ELSE
+			CREATE LASTCHILD OF REF_ActionCriteria AS REF_ActionExpression NAMESPACE oa NAME 'ActionExpression';
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+		END IF;
+		
+		SET REF_Supplier.oa:PartyIDs.oa:ID 										= REF_E2lfa1m001.LIFNR;
+		SET REF_Supplier.oa:Name 												= REF_E2lfa1m001.NAME1;
+		
+		--Loop through the below logic for all segments of E1WYT3M and assign to the fields of VendorAddress		
+		WHILE LASTMOVE(REF_E1wyt3m) DO
+			CREATE LASTCHILD OF REF_Supplier AS REF_SupplContact NAMESPACE NS_Dfns NAME 'Contact';
+			SET REF_SupplContact.oa:Type 										= REF_E1wyt3m.PARVW;			
+		 	CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		 	IF REF_E1wyt3m.SapCremas04Zcremas04Z2wyt3mx001.PARVW = 'X' THEN
+		 		SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+		 	ELSE
+		 		SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+		 	END IF;			
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/oa:Type';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			SET REF_SupplContact.oa:GivenName 									= REF_Zknvk2.NAMEV;
+			SET REF_SupplContact.oa:FamilyName 									= REF_Zknvk2.NAME1;
+																				  
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zknvk2.SapCremas04Zcremas04Zknvk2x000.NAME1 = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;			
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/oa:FamilyName';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+						
+			
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zknvk2.SapCremas04Zcremas04Zknvk2x000.NAMEV = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/oa:GivenName';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			CREATE LASTCHILD OF REF_SupplContact AS REF_TelephoneComm NAMESPACE oa NAME 'TelephoneCommunication';			
+			SET REF_TelephoneComm.oa:UseCode									= 'CONTACT';
+			SET REF_TelephoneComm.oa:FormattedNumber 							=  REF_Zknvk2.TELF1;			
+			
+			CREATE LASTCHILD OF REF_SupplContact AS REF_FaxTelephoneComm NAMESPACE oa NAME 'FaxTelephoneCommunication';					
+			SET REF_FaxTelephoneComm.oa:UseCode									= 'CONTACT';
+			SET REF_FaxTelephoneComm.oa:FormattedNumber							=  REF_Wyt3m000.SapCremas04Zcremas04Zadr32000.FAX_NUMBER;
+			
+			SET REF_SupplContact.oa:EMailAddressCommunication.oa:EMailAddressID =  REF_Wyt3m000.SapCremas04Zcremas04Zadr62000.SMTP_ADDR;
+			SET REF_SupplContact.oa:InternetAddressCommunication.oa:ID 			= REF_E2lfa1m001.SapCremas04Zcremas04E2lfa1a003.LFURL;
+					
+						
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zz1wyt3mx.NAME1 = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/Location/oa:Address/oa:StreetName';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:Type 			= REF_E1wyt3m.PARVW;
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:StreetName 		= REF_Wyt3m000.NAME2;
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CitySubDivisionName	= REF_Wyt3m000.NAME3;
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CitySubDivisionName.(XMLNSC.Attribute)sequenceName = 'Street2';
+			
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zz1wyt3mx.NAME3 = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/Location/oa:Address/oa:CitySubDivisionName[@sequenceName="Street2"]';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CitySubDivisionName[2] = REF_Wyt3m000.NAME4;
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CitySubDivisionName[2].(XMLNSC.Attribute)sequenceName 					= 'Street3';
+			
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zz1wyt3mx.NAME4 = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/Location/oa:Address/oa:CitySubDivisionName[@sequenceName="Street3"]';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			
+			
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zz1wyt3mx.ORT01 = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;			
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/Location/oa:Address/oa:CityName';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CityName 		= REF_Wyt3m000.ORT01;									
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CountrySubDivisionCode = REF_Wyt3m000.ZBEZEI;
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:CountryCode 	= REF_Wyt3m000.LAND1;
+			SET REF_SupplContact.NS_Dfns:Location.oa:Address.oa:PostalCode 		= REF_Wyt3m000.PSTLZ;
+			
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zz1wyt3mx.PSTLZ = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/Location/oa:Address/oa:PostalCode';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			
+			
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_Zz1wyt3mx.LAND1 = 'X'  THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/Contact/Location/oa:Address/oa:CountryCode';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			CREATE NEXTSIBLING OF REF_FaxTelephoneComm AS REF_FaxTelephoneComm REPEAT;
+			SET REF_FaxTelephoneComm.oa:UseCode									= 'LOCATION';
+			SET REF_FaxTelephoneComm.oa:FormattedNumber							=  REF_Wyt3m000.TELFX;
+			
+			
+			CREATE NEXTSIBLING OF REF_TelephoneComm AS REF_TelephoneComm REPEAT;
+			SET REF_TelephoneComm.oa:UseCode									= 'LOCATION';
+			SET REF_TelephoneComm.oa:FormattedNumber 							=  REF_Wyt3m000.TELF1;				
+						
+			MOVE REF_E1wyt3m NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		
+			MOVE REF_E1wyt3m TO REF_E1lfm1m.SapCremas04Zcremas04E2wyt3m001;
+		
+			CREATE LASTCHILD OF REF_Supplier.oa:AccountIDs AS REF_ID NAMESPACE oa NAME 'ID';
+			SET REF_ID							 				VALUE			= COALESCE(REF_E2lfa1m001.BEGRU, '');
+			SET REF_ID.(XMLNSC.Attribute)schemeName 							= 'AuthorisationGroup';
+			
+			CREATE NEXTSIBLING OF REF_ID AS REF_ID REPEAT;
+			SET REF_ID 											VALUE			= REF_E2lfa1m001.BRSCH;
+			SET REF_ID.(XMLNSC.Attribute)schemeName 							= 'IndustryKey';		
+					
+			CREATE NEXTSIBLING OF REF_ID AS REF_ID REPEAT;
+			SET REF_ID 											VALUE			= REF_E2lfa1m001.KTOKK;
+			SET REF_ID.(XMLNSC.Attribute)schemeName 							= 'AccountGroup';
+		
+		--Loop through all the segments of E1LFB1M
+		E2lfb1m: WHILE LASTMOVE(REF_E2lfb1m) DO
+			IF REF_E2lfb1m.BUKRS = '0010' THEN
+				SET REF_Supplier.oa:PaymentTermID 								= REF_E2lfb1m.ZTERM;
+				SET REF_Supplier.oa:PaymentMethodCode 						    = REF_E2lfb1m.SapCremas04Zcremas04Z2lfb1mt000.TEXT1;
+				LEAVE E2lfb1m;
+			END IF;
+			MOVE REF_E2lfb1m NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		--Loop through the below logic for all segments of E1LFBKM and assign to the fields of VendorBankAccount		
+		WHILE LASTMOVE(REF_E1lfbkm) DO			
+			CREATE LASTCHILD OF REF_Supplier AS REF_FinancialParty NAMESPACE NS_Dfns  NAME 'FinancialParty';			
+			SET REF_FinancialParty.oa:PartyIDs.oa:ID 							= REF_E1lfbkm.BANKL;
+			SET REF_FinancialParty.oa:Name 										= REF_E1lfbkm.BANKA;
+			SET REF_FinancialParty.NS_Dfns:BranchParty.oa:Name 					= REF_E1lfbkm.BRNCH;					
+			SET REF_FinancialParty.oa:FinancialAccount.oa:ID 					= REF_E1lfbkm.BANKN;			
+			MOVE REF_E1lfbkm NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		SET REF_Supplier.oa:CreationDateTime									= CAST(DT_Date AS CHARACTER FORMAT 'yyyy-MM-dd')||'T'||CAST(TM_Time AS CHARACTER FORMAT 'HH:mm:ss');		
+		SET REF_Supplier.oa:Status.oa:Type 										= REF_Zvenclf.CHAR_VALUE;
+			--Loop through the below logic for all segments of E1LFM1M and assign to the fields of VendorPurchOrg
+		WHILE LASTMOVE(REF_E1lfm1m) DO
+			CREATE LASTCHILD OF REF_Supplier AS REF_PurchaParty NAMESPACE NS_Dfns NAME 'PurchasingParty';			
+			SET REF_PurchaParty.oa:PartyIDs.oa:ID 								= REF_E1lfm1m.EKORG;
+			SET REF_PurchaParty.oa:Contact.oa:Name								= REF_E1lfm1m.VERKF;
+			SET REF_PurchaParty.oa:Contact.oa:TelephoneCommunication.oa:FormattedNumber = REF_E1lfm1m.TELF1;
+			SET REF_PurchaParty.oa:CurrencyCode									= REF_E1lfm1m.WAERS;			
+			SET REF_PurchaParty.NS_Dfns:MinimumOrderValue						= REF_E1lfm1m.MINBW;
+			SET REF_PurchaParty.NS_Dfns:MinimumOrderValue.(XMLNSC.Attribute)currencyID = REF_E1lfm1m.WAERS;
+			
+			--For all segments of REF_PurchaParty and looping all E1WYT1M and assign to the fields of VendorPurchOrg(BranchSubrangeParty)			
+			WHILE LASTMOVE(REF_E1wyt1m) DO
+	            CREATE LASTCHILD OF REF_PurchaParty AS REF_BranchSubrangeParty NAMESPACE NS_Dfns NAME 'BranchSubrangeParty';
+	            SET REF_BranchSubrangeParty.oa:PartyIDs.oa:ID[1] = REF_E1wyt1m.LTSNR;	            	            
+	            --Now search for JDA Vendor information
+	            IF REF_Z1z007f.* <> '' THEN
+                    Z1z007f: WHILE LASTMOVE(REF_Z1z007f) DO
+                                --When the subrange number on z2z007f000 equals subrange number of segment being written populate rest
+                                IF REF_Z1z007f.LTSNR = REF_E1wyt1m.LTSNR THEN
+                                    SET REF_BranchSubrangeParty.oa:PartyIDs.oa:ID[2] = REF_Z1z007f.ZJDAVEN;
+                                    SET REF_BranchSubrangeParty.oa:PartyIDs.oa:ID[2].(XMLNSC.Attribute)schemeName = 'JDAVendorNumber';
+                                    SET REF_BranchSubrangeParty.NS_Dfns:DeliveryType = REF_Z1z007f.ZDELIV;
+                                    LEAVE Z1z007f;
+                                END IF;
+                                MOVE REF_Z1z007f NEXTSIBLING REPEAT TYPE NAME;
+                    END WHILE;
+                    MOVE REF_Z1z007f TO REF_E2lfa1m001.SapCremas04Zcremas04Z2z007f000;
+	            END IF;
+	            
+	            --Now search for the subrange-site combination
+            	WHILE LASTMOVE(REF_E1lfm2m) DO
+                    IF REF_E1lfm2m.LTSNR = REF_BranchSubrangeParty.oa:PartyIDs.oa:ID  THEN
+	                    CREATE LASTCHILD OF REF_BranchSubrangeParty AS REF_FulfilmentSite NAMESPACE NS_Dfns NAME 'FulfilmentSite';
+	                    SET REF_FulfilmentSite.oa:PartyIDs.oa:ID 					= REF_E1lfm2m.WERKS;
+	                    SET REF_FulfilmentSite.oa:CurrencyCode 						= REF_E1lfm2m.WAERS;
+                    END IF;
+                    MOVE REF_E1lfm2m NEXTSIBLING REPEAT TYPE NAME;
+            	END WHILE;
+
+	            SET REF_BranchSubrangeParty.oa:Description 							= REF_E1wyt1m.LTSBZ;
+	            MOVE REF_E1lfm2m TO REF_E1lfm1m.SapCremas04Zcremas04E2lfm2m003;	            
+	            MOVE REF_E1wyt1m NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;			
+			MOVE REF_BranchSubrangeParty TO REF_PurchaParty.NS_Dfns:BranchSubrangeParty;
+			
+				
+			IF REF_E1lfm1m.LFABC = 'X' THEN
+				SET REF_PurchaParty.NS_Dfns:ProductIndicator.NS_Dfns:Indicator 	= 'true';
+			ELSE
+				SET REF_PurchaParty.NS_Dfns:ProductIndicator.NS_Dfns:Indicator 	= 'false';
+			END IF;
+			IF REF_E1lfm1m.KZABS = 'X' THEN
+				SET REF_PurchaParty.NS_Dfns:OrderReferenceRequiredIndicator		= 'true';
+			ELSE
+				SET REF_PurchaParty.NS_Dfns:OrderReferenceRequiredIndicator		= 'false';
+			END IF;
+			IF REF_E1lfm1m.KZAUT = 'X' THEN
+				SET REF_PurchaParty.NS_Dfns:AutogeneratePOIndicator				= 'true';	
+			ELSE
+				SET REF_PurchaParty.NS_Dfns:AutogeneratePOIndicator				= 'false';
+			END IF;	
+			
+			IF REF_E1lfm1m.INCO1 = '' OR REF_E1lfm1m.INCO2 = '' THEN
+				SET REF_PurchaParty.oa:IncotermsCode 							= '';
+			ELSE
+				SET REF_PurchaParty.oa:IncotermsCode 							= REF_E1lfm1m.INCO1 || REF_E1lfm1m.INCO2;				
+			END IF;
+			
+		MOVE REF_E1lfm1m NEXTSIBLING REPEAT TYPE NAME;			
+		END WHILE;
+				
+		--Loop through the below logic for all segments of E1LFB1M and assign to the fields of VendorCompany
+		WHILE LASTMOVE(REF_E2lfb1m) DO
+			
+			CREATE LASTCHILD OF REF_Supplier AS REF_BuyerParty NAMESPACE NS_Dfns NAME 'BuyerParty';			
+			SET REF_BuyerParty.oa:PartyIDs.oa:ID								= REF_E2lfb1m.BUKRS;						
+
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_E2lfb1m.SapCremas04Zcremas04Z2lfb1mx001.SPERR = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;			
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/BuyerParty/DeletionIndicator';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			IF REF_E2lfb1m.LOEVM = 'X' THEN
+				SET REF_BuyerParty.NS_Dfns:BlockedIndicator						= 'true';
+			ELSE
+				SET REF_BuyerParty.NS_Dfns:BlockedIndicator						= 'false';
+			END IF;
+						
+			CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+			IF REF_E2lfb1m.SapCremas04Zcremas04Z2lfb1mx001.LOEVM = 'X' THEN
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Modified';
+			ELSE
+				SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 			= 'Accepted';
+			END IF;			
+			SET REF_ActionExpression 											= 'SynchroniseSupplier/DataArea/Supplier/BuyerParty/BlockedIndicator';
+			SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 		= 'xpath';
+			
+			IF REF_E2lfb1m.SPERR = 'X' THEN
+				SET REF_BuyerParty.NS_Dfns:DeletionIndicator					= 'true';
+			ELSE
+				SET REF_BuyerParty.NS_Dfns:DeletionIndicator					= 'false';
+			END IF;
+			
+			MOVE REF_E2lfb1m NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		
+		--Loop through all the segments of ZVENCLF.
+		WHILE LASTMOVE(REF_Zvenclf) DO
+			IF REF_Zvenclf.NAME_CHAR = 'Z_VENDOR_TYPE' THEN
+				CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+				IF REF_Zvenclf.SapCremas04Zcremas04Zvenclfx000.CHANGED = 'X' THEN
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Modified';
+				ELSE
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Accepted';
+				END IF;				
+				SET REF_ActionExpression 										= 'SynchroniseSupplier/DataArea/Supplier/oa:Status/oa:Type';
+				SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 	= 'xpath';
+			ELSEIF REF_Zvenclf.NAME_CHAR = 'Z_DEAL_VAT' THEN
+				CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+				SET REF_Supplier.NS_Dfns:Tax.oa:ID 								= REF_Zvenclf.CHAR_VALUE;				
+				IF REF_Zvenclf.SapCremas04Zcremas04Zvenclfx000.CHANGED = 'X' THEN
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Modified';
+				ELSE
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Accepted';
+				END IF;				
+				SET REF_ActionExpression 										= 'SynchroniseSupplier/DataArea/Supplier/Tax/oa:ID';
+				SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 	= 'xpath';
+			ELSEIF REF_Zvenclf.NAME_CHAR = 'Z_BRAND' THEN
+				SET REF_Supplier.NS_Dfns:Allowance.oa:Type						= REF_Zvenclf.CHAR_VALUE;
+				CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+				IF REF_Zvenclf.SapCremas04Zcremas04Zvenclfx000.CHANGED = 'X' THEN
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Modified';
+				ELSE
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Accepted';
+				END IF;				
+				SET REF_ActionExpression 										= 'SynchroniseSupplier/DataArea/Supplier/Allowance/oa:Type';
+				SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 	= 'xpath';
+			END IF;
+			MOVE REF_Zvenclf NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfa1m001.SapCremas04Zcremas04Z2lfa1mx001.LIFNR = 'X' THEN
+			 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/oa:PartyIDs/oa:ID';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 			= 'xpath';
+		
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfa1m001.SapCremas04Zcremas04Z2lfa1mx001.NAME1 = 'X' THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/oa:Name';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 			= 'xpath';
+		
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfa1m001.SapCremas04Zcremas04Z2lfa1mx001.LOEVM = 'X' THEN
+			 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/DeletionIndicator';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage			= 'xpath';
+		
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfb1m.SapCremas04Zcremas04Z2lfb1mt000.TEXT1 = 'X' THEN
+			 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			 SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/oa:PaymentTermID';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage			= 'xpath';
+		
+		--Loop through all the segments of E1WYT3M.
+		E1wyt3m: WHILE LASTMOVE(REF_E1wyt3m) DO
+			IF REF_E1wyt3m.PARVW = 'PA' THEN
+				SET REF_Supplier.oa:ParentID 									= REF_E1wyt3m.LIFN2;
+				CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;				
+				IF REF_E1wyt3m.LIFN2 = 'X' THEN
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Modified';
+				ELSE
+					SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 		= 'Accepted';
+				END IF;				
+				SET REF_ActionExpression 										= 'SynchroniseSupplier/DataArea/Supplier/oa:ParentID';
+				SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 	= 'xpath';					
+				LEAVE E1wyt3m;
+			END IF;		
+			MOVE REF_E1wyt3m NEXTSIBLING REPEAT TYPE NAME;	
+		END WHILE;
+		MOVE REF_E1wyt3m TO REF_E1lfm1m.SapCremas04Zcremas04E2wyt3m001;
+		
+		CREATE NEXTSIBLING OF REF_ID AS REF_ID REPEAT;
+		SET REF_ID										VALUE					= REF_E2lfa1m001.KRAUS;
+		SET REF_ID.(XMLNSC.Attribute)schemeName 								= 'CompanyRegistrationNumber';
+				
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfa1m001.SapCremas04Zcremas04Z2lfa1mx001.KRAUS = 'X'  THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/oa:AccountIDs/oa:ID[@schemeName="CompanyRegistrationNumber"]';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 			= 'xpath';
+		
+		SET REF_Supplier.NS_Dfns:Tax.NS_Dfns:RegistrationCode 					= REF_E2lfa1m001.STCEG;
+		IF REF_E2lfa1m001.SPERR = 'X' THEN
+			SET REF_Supplier.NS_Dfns:BlockedIndicator 							= 'true';
+		ELSE
+			SET REF_Supplier.NS_Dfns:BlockedIndicator 							= 'false';
+		END IF;
+				
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfa1m001.SapCremas04Zcremas04Z2lfa1mx001.SPERR = 'X' THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/BlockedIndicator';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 			= 'xpath';		
+			
+		CREATE NEXTSIBLING OF REF_ActionExpression AS REF_ActionExpression REPEAT;
+		IF REF_E2lfa1m001.SapCremas04Zcremas04Z2lfa1mx001.STCEG = 'X' THEN
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Modified';
+		ELSE
+			SET REF_ActionExpression.(XMLNSC.Attribute)actionCode 				= 'Accepted';
+		END IF;		
+		SET REF_ActionExpression 												= 'SynchroniseSupplier/DataArea/Supplier/Tax/RegistrationCode';
+		SET REF_ActionExpression.(XMLNSC.Attribute)expressionLanguage 			= 'xpath';
+				
+		IF REF_E2lfa1m001.LOEVM = 'X' THEN
+			SET REF_Supplier.NS_Dfns:DeletionIndicator							= 'true';
+		ELSE
+			SET REF_Supplier.NS_Dfns:DeletionIndicator							= 'false';
+		END IF;
+		
+	END;
+END MODULE;

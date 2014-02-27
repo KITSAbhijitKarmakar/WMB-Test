@@ -1,0 +1,457 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+DECLARE CH_MBREPOSDSN 				EXTERNAL NAME 'MBREPOS';  
+
+/****************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 			*
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 							*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 								*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 						*
+****************************************************************************************************************/
+
+/****************************************************************************************************************
+* Node Name 				: Insert_ODS																		* 
+* Interface Id 				:  																					*
+* Interface Name 			: Ledger_processLedger																*
+* Message Flow 				: ProcessLedger_TerminalAndSafeCM_ODS												*
+* Message Flow Description  : The primary function of this service capability is to insert TerminalCM or SafeCM	*
+*							  details into SALES_TRANSACTIONS_COUNT and SALES_TRANSACTIONS_TENDER tables of ODS.*
+* Module Name 				: ProcessLedger_TerminalAndSafeCM_ODS_Compute 										*
+* Description 				: The module will insert TerminalCM or SafeCM details into ODS 				     	*
+* 							  																					*
+* Version 	Date 			Author 						Description 											*
+* ======= 	===========	  	======================= 	==================== 									*
+* 0.1	  	09-Apr-2013   	Sourav Banu					The initial version. 									*
+*****************************************************************************************************************/
+
+
+CREATE COMPUTE MODULE ProcessLedger_TerminalAndSafeCM_ODS_Compute
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		SET Environment.Variables.TransactionID	=	InputRoot.XMLNSC.NS_dfns:ProcessLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader.NS_oa:ID;
+		
+		SET Environment.Variables.SQLRoute[] = PASSTHRU('SELECT BW,CCCP, SETTLEMENT, SAPCO FROM SALES_TRANSACTIONS_COUNT WHERE TRANSACTION_ID = '''|| Environment.Variables.TransactionID ||'''' );
+			
+		IF EXISTS(Environment.Variables.SQLRoute[]) = FALSE THEN	
+		
+		
+			--Calling the procedure PROC_Transaction_Count() to insert into the SALES_TRANSACTIONS_COUNT table
+			CALL PROC_Transaction_Count();
+		
+		END IF;
+		
+		RETURN FALSE;
+		
+	END;
+	
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_Transaction_Count() 									 		 *
+	* Input Parameters	: None																 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Insert  values into SALES_TRANSACTIONS_COUNT table   *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	09-APR-2013 	Sourav Banu 	The initial version. 						 *
+	*****************************************************************************************/
+	
+	
+	CREATE PROCEDURE  PROC_Transaction_Count ( )
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN
+			PASSTHRU('ROLLBACK');
+			RESIGNAL;
+			
+		END;
+
+		--Reference declaration
+		DECLARE REF_ProcessLedger      	REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessLedger;
+		DECLARE REF_Ledger             	REFERENCE TO REF_ProcessLedger.NS_dfns:DataArea.NS_dfns:Ledger;
+		DECLARE REF_ApplicationArea     REFERENCE TO REF_ProcessLedger.NS_oa:ApplicationArea;
+		DECLARE REF_LedgerHeader        REFERENCE TO REF_Ledger.NS_dfns:LedgerHeader;
+		DECLARE REF_LedgerLine			REFERENCE TO REF_Ledger.NS_dfns:LedgerLine;
+		
+		--Declaring Variables
+		DECLARE CH_TransactionId  		CHARACTER;
+		DECLARE CH_StoreCode 			CHARACTER;
+		DECLARE CH_BusinessDayDate 		CHARACTER;
+		DECLARE CH_GenStoreCode 		CHARACTER;
+		DECLARE CH_StoreType 			CHARACTER;
+		DECLARE CH_StoreFormat 			CHARACTER;
+		DECLARE CH_SaleReturn 			CHARACTER;
+		DECLARE CH_TotalTax 			CHARACTER;
+		DECLARE CH_SourceSystem 		CHARACTER;
+		DECLARE CH_ProcessedSeod 		CHARACTER;
+		DECLARE CH_ProcessedAseod 		CHARACTER;
+		DECLARE CH_Nonmfstore 			CHARACTER;
+		DECLARE CH_ProcessDirect 		CHARACTER;	
+		DECLARE CH_SqlStr				CHARACTER;
+		DECLARE IN_TotalAmount 			INTEGER;
+		    
+
+		--Setting the values from the input to respective variables
+		SET CH_TransactionId 			= REF_LedgerHeader.NS_oa:ID;
+		SET CH_StoreCode 				= REF_LedgerHeader.NS_oa:SourceID;
+		SET CH_BusinessDayDate 			= REF_LedgerHeader.NS_dfns:BusinessDayID;	    
+		SET CH_GenStoreCode 			= REF_LedgerHeader.NS_oa:SourceID;
+		
+		--Retrieves the STORETYPE information from MBSTRCD table of MBREPOS database
+		SET CH_StoreType 				= THE(SELECT ITEM A.STORETYPE FROM Database.{CH_MBREPOSDSN}.MBREPOS.MBSTRCD AS A
+		                         		WHERE A.GENERICSTORECODE = CH_GenStoreCode);                                                 
+		SET CH_StoreFormat				= CH_StoreType;
+		
+		IF EXISTS(REF_Ledger.NS_dfns:LedgerLine[]) THEN
+			SET CH_SaleReturn  				= '';
+		ELSE
+			SET CH_SaleReturn  				= 'X';
+		END IF;
+		
+		SET IN_TotalAmount 				= 0;
+		SET CH_TotalTax   				= '';
+		SET CH_SourceSystem 			= REF_ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET CH_ProcessedSeod 			= 'U';
+		SET CH_ProcessedAseod 			= 'U';
+		
+		--Retrieves the NONMFSTORE information from MBSTRCD table of MBREPOS database
+		SET CH_Nonmfstore 				= THE(SELECT ITEM A.NONMFSTORE FROM Database.{CH_MBREPOSDSN}.MBREPOS.MBSTRCD AS A
+										WHERE A.GENERICSTORECODE = CH_GenStoreCode);
+		IF CH_Nonmfstore<>'Y' THEN
+			SET CH_Nonmfstore 			= 'N';
+		END IF;
+		
+		SET CH_ProcessDirect			= CH_Nonmfstore;
+		
+		-- Inserting values into SALES_TRANSACTIONS_COUNT table
+		SET CH_SqlStr ='INSERT INTO SALES_TRANSACTIONS_COUNT(TRANSACTION_ID,STORE_CODE,BUSINESS_DAY_DATE,STORE_FORMAT,
+		SALE_RETURN,TOTAL_AMOUNT,TOTAL_TAX,SOURCE_SYSTEM,PROCESSED_SEOD,PROCESSED_ASEOD,PROCESS_DIRECT)
+		 VALUES('''||COALESCE(CH_TransactionId,'') ||''''
+			  ||','''|| COALESCE(CH_StoreCode,'')  ||''''
+			  ||','	 || COALESCE(CH_BusinessDayDate,'null')
+			  ||','''|| COALESCE(CH_StoreFormat,'')||''''
+			  ||','''|| COALESCE(CH_SaleReturn,'') ||''''
+			  ||','  || COALESCE(CAST(IN_TotalAmount AS CHARACTER),'null')
+			  ||','''|| COALESCE(CH_TotalTax,'null')    ||''''
+			  ||','''|| COALESCE(CH_SourceSystem,'') ||''''
+			  ||','''|| COALESCE(CH_ProcessedSeod,'')||''''
+			  ||','''|| COALESCE(CH_ProcessedAseod,'') ||''''
+			  ||','''|| COALESCE(CH_ProcessDirect,'')  ||''''
+			  ||')'
+			  ||'';			  
+					
+		PASSTHRU(CH_SqlStr);
+		
+		--Updating flags
+		PASSTHRU 'UPDATE SALES_TRANSACTIONS_COUNT SET SAPCO= ?,SETTLEMENT= ?,BW=? WHERE TRANSACTION_ID = ?'  
+																	VALUES('Y','Y','Y',Environment.Variables.TransactionID); 
+		
+		--Loop through the LedgerLine
+		WHILE LASTMOVE(REF_LedgerLine) DO
+			
+			--Calling the procedure PROC_InsertTransactionTender() 
+			CALL PROC_InsertTransactionTender(REF_LedgerHeader,REF_ApplicationArea,REF_LedgerLine);
+			
+			MOVE REF_LedgerLine NEXTSIBLING REPEAT TYPE NAME;
+			
+		END WHILE;
+		
+		END;
+		
+	/*****************************************************************************************
+	* Procedure Name	: PROC_InsertTransactionTender() 									 *
+	* Input Parameters	: REF_LedgerHeader, REF_ApplicationArea, REF_LedgerLine              *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure for Insert  values into SALES_TRANSACTIONS_TENDER table  *
+	*					  								 									 *
+	* Version 	Date 			Author 			Description                                  *
+	* ======= 	============ 	=========== 	================================ 			 *
+	* 0.1   	09-APR-2013 	Sourav Banu 	The initial version. 						 *
+	*****************************************************************************************/
+	
+	CREATE PROCEDURE PROC_InsertTransactionTender(IN REF_LedgerHeader REFERENCE,IN REF_ApplicationArea REFERENCE,IN REF_LedgerLine REFERENCE )
+	BEGIN
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE LIKE '%'
+		BEGIN
+			
+			PASSTHRU('ROLLBACK');
+			RESIGNAL;
+			
+		END;
+		
+		--Declaring Variables
+		DECLARE CH_StoreCode 				 CHARACTER;
+		DECLARE CH_TransactionId 			 CHARACTER;
+		DECLARE CH_TenderId					 CHARACTER;
+		DECLARE CH_ReasonCode 				 CHARACTER;
+		DECLARE CH_ActionCode  				 CHARACTER;
+		DECLARE CH_TenderControlType    	 CHARACTER;
+		DECLARE CH_TenderType           	 CHARACTER;
+		DECLARE CH_Amount					 CHARACTER;
+		DECLARE CH_BusinessDayDate			 CHARACTER;
+		DECLARE CH_TrainingCancelFilter		 CHARACTER;
+		DECLARE CH_ReconciliationFilter 	 CHARACTER;
+		DECLARE CH_TenderControlTransFilter  CHARACTER;
+		DECLARE CH_CurrencyCode  			 CHARACTER;
+		DECLARE CH_EntryMethod               CHARACTER;
+		DECLARE CH_SapCo					 CHARACTER;
+		DECLARE CH_SolvePfgFilter			 CHARACTER;
+		DECLARE CH_TransactionType			 CHARACTER;
+		DECLARE CH_WorkstationId             CHARACTER;
+		DECLARE CH_TrainingFlag				 CHARACTER;
+		DECLARE CH_VoidFlag				     CHARACTER;
+		DECLARE CH_LayawayFilter  			 CHARACTER;
+		DECLARE CH_SourceSystem				 CHARACTER;
+		DECLARE CH_ProcessedSeod			 CHARACTER;
+		DECLARE CH_ProcessedAseod			 CHARACTER;
+		DECLARE CH_OldTradeCard				 CHARACTER;
+		DECLARE CH_Nonmfstore				 CHARACTER;
+		DECLARE CH_ProcessDirect 			 CHARACTER;
+		DECLARE CH_ProcessedDbankrec		 CHARACTER;
+		DECLARE CH_GlTenderType				 CHARACTER;
+		DECLARE CH_ActionType  				 CHARACTER;
+		DECLARE CH_TaxAmount				 CHARACTER;
+		DECLARE CH_GlReasonCode			     CHARACTER;
+		DECLARE CH_CashManageNotes			 CHARACTER;
+		DECLARE CH_TerminalCountryCode		 CHARACTER;
+		DECLARE CH_ResponseIndicator		 CHARACTER;
+		DECLARE CH_GenStoreCode				 CHARACTER;
+		DECLARE CH_SqlStr					 CHARACTER;
+		DECLARE TS_TimeStamp				 TIMESTAMP;
+		DECLARE CH_BeginDateTime			 CHARACTER;
+		DECLARE CH_EndDateTime				 CHARACTER;
+		DECLARE CH_TransactionEndTime		 CHARACTER;
+		DECLARE DC_Amount				 	 DECIMAL;
+		DECLARE DC_CreditAmount				 DECIMAL;
+		DECLARE DC_DebitAmount				 DECIMAL;
+		
+		--Setting the values from the input to respective variables
+		SET CH_TransactionId     			= REF_LedgerHeader.NS_oa:ID;
+		SET CH_StoreCode 					= REF_LedgerHeader.NS_oa:SourceID;
+		SET CH_TenderId		 				= REF_LedgerLine.NS_dfns:Payment.(XMLNSC.Attribute)id;
+		SET CH_ActionCode 					= REF_LedgerLine.NS_oa:ActionCodes.NS_oa:Code;
+		
+		IF LENGTH(REF_LedgerLine.NS_oa:ReasonCode)>= 6 THEN
+			SET CH_ReasonCode  				= SUBSTRING(REF_LedgerLine.NS_oa:ReasonCode FROM 1 FOR 6);
+		END IF;
+		
+		IF REF_LedgerLine.NS_oa:Description.(XMLNSC.Attribute)type = 'TENDER CONTROL TYPE' THEN
+			SET CH_TenderControlType 		= REF_LedgerLine.NS_oa:Description;
+		END IF;
+		
+		IF  CH_ActionCode NOT IN ('32','35','33','36','07','27') THEN
+			
+			--Retrieves the TENDERTYPE information from TENDERDATA table of MBREPOS database
+			SET CH_TenderType 				= THE(SELECT  ITEM A.TENDERTYPE FROM  Database.{CH_MBREPOSDSN}.MBREPOS.TENDERDATA   AS A 
+											WHERE  A.TenderId = REF_LedgerLine.NS_dfns:Payment.(XMLNSC.Attribute)id);
+		ELSE
+			SET CH_TenderType				= '';
+		END IF;
+		
+		IF COALESCE(REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount,'') <> ''  THEN
+			
+			SET DC_Amount  					= CAST(REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount  AS DECIMAL);
+			
+			IF  DC_Amount <= 0 THEN
+				SET DC_CreditAmount			= DC_Amount * -1;
+			ELSE
+				SET DC_CreditAmount			= 0;
+			END IF;
+			
+		ELSE
+			SET DC_CreditAmount				= 0;
+		END IF;
+					   
+		IF COALESCE(REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount,'') <> ''  THEN
+			
+			SET DC_Amount  					= CAST(REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount  AS DECIMAL);
+			
+			--IF  DC_Amount <= 0 THEN
+			IF  DC_Amount > 0 THEN
+				SET DC_DebitAmount			= DC_Amount;
+			ELSE
+				SET DC_DebitAmount			= 0;
+			END IF;
+			
+		ELSE
+			SET DC_DebitAmount				= 0;
+		END IF;
+		
+		SET CH_Amount						= REF_LedgerLine.NS_dfns:Payment.NS_oa:Amount;
+		SET CH_BusinessDayDate				= REF_LedgerHeader.NS_dfns:BusinessDayID;
+		
+		IF REF_LedgerHeader.NS_dfns:TrainingModeIndicator = TRUE THEN
+			SET CH_TrainingCancelFilter		= 'Y';
+		ELSE
+			SET CH_TrainingCancelFilter		= 'N';
+		END IF;
+		
+		SET CH_ReconciliationFilter			= 'N';		  
+		SET CH_TenderControlTransFilter 	= 'Y';
+		
+		--formatting the StartDateTime and EndDateTime in 'yyyy-MM-dd''T''HH:mm:ssZZZ'
+		SET TS_TimeStamp					= CAST(REF_LedgerHeader.NS_oa:StartDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		SET CH_BeginDateTime				= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';								
+		SET TS_TimeStamp					= CAST(REF_LedgerHeader.NS_oa:EndDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		SET CH_EndDateTime					= 'to_date(''' || CAST(TS_TimeStamp AS CHARACTER FORMAT 'dd/MM/yyyy hh:mm:ss') || ''',''dd/mm/yyyy hh24:mi:ss'')';
+		
+		IF COALESCE(REF_LedgerHeader.NS_oa:CurrencyCode,'') <> '' THEN
+			SET CH_CurrencyCode				= REF_LedgerHeader.NS_oa:CurrencyCode;
+		ELSE
+			SET CH_CurrencyCode 			= 'GBP';
+		END IF;
+		
+		SET CH_EntryMethod     				=  '';	
+		SET CH_SapCo          				=  'N'; 	 
+		--SET CH_SolvePfgFilter  				=  'N';
+		SET CH_SolvePfgFilter  				=  'Y';
+ 
+		IF COALESCE(REF_LedgerHeader.NS_oa:CountryCode,'') <> '' THEN
+			SET CH_TerminalCountryCode  	= REF_LedgerHeader.NS_oa:CountryCode;
+		END IF;
+		
+		IF CH_TerminalCountryCode IN (NULL,'','GB')  THEN
+			SET CH_TerminalCountryCode  	= 'GBR';
+		END IF;
+		
+		IF REF_LedgerHeader.NS_oa:Description.(XMLNSC.Attribute)type ='TRANSACTION TYPE'  THEN
+			SET CH_TransactionType			= REF_LedgerHeader.NS_oa:Description;
+		END IF;
+		
+		SET CH_WorkstationId 	   			= REF_LedgerHeader.NS_dfns:WorkstationID;
+		
+		IF REF_LedgerHeader.NS_dfns:TrainingModeIndicator = TRUE THEN
+			SET CH_TrainingFlag 	   		= 'Y';
+		ELSE
+			SET CH_TrainingFlag 	  		= 'N';
+		END IF;
+		
+		SET CH_VoidFlag            			= 'N';
+		SET CH_LayawayFilter       			= '';
+		SET CH_SourceSystem        			= REF_ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+		SET CH_TransactionEndTime 			= CH_EndDateTime;
+		SET CH_ProcessedSeod	  			= 'U'; 
+		SET CH_ProcessedAseod	  			= 'U'; 
+		SET CH_OldTradeCard        			= '';  
+		SET CH_ResponseIndicator   			= '';
+		SET CH_GenStoreCode 	   			= REF_LedgerHeader.NS_oa:SourceID;
+		
+		--Retrieves the NONMFSTORE information from MBSTRCD table of MBREPOS database
+		SET CH_Nonmfstore 					= THE(SELECT ITEM A.NONMFSTORE FROM Database.{CH_MBREPOSDSN}.MBREPOS.MBSTRCD AS A
+		                                    WHERE A.GENERICSTORECODE = CH_GenStoreCode);
+		IF CH_Nonmfstore <>'Y' THEN
+			SET CH_Nonmfstore 				= 'N';
+		END IF;
+		
+		SET CH_ProcessDirect      			= CH_Nonmfstore;
+		SET CH_ProcessedDbankrec 			= 'U';
+		SET CH_ActionCode         			= REF_LedgerLine.NS_oa:ActionCodes.NS_oa:Code;
+		
+		IF LENGTH(REF_LedgerLine.NS_oa:ReasonCode)>= 6 THEN
+			SET CH_ReasonCode    			= SUBSTRING(REF_LedgerLine.NS_oa:ReasonCode FROM 1 FOR 6);
+		END IF;
+		
+		FOR REF_INLedgerDescription AS REF_LedgerLine.NS_oa:Description[] DO
+			 
+		SET CH_TenderControlType 			= REF_INLedgerDescription;
+		
+		IF  CH_ActionCode IN ('32','35') THEN
+			
+			IF CH_ReasonCode  = 'Coinag'  THEN
+				SET CH_GlTenderType  		= 'Coinage';
+			ELSE
+				SET CH_GlTenderType  		= 'PaidIn' || CH_ReasonCode;
+			END IF;
+			
+		ELSEIF CH_ActionCode IN ('33','36') THEN
+			SET CH_GlTenderType     		= 'PaidOut';
+		ELSEIF CH_ActionCode = '07' THEN
+			SET CH_GlTenderType     		= 'TillDiscrep';
+		ELSEIF CH_ActionCode ='27' THEN
+			
+			IF CH_TenderControlType = 'EndOfWeek' THEN
+				SET CH_GlTenderType 		= 'EndOfWeek';
+			ELSE
+				SET CH_GlTenderType  		= 'SafeDiscrep';
+			END IF;
+			
+		ELSE
+			--Retrieves the GLTENDERTYPE information from TENDERDATA table of MBREPOS database			
+			SET CH_GlTenderType 			= THE(SELECT ITEM A.GLTENDERTYPE FROM  Database.{CH_MBREPOSDSN}.MBREPOS.TENDERDATA AS A 
+										 	WHERE A.TenderId = REF_LedgerLine.NS_dfns:Payment.(XMLNSC.Attribute)id);
+			SET CH_GlTenderType				= 'Banked'|| CH_GlTenderType ;										 		     
+		END IF;
+		
+		END FOR;
+		
+		SET CH_ActionType    				= REF_LedgerLine.NS_oa:ActionCodes.NS_oa:Code;
+		SET CH_TaxAmount     				= REF_LedgerLine.NS_oa:TaxBaseAmount;
+		SET CH_GlReasonCode  				= REF_LedgerLine.NS_oa:ReasonCode;
+		
+		IF LENGTH(CH_GlReasonCode) > 6 THEN
+			SET CH_GlReasonCode  = SUBSTRING(CH_GlReasonCode FROM 1 FOR 6);
+			
+		END IF;
+		
+		IF LENGTH(REF_LedgerHeader.NS_oa:Note)>245 THEN
+			SET CH_CashManageNotes 			= SUBSTRING(REF_LedgerHeader.NS_oa:Note FROM 1 FOR 246);
+		ELSE
+			SET CH_CashManageNotes 			= REF_LedgerHeader.NS_oa:Note;
+		END IF;
+		                                            
+		--  Inserting values into SALES_TRANSACTIONS_TENDER table
+		SET CH_SqlStr ='INSERT INTO SALES_TRANSACTIONS_TENDER(STORE_CODE,TRANSACTION_ID,TENDER_ID,TENDER_TYPE,
+		CREDIT_AMOUNT,DEBIT_AMOUNT,AMOUNT,BUSINESS_DAY_DATE,TRAINING_CANCEL_FILTER,RECONCILIATION_FILTER,
+		TENDER_CONTROL_TRANS_FILTER,BEGIN_DATE_TIME,END_DATE_TIME,CURRENCY_CODE,ENTRY_METHOD,SAP_CO,
+		SOLVE_PFG_FILTER,TERMINAL_COUNTRY_CODE,TRANSACTION_TYPE,WORKSTATION_ID,TRAINING_FLAG,VOID_FLAG,
+		LAYAWAY_FILTER,SOURCE_SYSTEM,TRANSACTION_END_TIME,PROCESSED_SEOD,PROCESSED_ASEOD,OLD_TRADE_CARD,
+		RESPONSE_INDICATOR,PROCESS_DIRECT,PROCESSED_DBANKREC,GL_TENDER_TYPE,ACTION_TYPE,TAX_AMOUNT,
+		GL_REASON_CODE,CASH_MANAGE_NOTES,SEQUENCE_NUMBER)
+		 VALUES('''   || COALESCE(CH_StoreCode,'') ||''''
+			  || ','''|| COALESCE(CH_TransactionId,'') ||''''
+			  || ','''|| COALESCE(CH_TenderId,'')||''''
+			  || ','''|| COALESCE(CH_TenderType,'') ||''''
+			  || ','  || COALESCE(CAST(DC_CreditAmount AS CHARACTER),'null')
+			  || ','  || COALESCE(CAST(DC_DebitAmount AS CHARACTER),'null') 
+			  || ','  || COALESCE(CH_Amount,'null') 
+			  ||','   || COALESCE(CH_BusinessDayDate,'null') 
+			  || ','''|| COALESCE(CH_TrainingCancelFilter,'') ||''''
+			  || ','''|| COALESCE(CH_ReconciliationFilter,'') ||''''
+			  || ','''|| COALESCE(CH_TenderControlTransFilter,'') ||''''
+			  || ','  || COALESCE(CH_BeginDateTime,'''''')
+			  || ','  || COALESCE(CH_EndDateTime,'''''')
+			  || ','''|| COALESCE(CH_CurrencyCode,'') ||''''
+			  || ','''|| COALESCE(CH_EntryMethod,'') ||''''
+			  || ','''|| COALESCE(CH_SapCo,'') ||''''
+			  || ','''|| COALESCE(CH_SolvePfgFilter,'') ||''''
+			  || ','''|| COALESCE(CH_TerminalCountryCode,'') ||''''
+			  || ','''|| COALESCE(CH_TransactionType,'') ||''''
+			  || ','''|| COALESCE(CH_WorkstationId,'') ||''''
+			  || ','''|| COALESCE(CH_TrainingFlag,'') ||''''
+			  || ','''|| COALESCE(CH_VoidFlag,'') ||''''
+			  || ','''|| COALESCE(CH_LayawayFilter,'') ||''''
+			  || ','''|| COALESCE(CH_SourceSystem,'') ||''''
+			  || ','  || COALESCE(CH_TransactionEndTime,'''''')
+			  || ','''|| COALESCE(CH_ProcessedSeod,'') ||''''
+			  || ','''|| COALESCE(CH_ProcessedAseod,'') ||''''
+			  || ','''|| COALESCE(CH_OldTradeCard,'') ||''''
+			  || ','''|| COALESCE(CH_ResponseIndicator,'') ||''''
+			  || ','''|| COALESCE(CH_ProcessDirect,'') ||''''
+			  || ','''|| COALESCE(CH_ProcessedDbankrec,'') ||''''
+			  || ','''|| COALESCE(CH_GlTenderType,'') ||''''
+			  || ','''|| COALESCE(CH_ActionType,'') ||''''
+			  || ','  || COALESCE(CH_TaxAmount,'null') 
+			  || ','''|| COALESCE(CH_GlReasonCode,'') ||''''
+			  || ','''|| COALESCE(CH_CashManageNotes,'') ||'''' 
+			  || ','''|| COALESCE(REF_LedgerHeader.NS_oa:Sequence,'') ||'''' 
+			  ||')';
+		  
+		PASSTHRU(CH_SqlStr); 
+		
+	END;
+	
+END MODULE;
+

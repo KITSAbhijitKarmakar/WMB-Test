@@ -1,0 +1,112 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: SOL_GiftVoucherReturn													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherReturn					*
+* Description 				: Populate details for GiftVoucherReturn								*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		22-JUN-2013 	Soutam Dutta 		Validated against ProcessSalesOrder xsd. 			*
+* 0.3 		11-JUL-2013 	Subir Bhaumik		Updated code for version 0.3 to populate Transaction*
+*												LineType in the ProcessSalesOrder message. 			*
+* 0.4 		02-AUG-2013 	Subir Bhaumik		Updated the code to generate Tax Amount only if 	*
+*												TaxAmount exists in input. Version 0.4				*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_GiftVoucherReturn
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_ProductSale			REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+		DECLARE TS_TimeStamp			TIMESTAMP;
+		
+		DECLARE REF_GVReturn 			REFERENCE TO REF_INRoot.GiftVoucherReturn;
+		DECLARE CH_LineNumber 			CHARACTER;
+		
+		--FOR REF_GVReturn AS REF_INRoot.GiftVoucherReturn[] DO
+		SOLGVR:WHILE LASTMOVE(REF_GVReturn)DO
+			SET CH_LineNumber = REF_GVReturn.LineNumber;
+			IF REF_GVReturn.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 	
+				
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+				CREATE LASTCHILD OF REF_OUTSalesLine AS REF_ProductSale NAMESPACE NS_dfns NAME 'SalesOrderLine';
+				SET REF_ProductSale.NS_dfns:LineNumber 																			= REF_GVReturn.LineNumber;
+				--Code change starts for version 0.3
+				SET REF_ProductSale.NS_oa:Description																			= 'Item';
+				--Code change ends for version 0.3
+				SET TS_TimeStamp	= CAST(REF_GVReturn.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');			
+				
+				--Code move start for validation
+				SET REF_ProductSale.NS_oa:DocumentReference.(XMLNSC.Attribute)type 												= 'GIFT VOUCHER RETURN';
+				--Code move end for validation
+				
+				SET REF_ProductSale.NS_oa:DocumentReference.NS_oa:DocumentDateTime 												= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:UPCID 															= '0000000000215';
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:Name 																= REF_GVReturn.Description;
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_oa:Type 																= 'Stock';
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:ID 								= '0101';
+				SET REF_ProductSale.NS_dfns:ProductItem.NS_dfns:MerchandisingHierarchy.NS_oa:Type 								= 'Department';
+				
+				
+				
+				SET REF_ProductSale.NS_oa:Quantity 																				= REF_GVReturn.Quantity;
+				SET REF_ProductSale.NS_oa:UnitPrice.NS_oa:Amount																= FUNC_ConvertPennytoPound(REF_GVReturn.UnitPrice,1,2,NULL);
+				SET REF_ProductSale.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID									= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_ProductSale.NS_dfns:QualifiedUnitPrice.NS_oa:Amount														= FUNC_ConvertPennytoPound(REF_GVReturn.NetValue,1,2,NULL);
+				SET REF_ProductSale.NS_dfns:QualifiedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID						= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_ProductSale.NS_dfns:DiscountedUnitPrice.NS_oa:Amount													= FUNC_ConvertPennytoPound(REF_GVReturn.EffectiveNetValue,1,2,NULL);
+				SET REF_ProductSale.NS_dfns:DiscountedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID						= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_ProductSale.NS_oa:ExtendedAmount																		= FUNC_ConvertPennytoPound(REF_GVReturn.ExtendedValue,1,2,NULL);
+				SET REF_ProductSale.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID											= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				
+				
+				--Code change starts for TaxableTotal
+				SET REF_ProductSale.NS_dfns:TotalTaxableAmount      = '0';
+				SET REF_ProductSale.NS_dfns:TotalTaxableAmount.(XMLNSC.Attribute)currencyID				= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				--Code change ends for TaxableTotal
+				
+				SET REF_ProductSale.NS_oa:TotalAmount																			= FUNC_ConvertPennytoPound(REF_GVReturn.EffectiveNetValue,1,2,NULL);
+				SET REF_ProductSale.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID												= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_ProductSale.NS_oa:QualifiedAmount.NS_oa:Amount															= FUNC_ConvertPennytoPound(REF_GVReturn.NetValue,1,2,NULL);
+				SET REF_ProductSale.NS_oa:QualifiedAmount.NS_oa:Amount.(XMLNSC.Attribute)currencyID								= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_ProductSale.NS_dfns:LineFilterIndicator 																= 'false';
+				--Code change starts for version 0.4 
+				--SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount																	= FUNC_ConvertPennytoPound(REF_GVReturn.TaxAmount,1,2,NULL);
+				IF COALESCE(REF_GVReturn.TaxAmount, '') <> '' THEN
+					SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount																= FUNC_ConvertPennytoPound(REF_GVReturn.TaxAmount,1,2,NULL);
+					SET REF_ProductSale.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID									= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				END IF;
+				--Code change ends for version 0.4
+				IF COALESCE(REF_GVReturn.VoidValue,'') <> '' THEN
+					
+					--SET REF_ProductSale.NS_dfns:VoidStatus.NS_dfns:Code															= 'VOID ENTRY';
+					SET REF_ProductSale.NS_dfns:VoidStatus.NS_oa:Code															= 'VOID ENTRY';
+				
+					SET TS_TimeStamp	= CAST(REF_GVReturn.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET REF_ProductSale.NS_dfns:VoidStatus.NS_dfns:EffectiveDateTime 											= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				END IF;
+		
+				LEAVE SOLGVR;
+			END IF;
+			MOVE REF_GVReturn NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		--END FOR;
+		RETURN FALSE;
+	END;
+END MODULE;

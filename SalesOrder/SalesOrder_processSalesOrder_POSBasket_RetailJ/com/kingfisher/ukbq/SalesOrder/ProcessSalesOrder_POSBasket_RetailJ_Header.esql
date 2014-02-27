@@ -1,0 +1,308 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: SOH_Header															*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_Header							*
+* Description 				: Populate details for SalesOrder Header								*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2   	20-JUN-2013 	Subir Bhaumik 		Corrected the reference to CustomerDetails to		*
+*												populate Customer Number. Defect #75				*
+* 0.3 		24-JUN-2013 	Sourav Banu 		Validated against ProcessSalesOrder xsd.			*
+* 0.4 		11-JUL-2013 	Subir Bhaumik 		Updated code for version 0.4						*
+* 0.5       08-OCT-2013		Debraj Sengupta		Updated	code for version 0.5						*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_Header
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL PROC_CreateSalesOrderHeader();
+		RETURN FALSE;
+	END;
+	
+    /**************************************************************************************
+	* Procedure Name     :PROC_CreateSalesOrderHeader                          			  *
+	* Input Parameters   :None                                                            *
+	* Output Parameters  :None                                                            *
+	* Description        :Create the header section in environment			              *
+	* Version 	Date 			Author 			Description                               *
+	* ======= 	=========== 	=========== 	================================          *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version. 					  *	
+	*  0.5		08-OCT-2013		Debraj Sengupta	Added new field manifestversion in header *
+	**************************************************************************************/
+	CREATE PROCEDURE PROC_CreateSalesOrderHeader()
+	BEGIN
+		DECLARE REF_OUTSalesOrder			REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTApplicationArea		REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_OUTSalesLine			REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		DECLARE REF_Address					REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:SupplierParty.NS_dfns:Contact.NS_dfns:Location.NS_oa:Address;
+
+		DECLARE REF_INRoot					REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader				REFERENCE TO REF_INRoot.Header;
+		DECLARE REF_OriginatedBy			REFERENCE TO REF_POHeader.OriginatedBy;
+		DECLARE REF_Trailer					REFERENCE TO REF_INRoot.Trailer;
+
+		DECLARE REF_CustomerAddress			REFERENCE TO InputRoot;
+		DECLARE REF_Temp					REFERENCE TO InputRoot;
+		-- MBREPOS lookup for Trading Region, Store Code
+--		SET Environment.SQLQuery[]			= SELECT S.GENERICSTORECODE, S.VPCTRADINGREGION FROM Database.MBSTRCD AS S 
+--													WHERE S.FULLSTORECODE = REF_OriginatedBy.StoreID;
+		
+		SET Environment.SQLQuery[]			= SELECT S.GENERICSTORECODE, S.VPCTRADINGREGION,S.GLREGIONCOLUMN FROM CACHE_CONFIGDATA.MBSTRCD[] AS S 
+													WHERE S.FULLSTORECODE = REF_OriginatedBy.StoreID;
+															
+		CREATE FIELD REF_OUTSalesLine.NS_dfns:SalesOrderHeader AS REF_OUTSalesOrderHeader;
+		-- Populating the Application Area
+		SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:LogicalID					= 'EPOS';
+		SET REF_OUTApplicationArea.NS_oa:CreationDateTime						= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		-- Creating the Sales Order Header section		
+		
+		-- code change 0.5 starts
+		SET REF_OUTSalesOrderHeader.NS_dfns:ManifestVersion			= REF_INRoot.ManifestVersion;
+		-- code change 0.5 ends
+		
+ 		--Code change starts for version 0.2 and Defect #75
+		--FOR REF_INAddress AS REF_POHeader.CustomerDetails.[] DO
+		FOR REF_INAddress AS REF_POHeader.CustomerDetails[] DO
+			
+			-- Populating the source information		
+			SET REF_OUTSalesOrderHeader.NS_oa:SourceID.(XMLNSC.Attribute)schemeName	= 'RetailJ';
+			SET REF_OUTSalesOrderHeader.NS_oa:SourceID			= Environment.SQLQuery.GENERICSTORECODE;
+			
+			--IF COALESCE(REF_CustomerAddress.CustomerNumber, '') <> '' THEN
+				--SET REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_oa:ID		= REF_CustomerAddress.CustomerNumber;
+			--END IF;
+			IF COALESCE(REF_INAddress.CustomerNumber, '') <> '' THEN
+				SET REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_oa:ID		= REF_INAddress.CustomerNumber;
+			END IF;
+			
+ 		--Code change ends for version 0.2 and Defect #75
+
+			CREATE LASTCHILD OF REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_dfns:Contact.NS_dfns:Location AS REF_Address NAMESPACE NS_oa NAME 'Address';
+			IF EXISTS(REF_INAddress.CustomerAddress[]) THEN
+				SET REF_Address.NS_oa:PostalCode								= REF_INAddress.CustomerAddress.PostCode;
+			END IF;
+
+
+ 		--Code change starts for version 0.2
+			
+			--IF COALESCE(REF_CustomerAddress.CustomerClassification, '') <> '' THEN
+				--SET REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_oa:Type	= REF_CustomerAddress.CustomerClassification;
+			--END IF;
+			IF COALESCE(REF_INAddress.CustomerClassification, '') <> '' THEN
+				SET REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_oa:Type	= REF_INAddress.CustomerClassification;
+			END IF;
+			
+ 		--Code change ends for version 0.2
+			
+			MOVE REF_CustomerAddress	TO REF_INAddress.CustomerAddress;
+			--Code change starts for version 0.4
+			--IF COALESCE(REF_CustomerAddress.CustomerPan, '') <> '' THEN
+				--SET REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_dfns:MembershipCard.NS_oa:ID	= REF_CustomerAddress.CustomerPan;
+			--END IF;
+			IF COALESCE(REF_INAddress.CustomerPan, '') <> '' THEN
+				SET REF_OUTSalesOrderHeader.NS_dfns:CustomerParty.NS_dfns:MembershipCard.NS_oa:ID	= REF_INAddress.CustomerPan;
+			END IF;
+			--Code change ends for version 0.4
+		END FOR;
+
+		CREATE LASTCHILD OF REF_OUTSalesOrderHeader.NS_dfns:PayFromParty.NS_dfns:Contact.NS_dfns:Location AS REF_Address NAMESPACE NS_oa NAME 'Address';
+		SET REF_Address.NS_oa:CountrySubDivisionCode.(XMLNSC.Attribute)listName	= 'REGION';
+		SET REF_Address.NS_oa:CountrySubDivisionCode							= REF_POHeader.TradingRegionID;
+
+		CREATE LASTCHILD OF REF_OUTSalesOrderHeader.NS_dfns:SupplierParty.NS_dfns:Contact.NS_dfns:Location AS REF_Address NAMESPACE NS_oa NAME 'Address';
+		SET REF_Address.NS_oa:CountryCode										= REF_POHeader.BasketCountryID;
+		
+		--SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount								= REF_Trailer.Total;
+		SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount								= FUNC_ConvertPennytoPound(REF_Trailer.Total,1,2,'ROUND_HALF_UP');
+		SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+		
+		-- Calling a procedure to generate the SalesTransaction information
+		CALL PROC_CreateTransaction(Environment.SQLQuery.GENERICSTORECODE);
+		-- Generating the LayAwayDetails section in case it needs to be populated in the later section.
+		CREATE LASTCHILD OF REF_OUTSalesOrderHeader NAMESPACE NS_dfns NAME 'LayAwayDetails';
+		-- Populating the Tax segment
+		IF COALESCE(REF_Trailer.TaxTotal,'') <> '' THEN
+			--SET REF_OUTSalesOrderHeader.NS_dfns:Tax.NS_oa:Amount								= REF_Trailer.TaxTotal;
+			SET REF_OUTSalesOrderHeader.NS_dfns:Tax.NS_oa:Amount								= FUNC_ConvertPennytoPound(REF_Trailer.TaxTotal,1,2,'ROUND_HALF_UP');
+			SET REF_OUTSalesOrderHeader.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+		ELSE
+			SET REF_OUTSalesOrderHeader.NS_dfns:Tax.NS_oa:Amount				= 0;
+			SET REF_OUTSalesOrderHeader.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+		END IF;
+
+		--SET REF_OUTSalesOrderHeader.NS_dfns:Allowance.NS_dfns:Card.NS_dfns:Number 				= REF_POHeader.EmployeePAN;
+		SET REF_OUTSalesOrderHeader.NS_dfns:Allowance.NS_dfns:Card.NS_oa:Number 				= REF_POHeader.EmployeePAN;
+		
+		-- Generating the Payment section in case it is populated later on.
+		CREATE LASTCHILD OF REF_OUTSalesOrderHeader NAMESPACE NS_dfns NAME 'Payment';
+		SET REF_OUTSalesOrderHeader.NS_dfns:Payment.NS_oa:ID	= 'TEST';
+		
+		--SET REF_OUTSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID = 'TEST';
+		SET REF_OUTSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID = '';
+	END;
+	
+    /************************************************************************************
+	* Procedure Name     :PROC_CreateTransaction                          				*
+	* Input Parameters   :Store Code                                                    *
+	* Output Parameters  :None                                                          *
+	* Description        :Create the sales Transaction segment in environment			*
+	* Version 	Date 			Author 			Description                             *
+	* ======= 	=========== 	=========== 	================================        *
+	*  0.1   	08-APR-2013 	Sayantan Som 	The initial version.                    *
+	************************************************************************************/
+	CREATE PROCEDURE PROC_CreateTransaction(IN CH_StoreCode	CHARACTER)
+	BEGIN
+		DECLARE REF_OUTSalesOrder			REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTApplicationArea		REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_OUTSalesLine			REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		DECLARE REF_OUTTransaction			REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:SalesTransaction;
+		
+		DECLARE REF_INRoot					REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_POHeader				REFERENCE TO REF_INRoot.Header;
+		DECLARE REF_Trailer					REFERENCE TO REF_INRoot.Trailer;
+		DECLARE REF_OriginatedBy			REFERENCE TO REF_POHeader.OriginatedBy;
+		DECLARE REF_Status					REFERENCE TO InputRoot;
+		
+		DECLARE TS_TimeStamp				TIMESTAMP;
+		DECLARE CH_ReserveCollect			CHARACTER;
+		DECLARE CH_ReserveCollectFlag		CHARACTER;
+		DECLARE CH_TradingRegion			CHARACTER;
+		-- Defaulting the value of the flag to false
+		SET CH_ReserveCollectFlag			= 'false';
+
+		CREATE FIELD REF_OUTSalesOrderHeader.NS_dfns:SalesTransaction AS REF_OUTTransaction;
+		-- Generating the Transaction.ID information to be used throughout the downstream systems
+		SET TS_TimeStamp									= CAST(REF_POHeader.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+		
+		--Storing transaction into environment as it will be used when product return conatains card information.
+		SET Environment.Variables.TransactionID				= CH_StoreCode || '-' 
+																|| CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyyMMdd') || '-' 
+																|| PadLeadingCharacters(3, REF_OriginatedBy.TerminalNumber, '0') || '-'
+																|| REF_OriginatedBy.TransactionNumber || '-'
+																|| REF_Trailer.SequenceNumber;	
+		
+		SET REF_OUTTransaction.NS_oa:ID						= CH_StoreCode || '-' 
+																|| CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyyMMdd') || '-' 
+																|| PadLeadingCharacters(3, REF_OriginatedBy.TerminalNumber, '0') || '-'
+																|| REF_OriginatedBy.TransactionNumber || '-'
+																|| REF_Trailer.SequenceNumber;
+																
+																
+		SET REF_OUTTransaction.NS_oa:Type					= 'RetailTransactionStockView';
+
+		CREATE LASTCHILD OF REF_OUTTransaction AS REF_Status NAMESPACE NS_oa NAME 'Status';
+		SET REF_Status.NS_oa:Code		 		= REF_INRoot.VoidTransactionItem[<].ReasonCodeID;
+		SET REF_Status.NS_oa:Description        = REF_INRoot.VoidTransactionItem[<].Description;
+		
+		SET REF_Status.NS_oa:EffectiveDateTime	= REF_INRoot.VoidTransactionItem[<].DateTimeCreated;
+
+		CREATE LASTCHILD OF REF_OUTTransaction AS REF_Status NAMESPACE NS_oa NAME 'Status';
+		SET REF_Status.NS_oa:Code		 			= REF_INRoot.NoSaleTransactionItem.ReasonCodeID;
+		SET REF_Status.NS_oa:Description 			= REF_INRoot.NoSaleTransactionItem.ReasonCodeDescription;
+		SET REF_Status.NS_oa:EffectiveDateTime		= REF_INRoot.NoSaleTransactionItem.DateTimeCreated;
+		
+		SET REF_OUTTransaction.NS_oa:StartDateTime	= REF_POHeader.DateTimeCreated;
+		SET REF_OUTTransaction.NS_oa:EndDateTime	= REF_Trailer.DateTimeCompleted;
+
+		SET REF_OUTTransaction.NS_dfns:WorkstationID	= 'POS.' || REF_OriginatedBy.TerminalNumber || '.1';
+		-- Populating the 3 digit Operator ID from the CashierID
+		IF LENGTH(REF_OriginatedBy.CashierID) > 3 THEN
+			SET REF_OUTTransaction.NS_dfns:OperatorID	= SUBSTRING(REF_OriginatedBy.CashierID FROM 1 FOR 3);
+		END IF;
+		SET REF_OUTTransaction.NS_dfns:CompletingOperatorID		= REF_Trailer.CompletedBy.CashierID;
+		SET REF_OUTTransaction.NS_dfns:FullOperatorID			= REF_OriginatedBy.CashierID;
+		SET REF_OUTTransaction.NS_dfns:TillID					= REF_OriginatedBy.TerminalNumber;
+		SET REF_OUTTransaction.NS_dfns:CompletingTillID			= REF_Trailer.CompletedBy.TerminalNumber;
+--		SET REF_OUTTransaction.NS_dfns:BusinessDayID			= getNextBusinessDayDate('EPOSBDD' || REF_OUTSalesOrderHeader.NS_oa:SourceID);
+		SET REF_OUTTransaction.NS_dfns:BusinessDayID			= getNextBusinessDayDate('EPOSBDD' || CH_StoreCode);
+		
+		SET REF_OUTTransaction.NS_oa:LastModificationDateTime	= REF_INRoot.LastUpdated;
+		-- Setting flag value as 'true' or 'false'
+		--Code change starts for version 0.4
+		--IF (REF_POHeader.TrainingMode = '1') THEN 
+			--SET REF_OUTTransaction.NS_dfns:TrainingModeIndicator	= 'true';
+		--ELSE
+			--SET REF_OUTTransaction.NS_dfns:TrainingModeIndicator	= 'false';
+		--END IF;
+		
+		IF (REF_POHeader.TrainingMode = '1') THEN 
+			SET REF_OUTTransaction.NS_dfns:TrainingModeIndicator	= 'true';
+		END IF;
+		--Code change ends for version 0.4
+		-- Setting flag value as 'true' or 'false'
+		IF (REF_POHeader.IsTradeSale = '1') THEN
+			SET REF_OUTTransaction.NS_dfns:TradeSaleIndicator	= 'true';
+		ELSE
+			SET REF_OUTTransaction.NS_dfns:TradeSaleIndicator	= 'false';
+		END IF;
+		SET CH_ReserveCollect	 	=  THE(SELECT ITEM P.CONFIGVALUE FROM CACHE_CONFIGDATA.MBCONFIG[] AS P
+															WHERE P.CANVAL = 'ReservationItem');
+		FOR REF_Sale AS REF_INRoot.ProductSale[] DO
+			IF (REF_Sale.ProductID = CH_ReserveCollect) AND CH_ReserveCollectFlag <> 'true' THEN
+				SET CH_ReserveCollectFlag 							= 'true';
+			END IF;
+		END FOR;
+		FOR REF_Sale AS REF_INRoot.ProductReturn[] DO
+			IF (REF_Sale.ProductID =  CH_ReserveCollect) AND CH_ReserveCollectFlag <> 'true' THEN
+				SET CH_ReserveCollectFlag 							= 'true';
+			END IF;
+		END FOR;
+		-- Setting flag value as 'true' or 'false'
+		SET REF_OUTTransaction.NS_dfns:ReserveAndCollectIndicator 	= CH_ReserveCollectFlag;
+		-- Setting flag value as 'true' or 'false'
+		--Code change starts for version 0.4
+		--IF COALESCE(REF_INRoot.State, '') <> '' THEN
+			--IF (REF_INRoot.State = 'CANCELLED') THEN
+				--SET REF_OUTTransaction.NS_dfns:CancelledIndicator	= 'true';
+			--ELSE
+				--SET REF_OUTTransaction.NS_dfns:CancelledIndicator	= 'false';
+			--END IF;
+		--END IF;
+		
+		IF COALESCE(REF_INRoot.State, '') <> '' THEN
+			IF (UPPER(REF_INRoot.State) = 'CANCELLED') THEN
+				SET REF_OUTTransaction.NS_dfns:CancelledIndicator	= 'true';
+			END IF;
+		END IF;
+		--Code change ends for version 0.4
+		SET REF_OUTTransaction.NS_oa:CurrencyCode			= REF_POHeader.BasketCurrencyID;
+		-- Setting flag value as 'true' or 'false'
+		IF (UPPER(REF_INRoot.State) = 'DELETED' AND EXISTS(REF_INRoot.BasketStoredItem[])) THEN
+			SET REF_OUTTransaction.NS_dfns:LayAwayNotResumedIndicator = 'true';
+		END IF;
+		SET REF_OUTTransaction.NS_oa:Sequence				= REF_OriginatedBy.TransactionNumber;
+		-- Setting flag value as 'true' or 'false'
+		IF UPPER(REF_INRoot.State) = 'DELETED' THEN
+			SET REF_OUTTransaction.NS_dfns:SuspendedTransactionIndicator	= 'true';
+		ELSE
+			SET REF_OUTTransaction.NS_dfns:SuspendedTransactionIndicator	= 'false';
+		END IF;
+		
+		IF  EXISTS(REF_INRoot.VoidTransactionItem[])THEN
+			SET REF_OUTTransaction.NS_dfns:VoidStatus.NS_oa:Code = 'VOID ENTRY';
+			
+		END IF;
+		SET Environment.Variables.Condition.VPCStoreRule	= FALSE;
+--		SET CH_TradingRegion	= THE(SELECT ITEM A.VPCTRADINGREGION FROM Database.MBSTRCD AS A
+--										WHERE A.STORE = Environment.SQLQuery.VPCTRADINGREGION);
+		IF COALESCE(Environment.SQLQuery.VPCTRADINGREGION,'') <> '' AND Environment.SQLQuery.VPCTRADINGREGION IN ('IE','CI','EX') THEN
+			SET  Environment.Variables.Condition.VPCStoreRule	= TRUE;
+		END IF;
+	END;
+END MODULE;

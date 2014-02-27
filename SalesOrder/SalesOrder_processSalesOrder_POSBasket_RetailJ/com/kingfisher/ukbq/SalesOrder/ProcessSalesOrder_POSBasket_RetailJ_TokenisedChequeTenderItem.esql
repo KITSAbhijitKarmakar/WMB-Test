@@ -1,0 +1,108 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: Payment_TokenCheque													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_TokenisedChequeTenderItem			*
+* Description 				: Populate details for TokenisedChequeTenderItem						*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		22-JUN-2013 	Soutam Dutta 		Validated against ProcessSalesOrder xsd. 			*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_TokenisedChequeTenderItem
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader	REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+
+		DECLARE REF_TokenisedChequeTenderItem	REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:Payment;
+		DECLARE TS_TimeStamp					TIMESTAMP;
+		DECLARE CH_RetJTend						CHARACTER;
+		
+		DECLARE REF_TCTItem				REFERENCE TO REF_INRoot.TokenisedChequeTenderItem;
+		DECLARE CH_LineNumber 			CHARACTER;
+		DECLARE IN_Count 				INTEGER;
+		
+		
+		--FOR REF_TCTItem AS REF_INRoot.TokenisedChequeTenderItem[] DO
+		TCTI:WHILE LASTMOVE(REF_TCTItem)DO
+			SET CH_LineNumber = REF_TCTItem.LineNumber;
+			
+			IF REF_TCTItem.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+			
+				SET IN_Count = CARDINALITY(REF_OUTSalesOrderHeader.NS_dfns:Payment[]);
+			
+				CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment[IN_Count] AS REF_TokenisedChequeTenderItem REPEAT;
+				
+				--CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:Payment AS REF_TokenisedChequeTenderItem REPEAT;
+				
+				SET REF_TokenisedChequeTenderItem.(XMLNSC.Attribute)type 							= 'TOKENISED CHEQUE TENDER';
+				IF (REF_TCTItem.TenderType IS NOT NULL) AND (REF_TCTItem.TenderSubType IS NOT NULL) THEN
+					SET CH_RetJTend = REF_TCTItem.TenderType || REF_TCTItem.TenderSubType;
+	--			    SET REF_TokenisedChequeTenderItem.(XMLNSC.Attribute)id 							= THE(SELECT ITEM T.TENDERID FROM Database.TENDERDATA AS T
+	--																									WHERE T.RETAILJCARDTYPE = CH_RetJTend);
+	
+					SET REF_TokenisedChequeTenderItem.(XMLNSC.Attribute)id 							= THE(SELECT ITEM T.TENDERID FROM CACHE_CONFIGDATA.TENDERDATA[] AS T
+																										WHERE T.RETAILJCARDTYPE = CH_RetJTend);
+	
+				END IF;
+				SET REF_TokenisedChequeTenderItem.NS_dfns:Cheque.NS_oa:AuthorizationCode			= REF_TCTItem.AuthorisationCode;
+				
+				IF REF_TCTItem.AuthCodeEntered = '1' THEN
+					SET REF_TokenisedChequeTenderItem.NS_dfns:Cheque.NS_dfns:ManualKeyingIndicator	= 'true';
+				ELSE
+					SET REF_TokenisedChequeTenderItem.NS_dfns:Cheque.NS_dfns:ManualKeyingIndicator	= 'false';
+				
+				END IF;
+				
+				SET REF_TokenisedChequeTenderItem.NS_oa:LineNumber									= REF_TCTItem.LineNumber;
+				
+				IF (COALESCE(REF_TCTItem.IssuedAsChange,'') <> '1') AND (COALESCE(REF_TCTItem.TenderAmount,'') <> '') THEN
+					SET REF_TokenisedChequeTenderItem.NS_oa:Amount									= FUNC_ConvertPennytoPound(REF_TCTItem.TenderAmount,-1,2,NULL);
+					SET REF_TokenisedChequeTenderItem.NS_oa:Amount.(XMLNSC.Attribute)currencyID		= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				END IF;
+				
+				
+				SET TS_TimeStamp	= CAST(REF_TCTItem.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_TokenisedChequeTenderItem.NS_oa:StartDateTime								= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_TokenisedChequeTenderItem.NS_oa:EndDateTime									= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				IF REF_TCTItem.Swiped <> '' AND REF_TCTItem.Swiped = '1' THEN
+					SET REF_TokenisedChequeTenderItem.NS_dfns:EntryType 							= 'Swiped';
+				ELSE
+					SET REF_TokenisedChequeTenderItem.NS_dfns:EntryType 							= 'Keyed';
+				END IF;
+				SET REF_TokenisedChequeTenderItem.NS_dfns:AuthorizingUserID							= REF_TCTItem.AuthorisingUserID;
+				
+				IF REF_TCTItem.VoidValue <> '' THEN
+					SET REF_TokenisedChequeTenderItem.NS_dfns:VoidStatus.NS_oa:Code					= 'VOID ENTRY';
+				END IF;
+				IF COALESCE(REF_TCTItem.VoidDateTime,'') <> '' THEN
+					SET TS_TimeStamp																= CAST(REF_TCTItem.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET REF_TokenisedChequeTenderItem.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime	= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				END IF;
+				
+				LEAVE TCTI;
+			END IF;	
+			MOVE REF_TCTItem NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		--END FOR;
+		RETURN FALSE;
+	END;
+END MODULE;

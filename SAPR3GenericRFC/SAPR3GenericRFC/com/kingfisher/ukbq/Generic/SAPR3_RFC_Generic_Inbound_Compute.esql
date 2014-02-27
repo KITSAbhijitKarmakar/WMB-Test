@@ -1,0 +1,42 @@
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+BROKER SCHEMA com.kingfisher.ukbq.Generic
+
+/**********************************************************************************************************************
+* Node Name      :	Route_POSBasket									  	  			  	              *									
+* Interface Id 	 :																		  			  *
+* Interface Name :	SalesOrder_processSalesOrder                                                      *															
+* Message Flow 	 : 	ProcessSalesOrder_POSBasket_RetailJ										          *
+* Message Flow 																						  			      *
+*  Description 	 : 	The primary function of this message flow is to incoming RFC message from SAP R/3 to the
+					required destination															       *										  	  				
+* Module Name  	 :	com.kingfisher.ukbq.SalesOrder.ProcessSalesOrder_POSBasket_RetailJ_Route_POSBasket                *            				  	  
+* Description  	 :	This module create  the request structure locateDeliveryOptions Operation.      				  *                                         
+																									  				  *
+* Version      Date	   		   Author				Description                     				 				  *
+* ======= 	=========== 	=========== 	========================================				  				  *
+*  0.1   	08-APR-2013 	Sayantan Som 	The initial version. 		  		  				                      *
+**********************************************************************************************************************/
+
+
+CREATE COMPUTE MODULE SAPR3_RFC_Generic_Inbound_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL CopyEntireMessage();
+		-- Generating the output queue name based on the message headers
+		CASE UPPER(FIELDNAME(InputRoot.DataObject.*))
+			-- For SalesOrder_LegacySAP flow
+			WHEN 'SAPZRETCCARDPAYMENTSWRAPPER' THEN
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'SAPZRETCCARDPAYMENTS.SAP.OUTBOUND.WMB';
+		END CASE;
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

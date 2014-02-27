@@ -1,0 +1,75 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: MapPaymentTokenRequest												*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_CreateGetTokenRequest				*
+* Description 				: Create request structure for "OfflineToOnline" token exchange			*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	==============================================		*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		12-JUNE-2013 	Soutam Dutta 		Fixed to handle multiple tokenised card tender		*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_CreateGetTokenRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		DECLARE REF_Canonical 			REFERENCE TO Environment.InputCanonical;
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+		DECLARE REF_EnvVariable			REFERENCE TO Environment.Variables;	
+		DECLARE REF_TokenEnvironment    REFERENCE TO REF_EnvVariable.Token;
+		DECLARE	REF_OutputRoot			REFERENCE TO OutputRoot.XMLNSC.NS_dfns:GetPayment;
+		
+		
+		CREATE LASTCHILD OF Environment AS REF_Canonical DOMAIN('XMLNSC') NAME 'InputCanonical';
+		SET REF_Canonical 				= InputRoot.XMLNSC;
+		
+		DECLARE REF_CTItem 				REFERENCE TO REF_INRoot.TokenisedCardTenderItem;
+		DECLARE CH_LineNumber 			CHARACTER;
+		DECLARE IN_Count 				INTEGER;
+		
+		-- If the Token is greater than 18 characters then need to exchange token
+		-- Control the tokenised loop from this location
+		
+		TCTI:WHILE LASTMOVE(REF_CTItem)DO
+			SET CH_LineNumber = REF_CTItem.LineNumber;
+			IF REF_CTItem.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+			
+				IF LENGTH(REF_CTItem.Token) = 18 THEN
+					CREATE LASTCHILD OF OutputRoot.XMLNSC	AS REF_OutputRoot NAMESPACE NS_dfns NAME 'GetPayment';
+			     	SET REF_OutputRoot.(XMLNSC.NamespaceDecl)xmlns 			= NS_dfns;
+					SET REF_OutputRoot.(XMLNSC.NamespaceDecl)xmlns:oa   	= NS_oa;
+			        SET REF_OutputRoot.(XMLNSC.Attribute)releaseID   		= '1.0';
+			        SET REF_OutputRoot.(XMLNSC.Attribute)languageCode  		= 'en';
+			        
+			        CREATE LASTCHILD OF REF_OutputRoot NAMESPACE NS_oa NAME 'ApplicationArea';
+			        
+					SET REF_OutputRoot.NS_oa:ApplicationArea.NS_oa:CreationDateTime										= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'dd-MM-yyyy''T''HH:mm:ssZZZ');	
+					SET REF_OutputRoot.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID								= 'EPOS';	
+			        CREATE LASTCHILD OF REF_OutputRoot AS REF_OutputRoot NAMESPACE NS_dfns NAME 'DataArea';
+					SET REF_OutputRoot.NS_dfns:Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_dfns:Token	= REF_CTItem.Token;
+					PROPAGATE TO TERMINAL 'out1';								
+				ELSE
+					--CREATE LASTCHILD OF REF_EnvVariable  AS REF_TokenEnvironment NAME 'Token' VALUE REF_CTItem.Token ;
+					SET Environment.Variables.Token = REF_CTItem.Token;
+	
+				END IF;				
+			LEAVE TCTI;
+			END IF;
+			MOVE REF_CTItem NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+						
+		RETURN TRUE;
+	END;
+END MODULE;

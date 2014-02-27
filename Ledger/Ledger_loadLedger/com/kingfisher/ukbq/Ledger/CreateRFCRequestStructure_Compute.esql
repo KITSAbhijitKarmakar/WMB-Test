@@ -1,0 +1,72 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger 
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: CreateRFCRequestStructure												*
+* Interface Id 				:  																		*
+* Interface Name 			: Ledger_LoadLedger 													*
+* Message Flow 				: LoadLedger															*
+* Message Flow Description 	: The primary function of this message flow is to receive canonical from*
+* 							  Orchestrator service & make a RFC Call updating the SAP and ODS table *
+* Module Name 				: CreateRFCRequestStructure_Compute										*	
+* Description 				: The primary function of this Node is to receive the canonical from    *
+* 							  Orchastrator flow and create RFC Request Structure for the next Node	*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		10-APR-2013 	Soutam Dutta 		The initial version. 								*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE CreateRFCRequestStructure_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Declare Input Reference
+		DECLARE REF_LoadLedger 			REFERENCE TO InputRoot.XMLNSC.NS_dfns:LoadLedger;
+		DECLARE REF_AppArea				REFERENCE TO REF_LoadLedger.NS_oa:ApplicationArea;
+		DECLARE REF_Sender				REFERENCE TO REF_AppArea.NS_oa:Sender;
+		DECLARE REF_LedgerHeader 		REFERENCE TO REF_LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader;
+		DECLARE REF_SalesOrderReference	REFERENCE TO REF_LedgerHeader.NS_dfns:SalesOrderReference;
+		
+		--Declare Output Reference
+		DECLARE REF_RFCOut				REFERENCE TO OutputRoot.DataObject.NS_CustOrder:SapZRetRfcCustOrdValidate;
+		DECLARE REF_Canonical 			REFERENCE TO Environment.InputCanonical;
+		
+		DECLARE CH_SqlQuery CHARACTER;
+		
+		--Storing the input canonical to Environment
+		CREATE LASTCHILD OF Environment AS REF_Canonical DOMAIN('XMLNSC') NAME 'InputCanonical';
+		SET REF_Canonical 				= InputRoot.XMLNSC;
+						
+		IF REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:Type	= 'NORMAL' OR
+			REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:Type	= 'RETURN' THEN	
+						
+				--Setting value to Environment
+				SET Environment.Common.releaseID						= REF_LoadLedger.(XMLNSC.Attribute)releaseID;
+				SET Environment.Common.languageCode						= REF_LoadLedger.(XMLNSC.Attribute)languageCode;
+				SET Environment.Common.CreationDateTime					= REF_AppArea.NS_oa:CreationDateTime;
+				SET Environment.Common.LogicalID						= REF_Sender.NS_oa:LogicalID;
+				SET Environment.Common.ComponentID						= REF_AppArea.NS_oa:ComponentID;
+				IF REF_Sender.NS_oa:LogicalID <> 'SAPCO' THEN
+				
+					--Create Filed for output Reference and Set value to Output Reference
+					CREATE	FIELD OutputRoot.DataObject.NS_CustOrder:SapZRetRfcCustOrdValidate AS REF_RFCOut;
+					SET REF_RFCOut.PI_KUNNR								= PadLeadingCharacters(10,REF_LedgerHeader.NS_dfns:CustomerParty.NS_oa:ID,'0');
+					SET REF_RFCOut.PI_VBELN								= PadLeadingCharacters(10,REF_LedgerHeader.NS_dfns:SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID,'0');
+					SET REF_RFCOut.PI_VKBUR								= REF_LedgerHeader.NS_oa:GLEntityID;
+					PROPAGATE TO TERMINAL 'out';				
+				ELSE					
+					SET Environment.Variables.RFCReturn					= 'S';
+					PROPAGATE TO TERMINAL 'out1';
+				
+				END IF;
+		END IF;
+		RETURN FALSE;
+	END;
+END MODULE;

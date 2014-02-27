@@ -1,0 +1,40 @@
+****************************************************************************************
+**   Script	:  EPOSSetup.MQSC: Sets up queues to connect EPOS to WMB	
+**   Created By	:  Ashwin Pai
+**   Modified By:  Ashwin Pai
+**   Environment:  S-tier	
+****************************************************************************************
+
+
+
+***Create Transmission Queue to WMB
+DEFINE QLOCAL('UNXS0461.MB.QM1') +
+		DESCR('Transmission Q to UNXS0462.MB.QM1') +
+		USAGE(XMITQ) +
+		PUT(ENABLED) +
+		GET(ENABLED) +
+		DEFPSIST(YES) +
+		MAXDEPTH(5000) +
+		TRIGGER TRIGTYPE(FIRST) +
+		TRIGDATA(UNXA0059.TO.UNXS0461) +
+		INITQ(SYSTEM.CHANNEL.INITQ) +
+		REPLACE
+       
+***Create Sender Channel to WMB
+DEFINE CHANNEL('UNXA0059.TO.UNXS0461') + 
+		CHLTYPE(SDR) +
+		TRPTYPE(TCP) +
+		XMITQ('UNXS0461.MB.QM1') +
+		CONNAME('UNXS0461(1430)') +
+		DESCR('Sender channel to UNXS0461.MB.QM1')  +
+		REPLACE
+		
+***Create Remote Queue to WMB
+DEFINE QREMOTE('POSLOG.EPOS.INBOUND.WMB.REMOTE') +
+		DESCR('Remote queue to UNXS0462.MB.QM1') +
+		PUT(ENABLED) +
+		XMITQ('UNXS0461.MB.QM1') +
+		RNAME('POSLOG.EPOS.INBOUND.WMB') +
+		RQMNAME('UNXS0461.MB.QM1') +
+		DEFPSIST(YES) +
+		REPLACE  

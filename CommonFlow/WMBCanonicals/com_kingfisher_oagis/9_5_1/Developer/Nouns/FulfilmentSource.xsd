@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/OrderManagementComponents.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd"/>
+	<xsd:element name="FulfilmentSource" type="FulfilmentSourceType"/>
+	<xsd:element name="FulfilmentSourceHeader" type="FulfilmentSourceHeaderType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Provides information that pertains to the entire FulfilmentSource. </xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="FulfilmentSourceLine" type="FulfilmentSourceLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Provides the line level detail of the items ordered by the FulfilmentSource and the associated detail.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="FulfilmentSourceType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">The schema type for SaleOrder.  FulfilmentSource's  base abstract type, Order, is shared between PurchaseOrder and FulfilmentSource. FulfilmentSource is essentially an extension of PurchaseOrder, but in order to use the local-global design pattern, each of PO and SO needs to instantiate its own Header and Line elements.To do this, we factored out the PO content models, instantiated both PO and SO from Order.</xsd:documentation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Sees an order from end to end...</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="FulfilmentSourceHeader"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="FulfilmentSourceLine"/>
+		</xsd:sequence>
+		<xsd:attribute name="type" type="oa:NormalizedStringType"/>
+	</xsd:complexType>
+	<xsd:complexType name="FulfilmentSourceLineType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Is the FulfilmentSource Line type that provides the structure of the FulfilmentSource Line.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="oa:LineType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Status"/>
+					<xsd:element minOccurs="0" name="PostCodeValidationIndicator" type="oa:IndicatorType">
+						<xsd:annotation>
+							<xsd:documentation>Item delivery postcode validation indicator</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element minOccurs="0" ref="ProductItem"/>
+					<xsd:element minOccurs="0" ref="oa:Quantity"/>
+					<xsd:element minOccurs="0" ref="oa:UnitPrice"/>
+					<xsd:element minOccurs="0" ref="oa:ExtendedAmount"/>
+					<xsd:element minOccurs="0" ref="oa:TotalAmount"/>
+					<xsd:element minOccurs="0" ref="oa:Tax"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ShippingMethod"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SupplierParty"/>
+					<xsd:element minOccurs="0" ref="ShippingGroupCategoryCode"/>
+					<xsd:element minOccurs="0" ref="DeliveryGroupCode"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="FulfilmentSourceHeaderType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="CustomerParty"/>
+			<xsd:element minOccurs="0" ref="oa:SourceID"/>
+			<xsd:element minOccurs="0" ref="BrandChannel"/>
+			<xsd:element minOccurs="0" ref="ShipToParty"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="oa:Charge"/>
+			<xsd:element minOccurs="0" ref="oa:Status"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

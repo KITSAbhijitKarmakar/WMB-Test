@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Jon Mitchell
+  Revision:    1.0
+  Date:         29 Feb 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/FinancialComponents.xsd"/>
+	<xsd:element name="PaymentStatus" type="PaymentStatusType"/>
+	<xsd:element name="PaymentStatusHeader" type="PaymentStatusHeaderType"/>
+	<xsd:element name="PaymentStatusPayment" type="PaymentStatusOriginalPaymentType"/>
+	<xsd:complexType name="PaymentStatusType">
+		<xsd:sequence>
+			<xsd:element minOccurs="0" ref="PaymentStatusHeader"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="PaymentStatusPayment"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PaymentStatusHeaderType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:StatusEnabledHeaderType">
+				<xsd:sequence>
+					<xsd:element minOccurs="0" ref="InitiatingParty"/>
+					<xsd:element minOccurs="0" ref="ForwardingAgentParty"/>
+					<xsd:element minOccurs="0" ref="FirstAgentParty"/>
+					<xsd:element minOccurs="0" ref="oa:RejectionStatus"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="PaymentStatusOriginalPaymentType">
+		<xsd:complexContent>
+			<xsd:extension base="TransferPaymentType"/>
+		</xsd:complexContent>
+	</xsd:complexType>
+</xsd:schema>

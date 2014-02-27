@@ -1,0 +1,1014 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+DECLARE CACHE_CONFIG SHARED ROW;
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *
+****************************************************************************************************/
+
+/******************************************************************************************************
+* Node Name                         : Check Details for Routing                                       *
+* Interface Id                      :                                                                 *
+* Interface Name                    : SalesOrder_processSalesOrder_POSBasket                          *
+* Message Flow                      : ProcessSalesOrder_POSBasket                                     *
+* Message Flow Description          : This flow will route output messages for different destinations *
+*                                           (CDB,SAPBW,LoadLedger,Payment and ODS)                    *
+* Module Name                       : ProcessSalesOrder_POSBasket_Check_Details_for_Routing           *
+* Description                       : This node will route output messages for different destinations *
+*                                           (CDB,SAPBW,LoadLedger,Payment and ODS)                    *
+*                                                                                                     *
+* Version   Date Author       Author                    Description                                   *
+* =======   =========         ================ 			===================                           *
+* 0.1        1-APR-2013        Sayantan Som            The initial version.                           *
+* 0.2        3-JUN-2013        Soutam Dutta            Code Fix for SIT defect 40, PONumber creation  *
+* 0.3        17-JUN-2013       Asif Hossain            Code Fix to handle multiple Payment segment for*
+*                                                      PCI flows.                                     *
+* 0.4       26-JUN-2013       Asif Hossain             Code change for population of card number and  * 
+*                                                      masked card number.                            * 
+* 0.5       26-JUN-2013       Sourav Banu              Validated against ProcessPayment xsd.          *
+* 0.6       25-OCT-2013       Soutam Dutta             Code change in prod for multiple customer party*
+* 0.7       28-OCT-2013       Soutam Dutta             Code change in prod for handling deleted,	  * 
+*													   Cancelled transactions in LoadLedger			  *
+*******************************************************************************************************/
+
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_Check_Details_for_Routing
+      DECLARE IBODS     EXTERNAL NAME 'MBODS';
+      CREATE FUNCTION Main() RETURNS BOOLEAN
+      BEGIN
+            
+            DECLARE REF_ProcessSalesOrder       REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+            DECLARE REF_SalesOrder              REFERENCE TO REF_ProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+            DECLARE CH_TransactionID            CHARACTER REF_SalesOrder.NS_dfns:SalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID;
+            DECLARE CH_SourceID                 CHARACTER REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+            DECLARE CH_OrderType                CHARACTER;
+            
+            DECLARE REF_INProcessSalesOrder     REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+            DECLARE REF_INSalesOrder            REFERENCE TO REF_INProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+          	DECLARE REF_INSalesOrderHeader      REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderHeader;
+          	DECLARE REF_Payment                 REFERENCE TO REF_INSalesOrderHeader.NS_dfns:Payment;
+          	DECLARE REF_INPaymentAuthorization  REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+          	DECLARE REF_INSalesOrderLine      	REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+          	DECLARE REF_INSalesTransaction		REFERENCE TO REF_INSalesOrderHeader.NS_dfns:SalesTransaction;
+            
+            DECLARE BOOL_SAPBWFlag                    BOOLEAN;
+            DECLARE BOOL_LoadLedger                   BOOLEAN;
+            DECLARE BOOL_ProcessPayment               BOOLEAN;
+            DECLARE BOOL_CDBFlag                      BOOLEAN;
+            DECLARE BOOL_Payment                      BOOLEAN;
+            DECLARE CH_OrderTypeFlag                  CHARACTER;
+            DECLARE CH_LoadLedgerFlag                 CHARACTER;
+            
+            IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE OR EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE  
+            OR EXISTS(CACHE_CONFIGDATA.MBTOPICS[])=FALSE THEN
+            
+            --Atomic block to prevent multiple thread to execute this section simultaneously 
+            CACHE_CONFIGDATA:BEGIN ATOMIC 
+                  IF EXISTS(CACHE_CONFIGDATA.TENDERDATA[]) = FALSE THEN
+                        SET CACHE_CONFIGDATA.TENDERDATA[] = (SELECT * FROM Database.TENDERDATA);
+                  END IF; 
+                  
+                  IF EXISTS(CACHE_CONFIGDATA.MBSTRCD[]) = FALSE THEN
+                        SET CACHE_CONFIGDATA.MBSTRCD[] = (SELECT * FROM Database.MBSTRCD);
+                  END IF;
+                  
+                  IF EXISTS(CACHE_CONFIGDATA.MBTOPICS[]) = FALSE THEN
+                        SET CACHE_CONFIGDATA.MBTOPICS[] = (SELECT * FROM Database.MBTOPICS);
+                  END IF;
+            END ; 
+            
+      END IF;
+            
+            
+            MOVE REF_SalesOrder TO REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID;
+            
+            WHILE(LASTMOVE (REF_SalesOrder)) DO
+                  IF (REF_SalesOrder ='BW') THEN                                                                              
+                        SET BOOL_SAPBWFlag                  = TRUE;
+                  ELSEIF(REF_SalesOrder = 'SAPCO') THEN
+                        SET BOOL_LoadLedger           = TRUE;
+                  ELSEIF(REF_SalesOrder ='SETTLEMENT') THEN
+                        SET BOOL_ProcessPayment     = TRUE;
+                  ELSEIF(REF_SalesOrder = 'CDB') THEN
+                        SET BOOL_CDBFlag = TRUE;
+                  END IF;
+                  MOVE REF_SalesOrder NEXTSIBLING REPEAT TYPE NAME;
+            END WHILE;
+            
+            --If Payment flag is true then loop through Payment to populate PCI message and propagate 
+            IF BOOL_ProcessPayment THEN
+                  WHILE LASTMOVE(REF_Payment) DO 
+                        
+                        IF COALESCE(REF_INPaymentAuthorization.NS_dfns:Token,'') <> '' THEN
+                              
+                              --Checking if VoidStatus exists or not
+                              IF CONTAINS(COALESCE(REF_Payment.NS_dfns:VoidStatus.NS_oa:Code,''),'VOID') = FALSE THEN
+                                    
+                                    --Send to Payment as MQPut
+                                    IF CH_SourceID    = 'EPOS' THEN
+                                          
+                                          --Send to Payment Release
+                                          CALL CopyEntireMessage();
+                                          SET OutputRoot.XMLNSC   = NULL;
+                                          CALL PROC_CreateStorePayment(CH_TransactionID,REF_Payment);
+                                          SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'SALESORDER.PAYMENT.RELEASE.WMB.TRANSIT.WMB';
+                                          PROPAGATE TO TERMINAL 'out';
+                                                
+                                    ELSE
+                                          CALL CopyEntireMessage();
+                                          SET OutputRoot.XMLNSC   = NULL;
+                                          CALL PROC_CreateContactCenterPayment(CH_TransactionID,REF_Payment);
+                                          SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'SALESORDER.PAYMENT.CHARGE.WMB.TRANSIT.WMB';
+                                          PROPAGATE TO TERMINAL 'out';
+                                    END IF;
+                                    
+                              END IF;
+                        END IF;
+                        MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+                        MOVE REF_INPaymentAuthorization TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+                  END WHILE;
+
+            END IF;
+
+            -- Order Type will be either ACCOUNT PAYMENT SALE or ACCOUNT PAYMENT REFUND for SAPCO
+            IF CONTAINS(CH_OrderType,'ACCOUNT PAYMENT') THEN
+                  SET BOOL_ProcessPayment = TRUE;
+            ELSE
+                  SET BOOL_ProcessPayment = FALSE;
+            END IF;
+            
+            IF CH_SourceID    = 'EPOS' THEN
+                  IF BOOL_ProcessPayment THEN
+                        CALL PROC_CreatePubTopic('SAPCOEnabledEPOS');
+                  ELSE
+                        CALL PROC_CreatePubTopic('EPOSStore');
+                  END IF;
+            ELSE
+                  CALL PROC_CreatePubTopic('SAPCOCallCenter');
+            END IF;
+
+            CALL PROC_CreateSyncSO();
+
+            IF BOOL_CDBFlag = FALSE THEN
+                  
+                  -- Will take in /MASTERDATA/#
+                  -- Send to CDB as publication
+                  SET OutputRoot.XMLNSC.NS_dfns:SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[1] = NULL;
+            END IF;
+
+            IF BOOL_SAPBWFlag = FALSE OR CH_SourceID <> 'EPOS' THEN
+                  
+                  -- Subscribe to /MASTERDATA/STORE/#
+                  --Send to SAPBW as publication
+                  SET OutputRoot.XMLNSC.NS_dfns:SynchroniseSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[2] = NULL;
+            END IF;
+            
+            IF BOOL_CDBFlag OR (BOOL_SAPBWFlag AND CH_SourceID = 'EPOS') THEN
+                  
+                  PROPAGATE TO TERMINAL 'out1';
+            END IF;
+            
+            SET CH_OrderTypeFlag = 'false';
+            
+            --Code Change starts for version 0.7
+            SET CH_LoadLedgerFlag = 'true';
+            
+            --Checking whether the transaction is Deleted or Cancelled oR TrainingMode Flag is set or not
+            --If any of this is set then filter out the transaction and it will not go to LoadLedger Flow
+            IF REF_INSalesTransaction.NS_dfns:SuspendedTransactionIndicator = 'true' THEN
+            	SET CH_LoadLedgerFlag = 'false';
+            END IF;
+            IF REF_INSalesTransaction.NS_dfns:CancelledIndicator = 'true' THEN
+            	SET CH_LoadLedgerFlag = 'false';
+            END IF;
+            IF REF_INSalesTransaction.NS_dfns:TrainingModeIndicator = 'true' THEN
+            	SET CH_LoadLedgerFlag = 'false';
+            END IF;
+           
+          --If Condition added for version 0.7  
+          IF CH_LoadLedgerFlag = 'true' THEN
+            --Code Change ends for version 0.7
+            IF BOOL_LoadLedger THEN
+                  
+                  Line: WHILE LASTMOVE(REF_INSalesOrderLine) DO
+                        SET CH_OrderType = REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type;
+                              IF CONTAINS(CH_OrderType,'ACCOUNT PAYMENT')  THEN
+                                    SET CH_OrderTypeFlag    = 'true';
+                                    LEAVE Line;                   
+                              END IF;
+                        MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+                  END WHILE;        
+                  MOVE REF_INSalesOrderLine TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+                  
+                  IF (CH_SourceID = 'EPOS' AND CH_OrderTypeFlag = 'true') OR CH_SourceID = 'SAPCO' THEN
+                        
+                        SET OutputRoot.MQMD     = NULL;
+                        SET OutputRoot.XMLNSC   = NULL;
+                        SET OutputRoot.MQRFH2   = NULL;
+                        
+                        CREATE LASTCHILD OF OutputRoot DOMAIN('XMLNSC') NAME 'XMLNSC';
+                        CALL PROC_CreateLOADLedger();
+                        
+                        --Checking the existance of salesorder reference in ouput message tree and propagate accordingly  
+                        IF EXISTS(OutputRoot.XMLNSC.NS_dfns:LoadLedger.NS_dfns:DataArea.NS_dfns:Ledger.NS_dfns:LedgerHeader.NS_dfns:SalesOrderReference[]) THEN
+                              
+                              PROPAGATE TO TERMINAL 'out2';
+                        END IF;
+                  END IF;
+            END IF;
+         --Code Change Starts for version 0.7
+         END IF;
+         --Code Change ends for version 0.7   
+                 
+            RETURN FALSE;
+      END;
+      
+      /***********************************************************************************\
+      * Procedure Name     :PROC_CreateSyncSO                                             *
+      * Input Parameters   :None                                                          *
+      * Output Parameters  :None                                                          *
+      * Description        :Create the request structure for SynchroniseSalesOrder        *
+      * Version   Date              Author                  Description                   *
+      * =======   ===========       ===========       ================================    *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.                *
+      ************************************************************************************/
+      CREATE PROCEDURE PROC_CreateSyncSO()
+      BEGIN       
+            DECLARE REF_ProcessSalesOrder REFERENCE   TO OutputRoot;
+            
+            SET OutputRoot.XMLNSC   = NULL;
+            CREATE LASTCHILD OF OutputRoot DOMAIN('XMLNSC') NAME 'XMLNSC';
+            CREATE FIELD OutputRoot.XMLNSC.NS_dfns:SynchroniseSalesOrder AS REF_ProcessSalesOrder;
+     		SET REF_ProcessSalesOrder.(XMLNSC.NamespaceDecl)xmlns                   = NS_dfns;
+            SET REF_ProcessSalesOrder.(XMLNSC.NamespaceDecl)xmlns:oa          = NS_oa;
+            SET REF_ProcessSalesOrder.(XMLNSC.Attribute)releaseID             = '1.0';
+            SET REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender      = InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Sender;
+            SET REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[1] = 'CDB';
+            SET REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:Receiver.NS_oa:ID[2] = 'SAPBW';
+            SET REF_ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:CreationDateTime  = InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_oa:ApplicationArea.NS_oa:CreationDateTime;
+            SET REF_ProcessSalesOrder.NS_dfns:DataArea.NS_dfns:Synchronise    = InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_dfns:DataArea.NS_oa:Process;
+            SET REF_ProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder     = InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+      END;
+      
+    /********************************************************************************************
+      * Procedure Name     :PROC_CreateStorePayment                                             *
+      * Input Parameters   :CH_TransactionID                                                    *
+      * Output Parameters  :None                                                                *
+      * Description        :Create the request structure for Payment Release                    *
+      * Version   Date              Author                  Description                         *
+      * =======   ===========       ===========       =======================================   *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.                      *
+      *  0.2	  27-SEP-2013		Debraj Sengupta   Reference change for PO number.PCI fix.   *
+      *                                                                              			*
+      *******************************************************************************************/
+      CREATE PROCEDURE PROC_CreateStorePayment(IN CH_TransactionID CHARACTER,IN REF_INPayment REFERENCE)
+      BEGIN
+      --input reference declaration--
+            DECLARE REF_INProcessSalesOrder         REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+            DECLARE REF_INSalesOrder                REFERENCE TO REF_INProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+          DECLARE REF_INApplicationArea             REFERENCE TO REF_INProcessSalesOrder.NS_oa:ApplicationArea;
+          DECLARE REF_INSalesOrderHeader            REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderHeader;
+          
+          --DECLARE REF_INPayment                           REFERENCE TO REF_INSalesOrderHeader.NS_dfns:Payment;
+          DECLARE REF_INPaymentAuthorization          REFERENCE TO REF_INPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+          DECLARE REF_INSalesOrderLine                REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+          
+          --output reference declaration--
+        DECLARE REF_OUTProcessPayment               REFERENCE TO OutputRoot.XMLNSC.NS_dfns:ProcessPayment;       
+        DECLARE REF_OUTDataArea                     REFERENCE TO REF_OUTProcessPayment.NS_dfns:DataArea;
+        DECLARE REF_OUTSalesOrder                   REFERENCE TO REF_OUTDataArea.NS_dfns:SalesOrder;
+        DECLARE REF_OUTApplicationArea              REFERENCE TO REF_OUTProcessPayment.NS_oa:ApplicationArea;
+        DECLARE REF_OUTActionExpression             REFERENCE TO REF_OUTDataArea.NS_oa:Process.NS_oa:ActionCriteria.NS_oa:ActionExpression;
+        DECLARE REF_OUTPayment                      REFERENCE TO REF_OUTDataArea.NS_dfns:Payment;
+        DECLARE REF_OUTPaymentAuthorization         REFERENCE TO REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization; 
+        DECLARE REF_OUTSalesOrderHeader             REFERENCE TO REF_OUTSalesOrder.NS_dfns:SalesOrderHeader;
+        DECLARE REF_OUTSalesOrderLine               REFERENCE TO REF_OUTSalesOrder.NS_dfns:SalesOrderLine;
+        
+        --create fields---
+        CREATE LASTCHILD OF OutputRoot AS REF_OUTProcessPayment DOMAIN('XMLNSC') NAME 'XMLNSC';
+        CREATE LASTCHILD OF REF_OUTProcessPayment AS REF_OUTProcessPayment NAMESPACE NS_dfns NAME 'ProcessPayment';
+        
+        ---Setting Namespace In Output----
+     	SET REF_OUTProcessPayment.(XMLNSC.NamespaceDecl)xmlns           = NS_dfns;
+        SET REF_OUTProcessPayment.(XMLNSC.NamespaceDecl)xmlns:oa        = NS_oa;
+        SET REF_OUTProcessPayment.(XMLNSC.Attribute)releaseID           = REF_INProcessSalesOrder.(XMLNSC.Attribute)releaseID;
+        SET REF_OUTProcessPayment.(XMLNSC.Attribute)languageCode        = REF_INProcessSalesOrder.(XMLNSC.Attribute)languageCode;
+            
+        CREATE LASTCHILD OF REF_OUTProcessPayment AS REF_OUTApplicationArea NAMESPACE NS_oa NAME 'ApplicationArea';
+        SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:LogicalID  		= REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+        SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:ComponentID       = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_dfns:WorkstationID;
+        SET REF_OUTApplicationArea.NS_oa:CreationDateTime         		= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+
+        CREATE LASTCHILD OF REF_OUTProcessPayment AS REF_OUTDataArea NAMESPACE NS_dfns NAME 'DataArea';
+        CREATE FIELD REF_OUTDataArea.NS_oa:Process.NS_oa:ActionCriteria.NS_oa:ActionExpression   AS REF_OUTActionExpression;
+        SET REF_OUTActionExpression                                                       = 'RELEASE';
+        SET REF_OUTActionExpression.(XMLNSC.Attribute)actionCode                          = 'PROCESS';
+        SET REF_OUTActionExpression.(XMLNSC.Attribute)expressionLanguage                  = 'TEXT';
+        
+            IF COALESCE(REF_INPaymentAuthorization.NS_dfns:Token,'') <> '' THEN
+                  CREATE LASTCHILD OF REF_OUTDataArea AS REF_OUTPayment NAMESPACE NS_dfns NAME 'Payment';
+                  CREATE FIELD REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization AS REF_OUTPaymentAuthorization;
+                  SET REF_OUTPaymentAuthorization.NS_oa:ResponseCode                          = REF_INPaymentAuthorization.NS_oa:ResponseCode;
+                  SET REF_OUTPaymentAuthorization.NS_dfns:AuthorizationDateTime               = REF_INPaymentAuthorization.NS_dfns:AuthorizationDateTime;
+                  SET REF_OUTPaymentAuthorization.NS_dfns:Token                                           = REF_INPaymentAuthorization.NS_dfns:Token;
+                  SET REF_OUTPaymentAuthorization.NS_dfns:TransactionStatus.NS_oa:Code        = 'CHARGED';
+                  SET REF_OUTPaymentAuthorization.NS_dfns:TransactionStatus.NS_oa:Type        = 'BUSINESS';
+                  SET REF_OUTPaymentAuthorization.NS_dfns:VGISReferenceID                     = REF_INPaymentAuthorization.NS_dfns:VGISReferenceID;
+                  SET REF_OUTPaymentAuthorization.NS_dfns:AuthorizationDatabaseID             = REF_INPaymentAuthorization.NS_dfns:AuthorizationDatabaseID;
+                  SET REF_OUTPaymentAuthorization.NS_dfns:ExternalTransactionID               = REF_INPaymentAuthorization.NS_dfns:ExternalTransactionID;
+                  -- code change 0.2 start
+                  --SET REF_OUTPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID   = COALESCE(REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID,'');
+                  SET REF_OUTPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID   = COALESCE(REF_INPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID,'');
+                  -- code change 0.2 end
+                  SET REF_OUTPayment.NS_oa:Amount                                             = REF_INPaymentAuthorization.NS_oa:Amount;
+                  SET REF_OUTPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID                = 'GBP';
+                  -- code change 0.2 start
+                  --SET REF_OUTPayment.NS_dfns:TransactionType.(XMLNSC.Attribute)listID       = REF_INSalesOrderHeader.NS_dfns:Payment.(XMLNSC.Attribute)id;
+                  SET REF_OUTPayment.NS_dfns:TransactionType.(XMLNSC.Attribute)listID         = REF_INPayment.(XMLNSC.Attribute)id;
+                  -- code change 0.2 end
+                  SET REF_OUTPayment.NS_dfns:TransactionType                                  = 'RELEASE';
+            END IF;
+            
+
+            CREATE LASTCHILD OF REF_OUTDataArea  AS REF_OUTSalesOrder NAMESPACE NS_dfns NAME 'SalesOrder';
+            CREATE LASTCHILD OF REF_OUTSalesOrder AS REF_OUTSalesOrderHeader NAMESPACE NS_dfns NAME 'SalesOrderHeader';
+            
+            IF CAST(REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:Amount AS DECIMAL) < 0 THEN
+           		SET REF_OUTSalesOrderHeader.NS_oa:Type                                                     = 'RETURN';
+       		 ELSE
+           		SET REF_OUTSalesOrderHeader.NS_oa:Type                                                     = 'NORMAL';
+       		END IF;
+
+        	SET REF_OUTSalesOrderHeader.NS_oa:SourceID                                                    = REF_INSalesOrderHeader.NS_oa:SourceID;
+            
+        	SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount                                                 = COALESCE(REF_INSalesOrderHeader.NS_oa:TotalAmount, 0.00);
+       		SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+        	SET REF_OUTSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID                     = CH_TransactionID;
+        
+        	SET REF_OUTSalesOrderHeader.NS_dfns:Payment.NS_oa:CostCenterID                    = REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:CostCenterID;
+        
+        
+        
+        	SET REF_OUTSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID      = COALESCE(REF_INSalesOrderHeader.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID,'');
+        
+
+            FOR REF_SO AS REF_INSalesOrder.NS_dfns:SalesOrderLine[] DO
+                  CREATE LASTCHILD OF REF_OUTSalesOrder AS REF_OUTSalesOrderLine NAMESPACE NS_dfns NAME 'SalesOrderLine';
+            SET REF_OUTSalesOrderLine.NS_oa:LineNumber                                                                  = REF_SO.NS_oa:LineNumber;
+            SET REF_OUTSalesOrderLine.NS_dfns:ProductItem.NS_oa:ItemID.NS_oa:ID                       = COALESCE(REF_SO.NS_dfns:ProductItem.NS_oa:UPCID,'');
+            SET REF_OUTSalesOrderLine.NS_dfns:ProductItem.NS_oa:UOMCode                                     = REF_SO.NS_dfns:ProductItem.NS_oa:UOMCode;
+            SET REF_OUTSalesOrderLine.NS_dfns:ProductItem.NS_oa:Description                           = REF_SO.NS_dfns:ProductItem.NS_oa:Name;
+            SET REF_OUTSalesOrderLine.NS_oa:Quantity                                                              = COALESCE(REF_SO.NS_oa:Quantity,0);
+            SET REF_OUTSalesOrderLine.NS_oa:Quantity.(XMLNSC.Attribute)unitCode                       = REF_SO.NS_dfns:ProductItem.NS_oa:UOMCode;
+            
+            SET REF_OUTSalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount                                                = COALESCE(REF_SO.NS_oa:UnitPrice.NS_oa:Amount, 0.00);
+            
+            SET REF_OUTSalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTSalesOrderLine.NS_oa:ExtendedAmount                                                        = COALESCE(REF_SO.NS_oa:ExtendedAmount,0.00);
+            SET REF_OUTSalesOrderLine.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID         = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTSalesOrderLine.NS_oa:TotalAmount                                                           = COALESCE(REF_SO.NS_oa:TotalAmount, 0.00);
+            SET REF_OUTSalesOrderLine.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID                  = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            
+            
+            IF CAST(REF_SO.NS_oa:QualifiedAmount.NS_oa:Amount AS DECIMAL) < 0 THEN
+                  SET REF_OUTSalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount                              = SUBSTRING(REF_SO.NS_oa:QualifiedAmount.NS_oa:Amount FROM 2);
+            ELSE
+                  SET REF_OUTSalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount                              = COALESCE(REF_SO.NS_oa:QualifiedAmount.NS_oa:Amount,'0.00');
+            END IF;
+            SET REF_OUTSalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount.(XMLNSC.Attribute)currencyID     = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            
+            SET REF_OUTSalesOrderLine.NS_dfns:Tax.NS_oa:Amount                                                    = COALESCE(REF_SO.NS_dfns:Tax.NS_oa:Amount,0);
+            SET REF_OUTSalesOrderLine.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID       = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTSalesOrderLine.NS_dfns:Tax.NS_oa:Code                                                      = REF_SO.NS_dfns:Tax.NS_oa:Code;
+            
+        END FOR;
+
+      END;
+      
+    /**************************************************************************************
+      * Procedure Name     :PROC_CreateContactCenterPayment                               *
+      * Input Parameters   :CH_TransactionID                                              *
+      * Output Parameters  :None                                                          *
+      * Description        :Create the request structure for Payment Charge               *
+      * Version   Date              Author                  Description                   *
+      * =======   ===========       ===========       ================================    *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.                *
+      *************************************************************************************/
+      CREATE PROCEDURE PROC_CreateContactCenterPayment(IN CH_TransactionID CHARACTER,IN REF_Payment REFERENCE)
+      BEGIN
+      -- input reference declaration---
+          DECLARE REF_INProcessSalesOrder         REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+          DECLARE REF_INSalesOrder                REFERENCE TO REF_INProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+          DECLARE REF_INApplicationArea           REFERENCE TO REF_INProcessSalesOrder.NS_oa:ApplicationArea;
+          DECLARE REF_INSalesOrderHeader          REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderHeader;
+          DECLARE REF_INPaymentAuthorization      REFERENCE TO REF_INSalesOrderHeader.NS_dfns:Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+          DECLARE REF_INSalesOrderLine            REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+         
+          --output reference--
+          DECLARE REF_OUTProcessPayment               REFERENCE TO OutputRoot.XMLNSC.NS_dfns:ProcessPayment;
+          DECLARE REF_OUTDataArea                     REFERENCE TO REF_OUTProcessPayment.NS_dfns:DataArea;
+          DECLARE REF_OUTSalesOrder                   REFERENCE TO REF_OUTDataArea.NS_dfns:SalesOrder;
+          DECLARE REF_OUTApplicationArea              REFERENCE TO REF_OUTProcessPayment.NS_oa:ApplicationArea;
+          DECLARE REF_OUTActionExpression             REFERENCE TO REF_OUTDataArea.NS_oa:Process.NS_oa:ActionCriteria.NS_oa:ActionExpression;
+          DECLARE REF_OUTPayment                      REFERENCE TO REF_OUTDataArea.NS_dfns:Payment;
+	      DECLARE REF_OUTPaymentAuthorization         REFERENCE TO REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization; 
+	      DECLARE REF_OUTSalesOrderHeader             REFERENCE TO REF_OUTSalesOrder.NS_dfns:SalesOrderHeader;
+	      DECLARE REF_OUTSalesOrderLine               REFERENCE TO REF_OUTSalesOrder.NS_dfns:SalesOrderLine;
+        
+        --create fields---
+        CREATE LASTCHILD OF OutputRoot AS REF_OUTProcessPayment DOMAIN('XMLNSC') NAME 'XMLNSC';
+        CREATE LASTCHILD OF REF_OUTProcessPayment AS REF_OUTProcessPayment NAMESPACE NS_dfns NAME 'ProcessPayment';
+        --Setting Namespace In Output----
+     	SET REF_OUTProcessPayment.(XMLNSC.NamespaceDecl)xmlns                         = NS_dfns;
+        SET REF_OUTProcessPayment.(XMLNSC.NamespaceDecl)xmlns:oa                = NS_oa;
+        SET REF_OUTProcessPayment.(XMLNSC.Attribute)releaseID                 = REF_INProcessSalesOrder.(XMLNSC.Attribute)releaseID;
+        SET REF_OUTProcessPayment.(XMLNSC.Attribute)languageCode             = REF_INProcessSalesOrder.(XMLNSC.Attribute)languageCode;
+
+        CREATE LASTCHILD OF REF_OUTProcessPayment AS REF_OUTApplicationArea NAMESPACE NS_oa      NAME 'ApplicationArea';
+        SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:LogicalID         = REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+        SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:ComponentID       = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_dfns:WorkstationID;
+        SET REF_OUTApplicationArea.NS_oa:CreationDateTime        = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+
+        CREATE LASTCHILD OF REF_OUTProcessPayment AS REF_OUTDataArea NAMESPACE NS_dfns NAME 'DataArea';
+        CREATE FIELD REF_OUTDataArea.NS_oa:Process.NS_oa:ActionCriteria.NS_oa:ActionExpression AS REF_OUTActionExpression;
+        SET REF_OUTActionExpression                                                                               = '/ProcessSalesOrder/DataArea/SalesOrder';
+        SET REF_OUTActionExpression.(XMLNSC.Attribute)actionCode                                = 'MODIFIED';
+        SET REF_OUTActionExpression.(XMLNSC.Attribute)expressionLanguage                        = 'Xpath';
+        
+      	MOVE REF_INPaymentAuthorization TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+            
+            CREATE LASTCHILD OF REF_OUTDataArea AS REF_OUTPayment NAMESPACE NS_dfns NAME 'Payment';
+            CREATE FIELD REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization AS REF_OUTPaymentAuthorization;
+            
+        
+        SET REF_OUTPaymentAuthorization.NS_oa:ResponseCode                                      = REF_INPaymentAuthorization.NS_oa:ResponseCode;
+        SET REF_OUTPaymentAuthorization.NS_dfns:AuthorizationDateTime                     = REF_INPaymentAuthorization.NS_dfns:AuthorizationDateTime;
+        SET REF_OUTPaymentAuthorization.NS_dfns:Token                                           = REF_INPaymentAuthorization.NS_dfns:Token;
+        
+        SET REF_OUTPaymentAuthorization.NS_oa:TransactionID                                     = REF_INPaymentAuthorization.NS_oa:TransactionID;
+        
+        
+        SET REF_OUTPaymentAuthorization.NS_oa:Result                                            = REF_INPaymentAuthorization.NS_oa:Result;
+        SET REF_OUTPaymentAuthorization.NS_dfns:ElectronicCommerceIndicatorID             = REF_INPaymentAuthorization.NS_dfns:ElectronicCommerceIndicatorID;
+        
+        
+        SET REF_OUTPaymentAuthorization.NS_dfns:TransactionStatus.NS_oa:Code        = 'AUTHORISED';
+        SET REF_OUTPaymentAuthorization.NS_dfns:TransactionStatus.NS_oa:Type        = 'BUSINESS';
+        SET REF_OUTPaymentAuthorization.NS_dfns:CAVCode                                               = REF_INPaymentAuthorization.NS_dfns:CAVCode;
+        
+        SET REF_OUTPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID   = COALESCE(REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID,'');
+        SET REF_OUTPayment.NS_oa:Amount                                                                     = COALESCE(REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:Amount,0.00);
+            SET REF_OUTPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID                        = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTPayment.NS_dfns:TransactionType.(XMLNSC.Attribute)listID           = REF_INSalesOrderHeader.NS_dfns:Payment.(XMLNSC.Attribute)id;
+            IF CAST(REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:Amount AS DECIMAL) < 0 THEN
+            SET REF_OUTPayment.NS_dfns:TransactionType                                                = 'REFUND';
+          ELSE
+             SET REF_OUTPayment.NS_dfns:TransactionType                                               = 'CHARGE';
+          END IF;
+          
+        SET REF_OUTPayment.NS_oa:SourceID                                                             = REF_INSalesOrderHeader.NS_oa:SourceID;
+        
+
+            CREATE LASTCHILD OF REF_OUTDataArea AS REF_OUTSalesOrder NAMESPACE NS_dfns NAME 'SalesOrder';
+            CREATE LASTCHILD OF REF_OUTSalesOrder AS REF_OUTSalesOrderHeader NAMESPACE NS_dfns NAME 'SalesOrderHeader';
+            
+            IF CAST(REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:Amount AS DECIMAL) <  0 THEN
+           SET REF_OUTSalesOrderHeader.NS_oa:Type='RETURN';
+        ELSE
+           SET REF_OUTSalesOrderHeader.NS_oa:Type='NORMAL';
+        END IF;
+        SET REF_OUTSalesOrderHeader.NS_oa:SourceID                                                    = REF_INSalesOrderHeader.NS_oa:SourceID;
+        
+        SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount                                                 = COALESCE(REF_INSalesOrderHeader.NS_oa:TotalAmount,0.00);
+        SET REF_OUTSalesOrderHeader.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID        = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+        SET REF_OUTSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID                           = CH_TransactionID;
+        
+        SET REF_OUTSalesOrderHeader.NS_dfns:Payment.NS_oa:CostCenterID                    = REF_INSalesOrderHeader.NS_dfns:Payment.NS_oa:CostCenterID;
+            
+        FOR REF_SO AS REF_INSalesOrder.NS_dfns:SalesOrderLine[]  DO
+            CREATE LASTCHILD OF REF_OUTSalesOrder AS REF_OUTSalesOrderLine NAMESPACE NS_dfns NAME 'SalesOrderLine';
+            SET REF_OUTSalesOrderLine.NS_oa:LineNumber                                                            = REF_SO.NS_oa:LineNumber;
+            SET REF_OUTSalesOrderLine.NS_dfns:ProductItem.NS_oa:ItemID.NS_oa:ID                             = COALESCE(REF_SO.NS_dfns:ProductItem.NS_oa:UPCID,'');
+            SET REF_OUTSalesOrderLine.NS_dfns:ProductItem.NS_oa:UOMCode                                     = REF_SO.NS_dfns:ProductItem.NS_oa:UOMCode;
+            SET REF_OUTSalesOrderLine.NS_dfns:ProductItem.NS_oa:Description                                 = REF_SO.NS_dfns:ProductItem.NS_oa:Description;
+            SET REF_OUTSalesOrderLine.NS_oa:Quantity                                                              = COALESCE(REF_SO.NS_oa:Quantity,0.00);
+            SET REF_OUTSalesOrderLine.NS_oa:Quantity.(XMLNSC.Attribute)unitCode                             = REF_SO.NS_dfns:ProductItem.NS_oa:UOMCode;
+            SET REF_OUTSalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount                                     = COALESCE(REF_SO.NS_dfns:DiscountedUnitPrice.NS_oa:Amount,0.00);
+            SET REF_OUTSalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID     = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTSalesOrderLine.NS_oa:ExtendedAmount                                                        = COALESCE(REF_SO.NS_oa:ExtendedAmount,0.00);
+            SET REF_OUTSalesOrderLine.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID               = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode ;
+            
+            IF CAST(REF_SO.NS_oa:TotalAmount AS DECIMAL) < 0 THEN
+                  SET REF_OUTSalesOrderLine.NS_oa:TotalAmount                                                           = SUBSTRING(REF_SO.NS_oa:TotalAmount FROM 2);
+            ELSE
+                  SET REF_OUTSalesOrderLine.NS_oa:TotalAmount                                                           = COALESCE(REF_SO.NS_oa:TotalAmount, '0.00');
+            END IF;
+            
+            SET REF_OUTSalesOrderLine.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID                  = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTSalesOrderLine.NS_dfns:Tax.NS_oa:Amount                                                    = COALESCE(REF_SO.NS_dfns:Tax.NS_oa:Amount,0);
+            SET REF_OUTSalesOrderLine.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID          = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode;
+            SET REF_OUTSalesOrderLine.NS_dfns:Tax.NS_oa:Code                                                      = REF_SO.NS_dfns:Tax.NS_oa:Code;
+        END FOR;
+        
+      END;
+      
+     /*****************************************************************************************
+      * Procedure Name     :PROC_CreateLOADLedger                                             *
+      * Input Parameters   :None                                                              *
+      * Output Parameters  :None                                                              *
+      * Description        :Create the message for LoadLedger                                 *
+      * Version   Date              Author                  Description                       *
+      * =======   ===========       ===========       ================================        *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.                    *
+      *  0.2      08-APR-2013       Soutam Dutta      Validated against the LoadLedger xsd.   *
+      *  0.3      25-OCT-2013       Soutam Dutta      Code change verison 0.6 for multiple 	  *
+      *											       customer party--Prod fix.			  *
+      *****************************************************************************************/
+      CREATE PROCEDURE PROC_CreateLOADLedger()
+      BEGIN
+      --Variable declaration
+            DECLARE IN_MultiBagCount                        INTEGER 0;
+            DECLARE IN_MixedBagCount                        INTEGER 0;
+            DECLARE IN_ItemLength                           INTEGER;
+            DECLARE DE_ChangeAmount                         DECIMAL;
+            DECLARE DE_ExtendedAmount                       DECIMAL;
+            DECLARE DE_CashAmount                           DECIMAL;
+            DECLARE DE_GvAmount                             DECIMAL;    
+            DECLARE CH_MultiSAPCO                           CHARACTER 'false';
+            DECLARE CH_MixedBag                             CHARACTER 'false';
+            DECLARE CH_CustomerNumber                       CHARACTER;
+            DECLARE CH_OrderNumber                          CHARACTER;
+            DECLARE CH_CashPresent                          CHARACTER;
+            DECLARE CH_GvPresent                            CHARACTER;
+            DECLARE CH_AccountId                            CHARACTER;
+            DECLARE CH_McStore                              CHARACTER;
+            DECLARE CH_ValidStore                           CHARACTER;
+            DECLARE CH_FirstCash                            CHARACTER 'false';
+            DECLARE CH_FirstGV                              CHARACTER 'false';
+            DECLARE CH_TenderType                           CHARACTER;
+            DECLARE CH_TenderId                             CHARACTER;  
+            DECLARE CH_PoNumber                             CHARACTER;
+            DECLARE CH_SqlQuary                         	CHARACTER;
+            DECLARE IN_PaymentCount                         INTEGER;                      
+            
+            --Code Change starts for version 0.3 incident#
+            DECLARE IN_Index						INTEGER 0;
+            --Code Change ends for version 0.3 incident#
+            
+           -- Input reference declaration
+          DECLARE REF_INProcessSalesOrder         REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessSalesOrder;
+          DECLARE REF_INSalesOrder                REFERENCE TO REF_INProcessSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+          DECLARE REF_INApplicationArea           REFERENCE TO REF_INProcessSalesOrder.NS_oa:ApplicationArea;
+          DECLARE REF_INSalesOrderHeader          REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderHeader;
+          DECLARE REF_INPayment                   REFERENCE TO REF_INSalesOrderHeader.NS_dfns:Payment;
+          DECLARE REF_INPaymentAuthorization      REFERENCE TO REF_INPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+          DECLARE REF_INSalesOrderLine            REFERENCE TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+          
+          --Output reference declaration
+          DECLARE REF_OUTLoadLedger                   REFERENCE TO OutputRoot.XMLNSC.NS_dfns:LoadLedger;
+          DECLARE REF_OUTApplicationArea              REFERENCE TO REF_OUTLoadLedger.NS_oa:ApplicationArea;
+          DECLARE REF_OUTDataArea                     REFERENCE TO REF_OUTLoadLedger.NS_dfns:DataArea;
+          DECLARE REF_OUTLedger                       REFERENCE TO REF_OUTDataArea.NS_dfns:Ledger;
+          DECLARE REF_OUTLedgerHeader                 REFERENCE TO REF_OUTLedger.NS_dfns:LedgerHeader;
+          DECLARE REF_SalesOrderReference             REFERENCE TO REF_OUTLedgerHeader.NS_dfns:SalesOrderReference;
+          DECLARE REF_OUTPayment                      REFERENCE TO REF_SalesOrderReference.NS_dfns:Payment;      
+          
+          --Creating output fields
+          CREATE LASTCHILD OF OutputRoot.XMLNSC AS REF_OUTLoadLedger NAMESPACE NS_dfns NAME 'LoadLedger';
+          
+     	SET REF_OUTLoadLedger.(XMLNSC.NamespaceDecl)xmlns                             = NS_dfns;
+        SET REF_OUTLoadLedger.(XMLNSC.NamespaceDecl)xmlns:oa                          = NS_oa;
+        SET REF_OUTLoadLedger.(XMLNSC.Attribute)releaseID                           = REF_INProcessSalesOrder.(XMLNSC.Attribute)releaseID;
+        SET REF_OUTLoadLedger.(XMLNSC.Attribute)languageCode                        = REF_INProcessSalesOrder.(XMLNSC.Attribute)languageCode;
+        
+        --Creating ApplicationArea
+        CREATE LASTCHILD OF REF_OUTLoadLedger AS REF_OUTApplicationArea NAMESPACE NS_oa      NAME 'ApplicationArea';
+        
+        --Setting values to ApplicationArea
+        SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:LogicalID                     = REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID;
+        SET REF_OUTApplicationArea.NS_oa:Sender.NS_oa:ComponentID                   = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_dfns:WorkstationID;
+            
+            --Setting CreationDateTime with current time 
+        SET REF_OUTApplicationArea.NS_oa:CreationDateTime                     = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+                        
+            CREATE LASTCHILD OF REF_OUTLoadLedger AS REF_OUTDataArea NAMESPACE NS_dfns NAME 'DataArea';
+        SET REF_OUTDataArea.NS_oa:Load.NS_oa:ActionCriteria.NS_oa:ActionExpression                                            = 'LOAD';
+        SET REF_OUTDataArea.NS_oa:Load.NS_oa:ActionCriteria.NS_oa:ActionExpression.(XMLNSC.Attribute)actionCode      = 'TEXT';
+        
+        CREATE LASTCHILD OF REF_OUTDataArea AS REF_OUTLedger NAMESPACE NS_dfns NAME 'Ledger';
+        CREATE LASTCHILD OF REF_OUTLedger AS REF_OUTLedgerHeader NAMESPACE NS_dfns NAME 'LedgerHeader';
+        
+            SET REF_OUTLedgerHeader.NS_oa:GLEntityID                                      = REF_INSalesOrderHeader.NS_oa:SourceID;
+        
+        IF REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+                  SET REF_OUTLedgerHeader.NS_oa:DocumentDateTime                          = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+            ELSE
+                  SET REF_OUTLedgerHeader.NS_oa:DocumentDateTime                          = CAST(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:EndDateTime AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+            END IF;
+        
+        
+       -- SET REF_OUTLedgerHeader.NS_oa:GLEntityID                                        = REF_INSalesOrderHeader.NS_oa:SourceID;
+        
+        
+        IF CONTAINS(REF_INSalesOrderHeader.NS_oa:TotalAmount,'-') THEN
+            SET REF_OUTLedgerHeader.NS_oa:Amount                                          = REPLACE(REF_INSalesOrderHeader.NS_oa:TotalAmount,'-','');
+        ELSE
+            SET REF_OUTLedgerHeader.NS_oa:Amount                                          = COALESCE(REF_INSalesOrderHeader.NS_oa:TotalAmount,'0.00');
+        END IF;
+        
+            SET REF_OUTLedgerHeader.NS_oa:Amount.(XMLNSC.Attribute)currencyID = FIELDVALUE(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode);
+                  
+        --Customlogic 2 
+        WHILE LASTMOVE(REF_INSalesOrderLine) DO
+            IF COALESCE(REF_INSalesOrderLine.NS_dfns:VoidStatus.NS_oa:Code,'') NOT IN('VOID ENTRY','VOID LINE') THEN
+                  IF REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN('ACCOUNT PAYMENT RETURN','ACCOUNT PAYMENT SALE') THEN
+                   SET IN_MultiBagCount                                                                                                               = IN_MultiBagCount + 1;
+
+                ELSE
+                   SET IN_MixedBagCount                                                                                                             = IN_MixedBagCount +1;
+                END IF;
+            END IF;
+        MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;           
+        END WHILE;
+        MOVE REF_INSalesOrderLine  TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+        
+        IF  IN_MultiBagCount > 1 THEN
+                  SET CH_MultiSAPCO   = 'true';
+            END IF;
+            
+            IF IN_MultiBagCount >= 1 AND IN_MixedBagCount >= 1 THEN
+                  SET CH_MixedBag   = 'true';
+            END IF;
+            
+            --Custom Logic - Valid Store, MC Store          
+            --SET CH_SqlQuary = 'SELECT SAPCOSTORE,MCSTORE FROM MBSTRCD WHERE GENERICSTORECODE ='''||REF_INSalesOrderHeader.NS_oa:SourceID ||'''';
+            
+            --SET Environment.MBSTRCD[] = PASSTHRU(CH_SqlQuary);
+            
+            SET Environment.MBSTRCD[] = SELECT MB.SAPCOSTORE,MB.MCSTORE FROM CACHE_CONFIGDATA.MBSTRCD[] AS MB WHERE MB.GENERICSTORECODE =REF_INSalesOrderHeader.NS_oa:SourceID;
+            
+            IF EXISTS(Environment.MBSTRCD[])= FALSE THEN
+                  THROW USER EXCEPTION VALUES ('No data found in MBSTRCD');
+            END IF;
+            
+            
+            SET CH_ValidStore = 'true';
+            SET CH_McStore = 'false';
+            IF Environment.MBSTRCD[1].SAPCOSTORE IN('N','')THEN
+                  SET CH_ValidStore = 'false';
+            END IF;
+            IF Environment.MBSTRCD[1].MCSTORE = 'Y' THEN
+                  SET CH_McStore = 'true'; 
+            END IF;
+            
+            MOVE REF_INSalesOrderLine TO REF_INSalesOrder.NS_dfns:SalesOrderLine;
+            
+            --Looping for each instance of SalesOrderLine
+            SalesOrderLineLoop : WHILE LASTMOVE(REF_INSalesOrderLine) DO
+            IF CONTAINS(REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'ACCOUNT PAYMENT') OR (REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' AND REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type <> 'Tax') THEN        
+                  SET CH_FirstCash = 'true';
+                  SET CH_FirstGV    = 'true';
+                  
+                  --Filter Logic-1
+                  IF REF_INSalesOrderLine.NS_dfns:VoidStatus.NS_oa:Code IN('VOID ENTRY','VOID LINE') THEN
+                        MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;
+                        ITERATE SalesOrderLineLoop;
+                  END IF;
+                  
+                  --Custom Logic 1
+                  IF REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type IN('ACCOUNT PAYMENT RETURN','ACCOUNT PAYMENT SALE') OR REF_INApplicationArea.NS_oa:Sender.NS_oa:LogicalID = 'SAPCO' THEN
+                        SET IN_ItemLength                                                                   = LENGTH(REF_INSalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID);
+                        SET CH_CustomerNumber                                                         = SUBSTRING(REF_INSalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID FROM 1 FOR IN_ItemLength-8);
+                        SET CH_OrderNumber                                                                  = SUBSTRING(REF_INSalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID FROM IN_ItemLength-7);
+                  ELSE
+                        SET CH_OrderNumber                                                                  = 'NON SAPCO LINE';
+                  END IF;
+                  
+                  CREATE LASTCHILD OF REF_OUTLedgerHeader AS REF_SalesOrderReference NAMESPACE NS_dfns NAME 'SalesOrderReference';
+                  
+                  
+                  SET REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:DocumentID.NS_oa:ID     = COALESCE(CH_OrderNumber,'');              
+                  IF CONTAINS(REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'SALE')  THEN
+                  SET REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:Type                      = 'NORMAL';
+            ELSEIF CONTAINS(REF_INSalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type,'RETURN')THEN
+                  SET REF_SalesOrderReference.NS_oa:DocumentReference.NS_oa:Type                      = 'RETURN';
+            END IF;
+                  
+            SET REF_SalesOrderReference.NS_dfns:SalesTransaction.NS_oa:ID                             = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:ID;
+            SET REF_SalesOrderReference.NS_dfns:SalesTransaction.NS_dfns:WorkstationID          = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_dfns:WorkstationID;
+            SET REF_SalesOrderReference.NS_dfns:SalesTransaction.NS_dfns:OperatorID             = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_dfns:OperatorID;
+            SET REF_SalesOrderReference.NS_dfns:SalesTransaction.NS_dfns:BusinessDayID          = CAST(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_dfns:BusinessDayID AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+            SET REF_SalesOrderReference.NS_dfns:SalesTransaction.NS_oa:Sequence                 = REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:Sequence;
+                  
+            SET IN_PaymentCount     = 0;
+                        
+                  --Loop through the Payment sgement to check number of payment satisfy filter logic
+            WHILE LASTMOVE(REF_INPayment) DO
+                        IF (COALESCE(REF_INPayment.NS_dfns:VoidStatus.NS_oa:Code,'') NOT IN('VOID ENTRY','VOID LINE') AND UPPER(COALESCE(REF_INPayment.(XMLNSC.Attribute)id,'')) <> 'CHANGENOTISSUED') 
+                                                                       AND COALESCE(REF_INPayment.NS_dfns:ChangeAmount,'')=''THEN
+                         SET IN_PaymentCount    = IN_PaymentCount +1;
+                        END IF;
+                        
+                        MOVE REF_INPayment NEXTSIBLING REPEAT TYPE NAME;
+                  END WHILE;
+            MOVE REF_INPayment TO REF_INSalesOrderHeader.NS_dfns:Payment;
+            
+            
+            IF EXISTS(REF_INSalesOrderHeader.NS_dfns:Payment[])<> TRUE   THEN
+                  CREATE LASTCHILD OF REF_SalesOrderReference AS REF_OUTPayment NAMESPACE NS_dfns NAME 'Payment';                                     
+                  SET REF_OUTPayment.(XMLNSC.Attribute)type                         = 'U';
+                  SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Type                 = '';
+                  SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Number               = '0000000000000000';
+                  SET REF_OUTPayment.NS_oa:LineNumber                                     = REF_INSalesOrderLine.NS_oa:LineNumber;
+                  SET REF_OUTPayment.NS_oa:Amount                                               = REF_INSalesOrderLine.NS_oa:ExtendedAmount;
+                  SET REF_OUTPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID= FIELDVALUE(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode);
+                  
+            ELSEIF IN_PaymentCount > 1 AND (CH_MultiSAPCO = 'true' OR CH_MixedBag = 'true') THEN
+                  CREATE LASTCHILD OF REF_SalesOrderReference AS REF_OUTPayment NAMESPACE NS_dfns NAME 'Payment';
+                  SET REF_OUTPayment.(XMLNSC.Attribute)type                         = 'U';
+                  SET REF_OUTPayment.(XMLNSC.Attribute)id                     = 'NOT POPULATED';
+                  SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Type                 = '';
+                  SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Number               = '0000000000000000';
+                  SET REF_OUTPayment.NS_oa:LineNumber                                     = REF_INSalesOrderLine.NS_oa:LineNumber;
+                  SET REF_OUTPayment.NS_oa:Amount                                               = REF_INSalesOrderLine.NS_oa:ExtendedAmount;
+                  SET REF_OUTPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID= FIELDVALUE(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode);
+                  
+            
+            ELSEIF IN_PaymentCount = 1  THEN
+            WHILE LASTMOVE(REF_INPayment) DO    
+                        IF (COALESCE(REF_INPayment.NS_dfns:VoidStatus.NS_oa:Code,'') NOT IN('VOID ENTRY','VOID LINE') AND  UPPER(COALESCE(REF_INPayment.(XMLNSC.Attribute)id,'')) <> 'CHANGENOTISSUED') 
+                                                                        AND COALESCE(REF_INPayment.NS_dfns:ChangeAmount,'') =''THEN
+
+                  CREATE LASTCHILD OF REF_SalesOrderReference AS REF_OUTPayment NAMESPACE NS_dfns NAME 'Payment';
+                  SET CH_TenderId                                                                                                                     = FIELDVALUE(REF_INPayment.(XMLNSC.Attribute)id);
+                                    
+                        IF CH_TenderId IN ('FixedTermLoan','HitachiLoan') THEN
+                              SET CH_TenderType                                                                                                             = 'C';
+                        ELSE
+--                            SET CH_TenderType                                                                                                             = THE(SELECT ITEM A.TENDERTYPE FROM Database.TENDERDATA AS A 
+--                                                                                                                                                                                  WHERE A.TENDERID = CH_TenderId);
+                              SET CH_TenderType                                                                                                             = THE(SELECT ITEM A.TENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS A 
+                                                                                                                                                                                     WHERE A.TENDERID = CH_TenderId);
+                        
+                        END IF;
+                        SET REF_OUTPayment.(XMLNSC.Attribute)type                                                                         = CH_TenderType;
+                        SET REF_OUTPayment.(XMLNSC.Attribute)id                                                                                = CH_TenderId;
+                  
+                  --CUSTOM LOGIC Handle Loan
+                        IF STARTSWITH(CH_TenderId,'HFCS') OR UPPER(CH_TenderId) = 'FIXEDTERMLOAN' OR UPPER(CH_TenderId) = 'HITACHILOAN' THEN
+                                          
+                              IF REF_INPayment.NS_dfns:Loan.NS_oa:Number <> '' THEN
+                                    SET REF_OUTPayment.NS_dfns:Loan.NS_oa:Number                                                          = REF_INPayment.NS_dfns:Loan.NS_oa:Number;
+                              END IF;
+                                    
+                        ELSE
+                              --CUSTOM LOGIC accountId 
+                              SET CH_AccountId                                                                                                        = '0000000000000000';
+                              IF CH_TenderType = 'T' THEN
+                                    SET CH_AccountId                                                                                                  = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:CleartextNumber;
+                              END IF;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Number                                     = REF_INPayment.NS_dfns:PaymentCard.NS_oa:Number;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:NameOnAccount                                            = REF_INPayment.NS_dfns:PaymentCard.NS_oa:NameOnAccount;                                    
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:HashedNumber                                           = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:HashedNumber;                                   
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:EncryptedNumber                                          = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:EncryptedNumber;  
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:IVData                                                 = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:IVData;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:StartDate                                              = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:StartDate;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Expiration                                                     = REF_INPayment.NS_dfns:PaymentCard.NS_oa:Expiration;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_oa:ResponseCode  = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_oa:ResponseCode;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_dfns:Token             = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_dfns:Token;
+                              SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:CleartextNumber                                           = CH_AccountId;
+                        END IF;
+                        
+                        SET CH_PoNumber                                                                                                               = '';
+                        IF CH_TenderType = 'T' THEN
+                              SET CH_PoNumber                                                                                                   = REF_INPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID;
+                        END IF;
+                                    
+                        SET REF_OUTPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID                     = COALESCE(CH_PoNumber,'');           
+                  SET REF_OUTPayment.NS_oa:LineNumber                                                                                           = REF_INSalesOrderLine.NS_oa:LineNumber;
+                        SET REF_OUTPayment.NS_oa:Amount                                                                                         = REF_INSalesOrderLine.NS_oa:ExtendedAmount;
+                        SET REF_OUTPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID                                          = FIELDVALUE(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode);
+                  SET REF_OUTPayment.NS_dfns:TerminalID                                                                             = REF_INPayment.NS_dfns:TerminalID;
+                  END IF;
+                  MOVE REF_INPayment NEXTSIBLING REPEAT TYPE NAME;
+                  END WHILE;
+            MOVE REF_INPayment TO  REF_INSalesOrderHeader.NS_dfns:Payment;
+            
+            --For more than one Payment segement
+            ELSE
+                  
+                  SET DE_ChangeAmount                                                           = 0;
+                  
+                  --Looping for each Input payment
+                  FOR REF_INPayment AS REF_INSalesOrderHeader.NS_dfns:Payment[] DO                          
+                        
+                        --Custom Logic - Change Amount                        
+                        IF CAST(REF_INPayment.NS_dfns:ChangeAmount AS DECIMAL) > 0 THEN
+                              
+                              SET DE_ChangeAmount = DE_ChangeAmount + CAST(REF_INPayment.NS_dfns:ChangeAmount AS DECIMAL);
+                              
+                        END IF;
+                                                      
+                        --Custom Logic - Gift Voucher present flag
+                        IF REF_INPayment.(XMLNSC.Attribute)id = 'GiftVoucher' THEN
+                              SET CH_GvPresent                                                  = 'true';
+                        END IF;
+                        
+                        --Custom Logic - Cash Present flag
+                        IF REF_INPayment.(XMLNSC.Attribute)id = 'Cash' AND COALESCE(REF_INPayment.NS_dfns:ChangeAmount,'') = '' THEN
+                              SET CH_CashPresent                                                      = 'true';
+                        END IF;
+                        
+                  END FOR;
+    
+                  MOVE REF_INPayment TO REF_INSalesOrderHeader.NS_dfns:Payment;
+                  
+                  
+                              
+                  --FOR REF_INPayment AS REF_INSalesOrderHeader.NS_dfns:Payment[] DO
+                  X:WHILE LASTMOVE(REF_INPayment) DO  
+                        --Filter logic 2 
+                               IF (COALESCE(REF_INPayment.NS_dfns:VoidStatus.NS_oa:Code,'') IN('VOID ENTRY','VOID LINE') OR UPPER(COALESCE(REF_INPayment.(XMLNSC.Attribute)id,'')) = 'CHANGENOTISSUED') 
+                                                                        OR COALESCE(REF_INPayment.NS_dfns:ChangeAmount,'') <>''THEN
+
+                                    MOVE REF_INPayment NEXTSIBLING REPEAT TYPE NAME;
+                                    ITERATE X;
+                                    
+                              ELSE  
+                                    CREATE LASTCHILD OF REF_SalesOrderReference AS REF_OUTPayment NAMESPACE NS_dfns NAME 'Payment';
+                                    
+                                    --Custom Logic - Tender id & Tender Type
+                                    SET CH_TenderId                                                                                                                     = FIELDVALUE(REF_INPayment.(XMLNSC.Attribute)id);
+                                    
+                                    IF CH_TenderId IN ('FixedTermLoan','HitachiLoan') THEN
+                                          SET CH_TenderType                                                                                                             = 'C';
+                                    ELSE
+--                                        SET CH_TenderType                                                                                                             = THE(SELECT ITEM A.TENDERTYPE FROM Database.TENDERDATA AS A 
+--                                                                                                                                                                                  WHERE A.TENDERID = CH_TenderId);
+                                          SET CH_TenderType                                                                                                             = THE(SELECT ITEM A.TENDERTYPE FROM CACHE_CONFIGDATA.TENDERDATA[] AS A 
+                                                                                                                                                                                     WHERE A.TENDERID = CH_TenderId);
+
+                                    END IF;
+                                    SET REF_OUTPayment.(XMLNSC.Attribute)type                                                                         = CH_TenderType;
+                                    SET REF_OUTPayment.(XMLNSC.Attribute)id                                                                                = CH_TenderId;
+                                    
+                                    --CUSTOM LOGIC Handle Loan
+                                    IF STARTSWITH(CH_TenderId,'HFCS') OR UPPER(CH_TenderId) = 'FIXEDTERMLOAN' OR UPPER(CH_TenderId) = 'HITACHILOAN' THEN
+                                          
+                                          IF REF_INPayment.NS_dfns:Loan.NS_oa:Number <> '' THEN
+                                                SET REF_OUTPayment.NS_dfns:Loan.NS_oa:Number                                                             = REF_INPayment.NS_dfns:Loan.NS_oa:Number;
+                                          END IF;
+                                    
+                                    ELSE
+                                          --CUSTOM LOGIC accountId 
+                                          SET CH_AccountId                                                                                                        = '0000000000000000';
+                                    
+                                          IF CH_TenderType = 'T' THEN
+                                                
+                                                --Code change starts for version 0.4
+                                                SET CH_AccountId                                                                                                  = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:CleartextNumber;
+                                          END IF;
+                                    
+                                          --SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:CleartextNumber                                  = CH_AccountId;
+                                          
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Number                                                            = REF_INPayment.NS_dfns:PaymentCard.NS_oa:Number;
+                                          --Code change ends for version 0.4
+                                          
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:NameOnAccount                                                = REF_INPayment.NS_dfns:PaymentCard.NS_oa:NameOnAccount;                                  
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:HashedNumber                                               = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:HashedNumber;                                 
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:EncryptedNumber                                      = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:EncryptedNumber;      
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:IVData                                                     = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:IVData;
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:StartDate                                            = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:StartDate;
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_oa:Expiration                                                   = REF_INPayment.NS_dfns:PaymentCard.NS_oa:Expiration;
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_oa:ResponseCode  = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_oa:ResponseCode;
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_dfns:Token             = REF_INPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization.NS_dfns:Token;
+                                          
+                                          SET REF_OUTPayment.NS_dfns:PaymentCard.NS_dfns:CleartextNumber                                = CH_AccountId;
+                                                                              
+                                    END IF;
+                                    
+                                    --CUSTOM LOGIC PONumber
+                                    SET CH_PoNumber                                                                                                         = '';
+                                    IF CH_TenderType = 'T' THEN
+                                          
+                                          --Fixed for Defect 40, as this check was generating PONumber for ORDERS04 IDOC creation
+                                          --IF CH_McStore = 'true' THEN
+                                                SET CH_PoNumber                                                                                             = REF_INPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID;
+                                          --END IF;
+                                          
+                                    END IF;
+                                    
+                                    SET REF_OUTPayment.NS_oa:PurchaseOrderReference.NS_oa:DocumentID.NS_oa:ID  = COALESCE(CH_PoNumber,'');                 
+                                                                                                                                                                                                                                    
+                                    --CustomLogic ExtenedAmount
+                                    SET DE_ExtendedAmount                                                                                                   = 0;
+                                    
+                                    IF  CH_CashPresent = 'true' AND CH_TenderType = 'C' AND CH_FirstCash = 'true' AND  CH_TenderId <> 'FixedTermLoan' AND CH_TenderId  <> 'HitachiLoan' THEN
+                                    
+                                          
+                                          SET DE_CashAmount                                                                                                       = REF_INPayment.NS_oa:Amount;
+                                          SET DE_ExtendedAmount                                                                                             = DE_CashAmount - DE_ChangeAmount;
+                                          SET CH_FirstCash                                                                                                  = 'false';
+                                          
+                                    ELSEIF CH_CashPresent <> 'true' and CH_GvPresent = 'GiftVoucher' AND CH_TenderId = 'GiftVoucher' and CH_FirstGV = 'true' THEN
+                                          
+                                          SET DE_GvAmount                                                                                                         = REF_INPayment.NS_oa:Amount;
+                                          SET DE_ExtendedAmount                                                                                             = DE_GvAmount-DE_ChangeAmount;
+                                          SET CH_FirstGV                                                                                                          = 'false';
+                                          
+                                    ELSE
+                                          SET DE_ExtendedAmount                                                                                             = REF_INPayment.NS_oa:Amount;
+                                    END IF;
+                                    --END OF CUSTOM LOGIC ExtenedAmount 
+                                    
+                                    SET REF_OUTPayment.NS_oa:LineNumber                                                                               = REF_INSalesOrderLine.NS_oa:LineNumber;
+                                    SET REF_OUTPayment.NS_oa:Amount                                                                                         = DE_ExtendedAmount;
+                                    SET REF_OUTPayment.NS_oa:Amount.(XMLNSC.Attribute)currencyID                                        = FIELDVALUE(REF_INSalesOrderHeader.NS_dfns:SalesTransaction.NS_oa:CurrencyCode);
+                                    
+                                    SET REF_OUTPayment.NS_dfns:TerminalID                                                                             = REF_INPayment.NS_dfns:TerminalID;
+                                    
+                              END IF;
+                        
+                        MOVE REF_INPayment NEXTSIBLING REPEAT TYPE NAME;
+                  
+                  END WHILE;  
+                                          
+            END IF;
+           
+        	--Code Change starts for version 0.3 Production defect #
+        	---SET REF_OUTLedgerHeader.NS_dfns:CustomerParty.NS_oa:ID				= CH_CustomerNumber;
+        	SET IN_Index = IN_Index+1;	
+        	SET REF_OUTLedgerHeader.NS_dfns:CustomerParty.NS_oa:ID[IN_Index]		= CH_CustomerNumber;
+        	--Code Change ends for version 0.3 Production defect #          
+            END IF;     
+            MOVE REF_INSalesOrderLine NEXTSIBLING REPEAT TYPE NAME;     
+            END WHILE;
+            
+      END;
+
+
+       /********************************************************************************\
+      * Procedure Name     :PROC_CreatePubTopic                                         *
+      * Input Parameters   :CH_TopicStr                                                 *
+      * Output Parameters  :None                                                        *
+      * Description        :Set the publication topic                                   *
+      * Version   Date              Author                  Description                 *
+      * =======   ===========       ===========       ================================  *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.              *
+      ***********************************************************************************/
+      CREATE PROCEDURE PROC_CreatePubTopic(IN CH_TopicStr   CHARACTER )
+      BEGIN
+            DECLARE CH_TabName            CHARACTER; 
+            DECLARE CH_OutCol             CHARACTER; 
+            DECLARE CH_OutValue     	  CHARACTER;          
+
+            SET CH_TabName          = 'MBTOPICS';
+            SET CH_OutCol           = 'TOPICSTRING';
+                        
+            --CALL RetrieveValuesLookup(CH_TabName,CH_OutCol,CH_TopicStr,CH_OutValue);
+            SET CH_OutValue = THE(SELECT ITEM(MT.TOPICSTRING) FROM CACHE_CONFIGDATA.MBTOPICS[] AS MT WHERE MT.CANVAL=CH_TopicStr);
+          
+        -- Create the synchronize header 
+        SET OutputRoot.Properties                     = InputRoot.Properties;
+        SET OutputRoot.MQMD                           = InputRoot.MQMD;
+        SET OutputRoot.MQRFH2                                     = NULL;
+        
+        SET OutputRoot.MQRFH2.psc.Command             = 'Publish';
+        SET OutputRoot.MQRFH2.psc.Topic               = CH_OutValue;
+      END;
+      
+       /************************************************************************************
+      * Procedure Name     :FUNC_FlagSetter                                                *
+      * Input Parameters   :CH_FlagValue                                                   *
+      * Output Parameters  :None                                                           *
+      * Description        :Set flags for CDB,SAPBW,Payment and LoadLedger                 *
+      * Version   Date              Author                  Description                    *
+      * =======   ===========       ===========       ================================     *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.                 *
+      *************************************************************************************/
+      CREATE FUNCTION FUNC_FlagSetter(IN CH_FlagValue CHARACTER) RETURNS BOOLEAN
+      BEGIN
+            DECLARE BOOL_Flag       BOOLEAN TRUE;
+            IF EXISTS(Environment.Variables.SQLRoute[]) THEN
+                  IF CH_FlagValue <> 'N' THEN
+                        SET BOOL_Flag     = FALSE;
+                  END IF;
+            END IF;
+            RETURN BOOL_Flag;
+      END;
+
+      /************************************************************************************
+      * Procedure Name     :CopyEntireMessage                                             *
+      * Input Parameters   :None                                                          *
+      * Output Parameters  :None                                                          *
+      * Description        :Copy entire input message                                     *
+      * Version   Date              Author                  Description                   *
+      * =======   ===========       ===========       ================================    *
+      *  0.1      08-APR-2013       Sayantan Som      The initial version.                *
+      ************************************************************************************/
+      CREATE PROCEDURE CopyEntireMessage() BEGIN
+            SET OutputRoot = InputRoot;
+      END;
+END MODULE;

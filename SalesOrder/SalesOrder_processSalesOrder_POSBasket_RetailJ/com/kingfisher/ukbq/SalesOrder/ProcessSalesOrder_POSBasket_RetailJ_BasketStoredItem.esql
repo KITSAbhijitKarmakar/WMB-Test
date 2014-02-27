@@ -1,0 +1,91 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: LayAway_BasketStore													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_BasketStoredItem					*
+* Description 				: Populate details for BasketStoredItem									*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		24-JUN-2013 	Sourav Banu 		Validated against ProcessSalesOrder xsd.			*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_BasketStoredItem
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE	REF_OUTSalesOrderHeader	REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderHeader;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_BSLayAwayDetails	REFERENCE TO REF_OUTSalesOrderHeader.NS_dfns:LayAwayDetails;
+
+		DECLARE TS_ResumeDateTime   	TIMESTAMP;
+		DECLARE CH_DeviceID				CHARACTER;
+		DECLARE CH_ArrayVariable		CHARACTER;
+		DECLARE IN_PositionOfDot		INTEGER;
+		
+		DECLARE REF_BSItem				REFERENCE TO REF_INRoot.BasketStoredItem;
+		DECLARE CH_LineNumber 			CHARACTER;
+		DECLARE IN_Count 				INTEGER;
+		
+		BSI:WHILE LASTMOVE(REF_BSItem)DO
+		--FOR REF_BSItem AS REF_INRoot.BasketStoredItem[] DO
+			
+			SET CH_LineNumber =REF_BSItem.LineNumber;
+			
+			IF REF_BSItem.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN 
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+			
+				SET IN_Count = CARDINALITY(REF_OUTSalesOrderHeader.NS_dfns:LayAwayDetails[]);
+		
+				CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:LayAwayDetails[IN_Count] AS REF_BSLayAwayDetails REPEAT;
+				--CREATE NEXTSIBLING OF REF_OUTSalesOrderHeader.NS_dfns:LayAwayDetails AS REF_BSLayAwayDetails REPEAT;
+			
+				SET TS_ResumeDateTime	= CAST(REF_BSItem.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_BSLayAwayDetails.NS_oa:StartDateTime			= CAST(TS_ResumeDateTime AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET CH_DeviceID	=	REF_BSItem.DeviceID;
+				WHILE (LENGTH(CH_DeviceID) > 0) DO
+					SET IN_PositionOfDot			= POSITION('.' IN CH_DeviceID);
+					IF IN_PositionOfDot	<> 0 THEN
+						SET CH_ArrayVariable 		= SUBSTRING(CH_DeviceID FROM 1 FOR IN_PositionOfDot - 1);
+						SET CH_DeviceID				= SUBSTRING(CH_DeviceID FROM IN_PositionOfDot + 1);
+					ELSE
+						SET CH_ArrayVariable		= CH_DeviceID;
+						SET CH_DeviceID				= NULL;
+					END IF;
+		
+				    CREATE LASTCHILD OF Environment.Variables NAME 'DeviceID' VALUE CH_ArrayVariable;
+				END WHILE;
+				
+				SET CH_DeviceID						= Environment.Variables.DeviceID[4];
+				IF STARTSWITH(CH_DeviceID, 'T') THEN
+					SET CH_DeviceID		= SUBSTRING(CH_DeviceID FROM 2);
+				END IF;
+				SET REF_BSLayAwayDetails.NS_dfns:TillID					= PadLeadingCharacters(3,CH_DeviceID,'0');
+				SET REF_BSLayAwayDetails.NS_dfns:OperatorID				= COALESCE(REF_BSItem.UserID,'');
+				SET REF_BSLayAwayDetails.NS_oa:Status.NS_oa:ReasonCode	= COALESCE(REF_BSItem.ReasonCodeID,'');
+				SET REF_BSLayAwayDetails.NS_oa:Status.NS_oa:Reason		= COALESCE(REF_BSItem.ReasonCodeDescription,'');
+				SET REF_BSLayAwayDetails.NS_oa:Status.NS_oa:Type		= 'LAYAWAY';
+				
+				LEAVE BSI;
+			END IF;
+			MOVE REF_BSItem NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;		
+		--END FOR;
+		RETURN FALSE;
+	END;
+END MODULE;

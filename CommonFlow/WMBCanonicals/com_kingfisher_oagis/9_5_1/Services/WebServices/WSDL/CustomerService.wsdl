@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+                   2.0 ( Includes new portType CustomerPortType and correponding operation(s) and message(s)
+  Date:         11 Nov 2011
+  Copyright 2011, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><definitions targetNamespace="http://www.kingfisher.com/Services/CustomerService/1.0" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:koa="http://www.kingfisher.com/oagis/9" xmlns:koaws="http://www.kingfisher.com/Services/CustomerService/1.0" xmlns:ns="http://www.openapplications.org/oagis/9" xmlns:ns1="http://www.openapplications.org/oagis/9/IANAMIMEMediaTypes:2003" xmlns:ns2="http://www.openapplications.org/oagis/9/currencycode/54217:2001" xmlns:ns3="http://www.openapplications.org/oagis/9/languagecode/5639:1988" xmlns:ns4="http://www.openapplications.org/oagis/9/unitcode/66411:2001" xmlns:ns5="http://www.openapplications.org/oagis/9/unqualifieddatatypes/1.1" xmlns:ns6="http://www.openapplications.org/oagis/9/codelists" xmlns:ns7="http://www.openapplications.org/oagis/9/qualifieddatatypes/1.1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <documentation>
+    <appinfo source="WMQI_APPINFO">
+      <MRWSDLAppInfo imported="true">
+        <generatedXSD location="CustomerService_InlineSchema1.xsd"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseCustomerBinding" originalBindingStyle="document"/>
+        <binding hasEncoding="false" imported="true" name="CustomerBinding" originalBindingStyle="document"/>
+        <binding hasEncoding="false" imported="true" name="SynchroniseCustomerJMSBinding" originalBindingStyle="document"/>
+      </MRWSDLAppInfo>
+    </appinfo>
+  </documentation>
+	<types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:include schemaLocation="CustomerService_InlineSchema1.xsd"/>
+    </xsd:schema>
+	</types>
+	<message name="SynchroniseCustomer">
+		<part element="koa:SynchroniseCustomer" name="Message"/>
+	</message>
+	<message name="Fault">
+		<part element="koa:Fault" name="parameter"/>
+	</message>
+	<message name="GetCustomer">
+		<part element="koa:GetCustomer" name="parameter"/>
+	</message>
+	<message name="ShowCustomer">
+		<part element="koa:ShowCustomer" name="parameter"/>
+	</message>
+	<portType name="SynchroniseCustomerPortType">
+		<operation name="SynchroniseCustomer">
+			<input message="koaws:SynchroniseCustomer"/>
+		</operation>
+	</portType>
+	<portType name="CustomerPortType">
+		<operation name="GetCustomer">
+			<input message="koaws:GetCustomer"/>
+			<output message="koaws:ShowCustomer"/>
+			<fault message="koaws:Fault" name="GetCustomerFault"/>
+		</operation>
+	</portType>
+	<binding name="SynchroniseCustomerBinding" type="koaws:SynchroniseCustomerPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="SynchroniseCustomer">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/CustomerService/SynchroniseCustomerPortType/SynchroniseCustomer/1.0" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<binding name="SynchroniseCustomerJMSBinding" type="koaws:SynchroniseCustomerPortType" xmlns:soapjms="http://www.w3.org/2010/soapjms/">
+		<soap:binding style="document" transport="http://www.w3.org/2010/soapjms/"/>
+		<soapjms:jndiConnectionFactoryName>kingfisher.jms.ConnectionFactory</soapjms:jndiConnectionFactoryName>
+		<soapjms:deliveryMode>PERSISTENT</soapjms:deliveryMode>
+		<operation name="SynchroniseCustomer">
+			<soap:operation style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+		</operation>
+	</binding>
+	<binding name="CustomerBinding" type="koaws:CustomerPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="GetCustomer">
+			<soap:operation soapAction="http://www.kingfisher.com/Services/CustomerService/CustomerPortType/GetCustomer/1.0"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+			<fault name="GetCustomerFault">
+				<soap:fault name="GetCustomerFault" use="literal"/>
+			</fault>
+		</operation>
+	</binding>
+	<service name="SynchroniseCustomer">
+		<port binding="koaws:SynchroniseCustomerBinding" name="SynchroniseCustomerBinding">
+			<soap:address location="http://www.kingfisher.com/Services/SynchroniseCustomer/1.0"/>
+		</port>
+		<port binding="koaws:SynchroniseCustomerJMSBinding" name="SynchroniseCustomerJMSBinding">
+			<soap:address location="jms:jndi:ConfigQueName?targetService=customer&amp;priority=8&amp;userprop=ConfigUserProp"/>
+		</port>
+	</service>
+	<service name="CustomerService">
+		<port binding="koaws:CustomerBinding" name="CustomerBinding">
+			<soap:address location="http://www.kingfisher.com/Services/Customer/1.0"/>
+		</port>
+	</service>
+</definitions>

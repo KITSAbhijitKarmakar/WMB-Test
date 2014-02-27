@@ -1,0 +1,152 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 			   : MapVanguardChargeResponse 												*
+* Interface Id 			   :  																		*
+* Interface Name 		   : Payment_processPayment-Charge											*
+* Message Flow 			   : ProcessPayment_Charge													*
+* Message Flow Description : The primary function of this message flow is to receive canonical from *
+* 							 NotifySalesOrder service and translate it into Vanguard Webservice 	*
+*							 request Structure														*
+* Module Name 			   : MapVanguardChargeResponse_Compute										*
+* Description 			   : The primary function of this Node is to receive response from 			*
+* 							 Vanguard and parse the receieved response to create Payment canonical  *
+*							 to use in the next Node												*	
+*      																								*																							*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	===================== 								*
+* 0.1		06-MAR-2013 		Asif Hossain	  	The initial version. 							*
+* 0.2		28-JUN-2013 		Asif Hossain	  	Code change to validate against xsd				*
+****************************************************************************************************/
+CREATE COMPUTE MODULE MapVanguardChargeResponse_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Declaring Reference for input
+		DECLARE REF_MsgResult 		REFERENCE TO InputRoot.XMLNSC.NS_comns:ProcessMsgResponse.NS_comns:ProcessMsgResult;
+		DECLARE REF_Payment	 		REFERENCE TO OutputRoot.XMLNSC.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth 	REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		--Declaring Reference for Environment 
+		DECLARE REF_EnvSuccess 		REFERENCE TO Environment;
+		DECLARE REF_EnvError		REFERENCE TO Environment;
+		
+		DECLARE REF_EnvDataArea 	REFERENCE TO Environment.InputCanonical.NS_dfns:ProcessPayment.NS_dfns:DataArea; 
+		DECLARE REF_EnvPayment 		REFERENCE TO REF_EnvDataArea.NS_dfns:Payment;
+		DECLARE REF_EnvProcCard		REFERENCE TO REF_EnvPayment.NS_dfns:ProcurementCard;
+		DECLARE REF_EnvPaymentAuth 	REFERENCE TO REF_EnvPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		--Storing part of CommIdea response in the Environment to use as a condition before updating ODS with the Settlement Status.
+		SET Environment.Variables.processMsgType = REF_MsgResult.NS_comns:MsgType;
+		
+		--Parse the CDATA section from the incoming xml message and store it in Environment
+		IF REF_MsgResult.NS_comns:MsgType <> '' AND REF_MsgResult.NS_comns:MsgType = 'ERROR' THEN
+        	CREATE LASTCHILD OF Environment.Response AS REF_EnvError DOMAIN ('XMLNSC')
+        		PARSE (REF_MsgResult.NS_comns:MsgData CCSID InputRoot.Properties.CodedCharSetId); 
+			
+			MOVE REF_EnvError TO Environment.Response.XMLNSC.NS_txn:ERROR;
+				
+		ELSE
+			CREATE LASTCHILD OF Environment.Response.Success AS REF_EnvSuccess DOMAIN ('XMLNSC')
+				PARSE (REF_MsgResult.NS_comns:MsgData CCSID InputRoot.Properties.CodedCharSetId);  	
+			
+			MOVE REF_EnvSuccess TO Environment.Response.Success.XMLNSC.NS_txn:transactionresponse;
+			
+			--Calling procedure to modify PaymentAuth segment of the input
+			CALL PROC_ModifyPaymentAuth(REF_EnvDataArea,REF_EnvPayment,REF_EnvPaymentAuth,REF_EnvSuccess);
+		
+		END IF;
+		
+		RETURN TRUE;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: PROC_ModifyPaymentAuth		 									 *
+	* Input Parameters	: REF_EnvDataArea,REF_EnvPayment,REF_EnvPaymentAuth,REF_EnvSuccess,	 *
+	* 						REF_EnvPayment,REF_EnvPaymentAuth								 *
+	* Output Parameters	:None 																 *
+	* Description		: Procedure to creating actual output structure for VGIS call  		 *
+	*					  																	 *
+	* Version 	Date 			Author 				Description                		         *
+	* ======= 	=========== 	=============== 	======================		 			 *
+	* 0.1   	06-MAR-2013 	Asif Hossain	 	The initial version. 					 *
+	*****************************************************************************************/	
+	CREATE PROCEDURE PROC_ModifyPaymentAuth(INOUT REF_EnvDataArea REFERENCE,INOUT REF_EnvPayment REFERENCE, INOUT REF_EnvPaymentAuth REFERENCE,IN REF_EnvSuccess REFERENCE)
+	BEGIN
+		
+		--Declaring Temporary Reference
+		DECLARE REF_EnvTempAuth 	REFERENCE TO Environment.Temp;
+		DECLARE REF_AttachTemp 		REFERENCE TO REF_EnvPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		
+		CREATE FIELD Environment.Temp 	AS REF_EnvTempAuth;
+		
+		SET REF_EnvDataArea.NS_oa:Process.NS_oa:ActionCriteria.NS_oa:ActionExpression	= 'VGISREQUEST';
+		
+		--Storing PaymentAuth value in Environment
+		SET REF_EnvTempAuth 	= REF_EnvPaymentAuth;
+		
+		CREATE NEXTSIBLING OF REF_EnvPayment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization NAMESPACE NS_dfns NAME 'TEMP';
+		
+		--Deleting the PaymentAuth from Environment.	
+		SET REF_EnvPaymentAuth 	= NULL;
+			
+		CREATE FIELD Environment.Temp 	AS REF_EnvTempAuth;
+		
+		--Creating fields to set value for PaymentAuth
+		CREATE NEXTSIBLING OF  REF_EnvPayment.NS_dfns:PaymentCard.NS_dfns:TEMP 	AS REF_AttachTemp NAMESPACE NS_dfns NAME 'PaymentAuthorization';
+			
+		--Populating PaymentAuth in Environment Again.
+		SET REF_AttachTemp.NS_oa:ResponseCode 								= REF_EnvTempAuth.NS_oa:ResponseCode;
+		SET REF_AttachTemp.NS_dfns:AuthorizationDateTime 					= REF_EnvTempAuth.NS_dfns:AuthorizationDateTime;
+		SET REF_AttachTemp.NS_dfns:Token 									= REF_EnvTempAuth.NS_dfns:Token;
+		
+		--Code comment starts for version 0.2
+		--SET REF_AttachTemp.NS_oa:Result 									= FIELDVALUE(REF_EnvSuccess.NS_txn:txnresult);
+		
+--		IF FIELDVALUE(REF_EnvSuccess.NS_txn:txnresult) IN('APPROVED','AUTHORISED') THEN
+--			SET REF_AttachTemp.NS_oa:Result.(XMLNSC.Attribute)languageID	= 'CONFIRM';
+--		ELSEIF FIELDVALUE(REF_EnvSuccess.NS_txn:txnresult) IN('COMMSDOWN','REFERRAL')  THEN
+--			SET REF_AttachTemp.NS_oa:Result.(XMLNSC.Attribute)languageID	= 'REJECT';
+--		END IF;
+		--Code comment endss for version 0.2
+		
+		SET REF_AttachTemp.NS_dfns:ElectronicCommerceIndicatorID 			= REF_EnvTempAuth.NS_dfns:ElectronicCommerceIndicatorID;
+		
+		SET REF_AttachTemp.NS_dfns:TransactionStatus.NS_oa:Code 			= REF_EnvTempAuth.NS_oa:ResponseCode;
+		
+		IF FIELDVALUE(REF_EnvSuccess.NS_txn:txnresult) IN('APPROVED','AUTHORISED') THEN
+			SET REF_AttachTemp.NS_dfns:TransactionStatus.NS_oa:Type	= 'CONFIRM';
+		ELSEIF FIELDVALUE(REF_EnvSuccess.NS_txn:txnresult) IN('COMMSDOWN','REFERRAL') THEN
+			SET REF_AttachTemp.NS_dfns:TransactionStatus.NS_oa:Type	= 'REJECT';
+		END IF;
+		
+		
+		SET REF_AttachTemp.NS_dfns:AuthorizationDatabaseID					= FIELDVALUE(REF_EnvSuccess.NS_txn:processingdb);
+		SET REF_AttachTemp.NS_dfns:ExternalTransactionID					= FIELDVALUE(REF_EnvSuccess.NS_txn:transactionid);
+		SET REF_AttachTemp.NS_dfns:VGISReferenceID							= FIELDVALUE(REF_EnvSuccess.NS_txn:vgisreference);
+		
+		SET REF_AttachTemp.NS_dfns:CAVCode									= REF_EnvTempAuth.NS_dfns:CAVCode;
+		
+		--Code change starts for version 0.2
+		
+		--SET REF_EnvPayment.NS_dfns:TransactionType 							= 'REFUND';
+		
+		IF UPPER(REF_EnvPayment.NS_dfns:TransactionType) = 'REFUND' AND STARTSWITH(REF_EnvPayment.(XMLNSC.Attribute)id,'VisaProcurement') THEN
+			SET REF_EnvPayment.NS_dfns:TransactionType 						= 'REFUND';
+		ELSE
+			SET REF_EnvPayment.NS_dfns:TransactionType 						= 'CHARGE';
+		END IF;
+		--Code change ends for version 0.2
+		
+		--Deleting the temporary segment created earlier
+		SET REF_EnvPayment.NS_dfns:PaymentCard.NS_dfns:TEMP = NULL;	
+	END;
+	
+END MODULE;

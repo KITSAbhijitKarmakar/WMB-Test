@@ -1,0 +1,28 @@
+BROKER SCHEMA com.kingfisher.ukbq.Ledger
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+DECLARE NS_dfns 	            NAMESPACE 'http://www.kingfisher.com/oagis/9';
+DECLARE NS_oa 	  		        NAMESPACE 'http://www.openapplications.org/oagis/9';
+DECLARE NS_xsi   		        NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';
+DECLARE NS_comns				NAMESPACE 'https://www.commidea.webservices.com';
+DECLARE NS_CustOrder 			NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/sapzretrfccustordvalidate';
+DECLARE NS_Wpufib01				NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/WPUFIB01/sapwpufib01';
+DECLARE NS_Orders04				NAMESPACE 'http://ukbq.kingfisher.com/SAPR3/ORDERS04/saporders04';
+DECLARE NS_tns					NAMESPACE 'TOKEN';
+
+
+	/** This Function will create the CDATA section of a xml **/
+	
+	CREATE PROCEDURE CreateCDATAMessage (INOUT REF_MsgData REFERENCE,IN REF_Input REFERENCE)
+	BEGIN
+		DECLARE BL_WholeMsgData BLOB ASBITSTREAM(REF_MsgData,REF_Input.Properties.Encoding,REF_Input.Properties.CodedCharSetId );
+		DECLARE CH_WholeMsgData CHARACTER CAST(BL_WholeMsgData AS CHAR CCSID REF_Input.Properties.CodedCharSetId); 
+	
+		SET REF_MsgData = CH_WholeMsgData;
+	END;	

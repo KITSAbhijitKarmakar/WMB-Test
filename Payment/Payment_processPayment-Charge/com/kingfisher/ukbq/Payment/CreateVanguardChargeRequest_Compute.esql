@@ -1,0 +1,321 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 					: CreateVanguardChargeRequest 										*
+* Interface Id 					:  																	*
+* Interface Name 				: Payment_processPayment-Charge										*
+* Message Flow 					: ProcessPayment_Charge												*
+* Message Flow Description 		: The primary function of this message flow is to receive canonical *
+* 								  from NotifySalesOrder(for EPOS system) service and translate it 	*
+* 								  into Vanguard Webservice request Structure, map the reponse to    *
+*								  Payment xsd structure and update ODS with Settlement Status. Sends*
+*								  the input and Payment xsd structure for VGIS call 				*
+* Module Name 					: CreateVanguardChargeRequest_Compute								*
+* Description 					: The primary function of this Node is to receive canonical			*
+*  								  from NotifySalesOrder service and translate it into Vanguard 		*
+*								  Webservice request Structure										*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	==============================================		*
+* 0.1 		6-MAR-2013 		Asif Hossain 		The initial version. 								*
+* 0.3 		18-JUNE-2013 	Asif Hossain 		Changed accountpasscode mapping for store 0603		*
+****************************************************************************************************/
+CREATE COMPUTE MODULE CreateVanguardChargeRequest_Compute
+	
+	DECLARE DSN EXTERNAL NAME 'MBODS';
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Declaring input refernece
+		DECLARE REF_ProcessPayment 		REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessPayment;
+		DECLARE REF_AppArea 			REFERENCE TO REF_ProcessPayment.NS_oa:ApplicationArea;
+		DECLARE REF_Payment				REFERENCE TO REF_ProcessPayment.NS_dfns:DataArea.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth			REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE REF_SalesOrderHeader	REFERENCE TO REF_ProcessPayment.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader;
+		DECLARE REF_Canonical 			REFERENCE TO Environment.InputCanonical;
+		DECLARE REF_Evn 				REFERENCE TO Environment.Common;
+		
+		--Declaring variable
+		DECLARE CH_qryStr CHARACTER;
+				
+		--Checking if the call is for Charge or not(OR condition is added to determine if transaction type is Refund)
+		IF UPPER(REF_Payment.NS_dfns:TransactionType) IN('CHARGE','REFUND') THEN
+			
+			--Storing the input canonical to Environment
+			CREATE LASTCHILD OF Environment AS REF_Canonical DOMAIN('XMLNSC') NAME 'InputCanonical';
+			
+			SET REF_Canonical = InputRoot.XMLNSC;
+			
+			SET REF_Evn.languageCode		= REF_ProcessPayment.(XMLNSC.Attribute)languageCode;
+			SET REF_Evn.CreationDateTime	= REF_AppArea.NS_oa:CreationDateTime;
+			SET REF_Evn.LogicalID			= REF_AppArea.NS_oa:Sender.NS_oa:LogicalID;
+			SET REF_Evn.releaseID			= REF_AppArea.NS_oa:Sender.NS_oa:ComponentID;
+
+			-- DataBaselookUp to read data from MBCONFIG table
+	        SET Environment.Variables.MBconfig[] 	= SELECT M.CANVAL ,M.CONFIGVALUE 
+	        										FROM Database.MBCONFIG AS M WHERE M.CANVAL LIKE 'PCI_COMMIDEA_%'; 
+			 
+			-- Loop thorugh the 'MBCONFIG' tree structure to set some variables which will be used in request structure.
+	        FOR REF_mbConfig AS Environment.Variables.MBconfig[]  DO
+	    		CASE REF_mbConfig.CANVAL
+	    		WHEN 'PCI_COMMIDEA_WS_SYSTEMID'		THEN
+				    SET Environment.SystemID  		= REF_mbConfig.CONFIGVALUE;
+	    		WHEN 'PCI_COMMIDEA_WS_SYSTEMGUID'		THEN
+				    SET Environment.SystemGUID 		= REF_mbConfig.CONFIGVALUE;
+	    		WHEN 'PCI_COMMIDEA_WS_PASSCODE'			THEN
+				    SET Environment.Passcode  		= REF_mbConfig.CONFIGVALUE;
+	    		WHEN 'PCI_COMMIDEA_WS_DIY_ACCOUNTID'	THEN
+				    SET Environment.DiyAccId 		= REF_mbConfig.CONFIGVALUE;
+	    		WHEN 'PCI_COMMIDEA_WS_ACCOUNTID'		THEN
+	    			SET Environment.AccId 			= REF_mbConfig.CONFIGVALUE;	
+	    		WHEN 'PCI_COMMIDEA_WS_DIY_ACC_PASSCD'	THEN
+				    SET Environment.DIYPassCode		= REF_mbConfig.CONFIGVALUE;
+	    		WHEN 'PCI_COMMIDEA_WS_ACCT_PASSCODE'	THEN
+				    SET Environment.AcctPassCode	= REF_mbConfig.CONFIGVALUE;	
+				WHEN 'PCI_COMMIDEA_WS_DESTINATION_SAPCODIY'  THEN    
+                    SET Environment.SAPCOURL 		= REF_mbConfig.CONFIGVALUE;
+                WHEN 'PCI_COMMIDEA_WS_DESTINATION_EPOS'  THEN    
+                    SET Environment.EPOSURL 		= REF_mbConfig.CONFIGVALUE;
+				END CASE;
+		    END FOR;
+		    
+		    --Setting WS url in the SOAP Request Node
+		    SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.SAPCOURL;
+		    
+		    --Calling to create Vanguard Request Structure
+		    CALL CreateChargeRequestStructure(REF_Payment,REF_PaymentAuth);
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;	
+		END IF;
+	END;
+	
+	/*****************************************************************************************
+	* Procedure Name	: CreateChargeRequestStructure 										 *
+	* Input Parameters	: REF_Payment,REF_PaymentAuth										 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to Create Request Structure for CommIdea webservice    	 *
+	*					  call																 *
+	* Version 	Date 			Author 				Description                          	 *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	06-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/	
+	
+	CREATE PROCEDURE CreateChargeRequestStructure (IN REF_Payment REFERENCE,IN REF_PaymentAuth REFERENCE)
+	BEGIN
+		--Declaring Variable
+		DECLARE CH_CurrentTimeStamp 		CHARACTER;
+		
+		--Declaring refernece for Vanguard Request structure
+	    DECLARE REF_Message 				REFERENCE TO OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message; 
+	    DECLARE REF_Header 					REFERENCE TO REF_Message.NS_comns:ClientHeader;
+	    
+	    --Declaring references for MesgData([CDATA]) mapping
+		DECLARE REF_MsgData 				REFERENCE TO REF_Message.NS_comns:MsgData;
+	    DECLARE REF_VGTransactionRequest 	REFERENCE TO REF_MsgData.NS_txn:transactionrequest;
+	    DECLARE REF_payerauxillarydata 		REFERENCE TO REF_VGTransactionRequest.NS_txn:payerauxillarydata;
+	    
+	    CREATE FIELD OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message	AS REF_Message;
+	    CREATE FIELD REF_Message.NS_comns:ClientHeader 						AS REF_Header;
+	   
+	   	SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+		   	
+	   	--Creating the request structure for Vanguard
+	    SET REF_Header.NS_comns:SystemID 		= Environment.SystemID;
+		SET REF_Header.NS_comns:SystemGUID		= Environment.SystemGUID;
+		SET REF_Header.NS_comns:Passcode 		= Environment.Passcode;
+		SET REF_Header.NS_comns:SendAttempt 	= '0';
+		SET REF_Message.NS_comns:MsgType 		= 'TXN';
+		
+		CREATE FIELD REF_Message.NS_comns:MsgData							AS REF_MsgData;
+		CREATE FIELD REF_MsgData.NS_txn:transactionrequest					AS REF_VGTransactionRequest;
+		
+		SET REF_MsgData.NS_txn:transactionrequest.(XMLNSC.NamespaceDecl)xmlns:txn = NS_txn;
+		SET CH_CurrentTimeStamp 				= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'ddMMyyyyHHmmss');
+
+		--Loop through to create the MessageData section of the request structure
+		WHILE LASTMOVE(REF_Payment) DO
+			--Moving Reference to the next payment  
+			MOVE REF_PaymentAuth TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+			
+			SET REF_VGTransactionRequest.NS_txn:merchantreference 				=  REF_PaymentAuth.NS_oa:ResponseCode || CH_CurrentTimeStamp;
+			
+			IF REF_Payment.NS_oa:SourceID = '0603' THEN
+				SET REF_VGTransactionRequest.NS_txn:accountid 					= Environment.DiyAccId;
+			ELSE
+				SET REF_VGTransactionRequest.NS_txn:accountid 					= Environment.AccId;	
+			END IF;
+			
+			IF CAST(REF_Payment.NS_oa:Amount AS DECIMAL) > 0 THEN
+				SET REF_VGTransactionRequest.NS_txn:txntype 					= '01';
+			ELSE
+				SET REF_VGTransactionRequest.NS_txn:txntype 					= '02'; 
+			END IF;
+			
+			SET REF_VGTransactionRequest.NS_txn:transactioncurrencycode 		= '826';
+			
+			IF REF_Payment.NS_oa:SourceID = '0603' THEN
+				SET REF_VGTransactionRequest.NS_txn:apacsterminalcapabilities 	= '4298';
+				SET REF_VGTransactionRequest.NS_txn:capturemethod 				= '12';
+			ELSE
+				SET REF_VGTransactionRequest.NS_txn:apacsterminalcapabilities 	= '4290';
+				SET REF_VGTransactionRequest.NS_txn:capturemethod 				= '11';
+			END IF;
+			
+			SET REF_VGTransactionRequest.NS_txn:processingidentifier 			= '3';
+			SET REF_VGTransactionRequest.NS_txn:tokenid 						= REF_PaymentAuth.NS_dfns:Token;
+			
+			--Checking amount to to create txnvalue
+			IF CAST(REF_Payment.NS_oa:Amount AS DECIMAL) > 0 THEN
+				SET REF_VGTransactionRequest.NS_txn:txnvalue 					= FIELDVALUE(REF_Payment.NS_oa:Amount);
+			ELSE
+				SET REF_VGTransactionRequest.NS_txn:txnvalue 					= SUBSTRING(FIELDVALUE(REF_Payment.NS_oa:Amount) FROM 2);
+			END IF;	
+				
+			SET REF_VGTransactionRequest.NS_txn:authcode 						= REF_PaymentAuth.NS_oa:ResponseCode;
+			SET REF_VGTransactionRequest.NS_txn:transactiondatetime 			= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'dd/MM/yyyy HH:mm:ss');
+			SET REF_VGTransactionRequest.NS_txn:terminalcountrycode 			= '826';
+			
+			--Calling method for CreatePayerauxillaryData 
+			IF REF_Payment.NS_oa:SourceID = '0603' AND ((REF_PaymentAuth.NS_oa:Result <> '') OR (REF_PaymentAuth.NS_dfns:ElectronicCommerceIndicatorID <> '') OR (REF_PaymentAuth.NS_oa:TransactionID <> '') OR (REF_PaymentAuth.NS_dfns:CAVCode <> '')) THEN
+				CALL CreatePayerauxillaryData(REF_PaymentAuth,REF_payerauxillarydata,REF_PaymentAuth,REF_Payment,REF_VGTransactionRequest);
+			END IF;
+			
+			IF UPPER(REF_Payment.NS_dfns:TransactionType) = 'REFUND' AND STARTSWITH(REF_Payment.(XMLNSC.Attribute)id,'VisaProcurement') THEN
+				SET REF_VGTransactionRequest.NS_txn:vgistransaction 			= 'true';
+			END IF;
+			
+			IF  REF_Payment.NS_oa:SourceID = '0603' THEN
+				SET REF_VGTransactionRequest.NS_txn:accountpasscode 			= Environment.DIYPassCode;
+			ELSE
+				SET REF_VGTransactionRequest.NS_txn:accountpasscode 			= Environment.AcctPassCode;
+			END IF;
+				
+			MOVE REF_Payment NEXTSIBLING REPEAT TYPE NAME;
+		END WHILE;
+		
+		--Calling method to create CDATA section of MsgData
+		CALL CreateCDATAMessage(REF_MsgData,InputRoot);
+		
+		--Added to delete the extra elements from MsgData
+		SET REF_MsgData.NS_txn:transactionrequest = NULL;
+	END;
+
+	/*****************************************************************************************
+	* Procedure Name	: CreatePayerauxillaryData	 										 *
+	* Input Parameters	: REF_PaymentAuth,REF_payerauxillarydata,REF_PaymentAuth,			 *
+	*					  REF_Payment										 				 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to Create Structure for PayerauxillaryData for Vanguard  *
+	*					  call																 *
+	* Version 	  Date 			Author 				Description             	             *
+	* ======= 	=========== 	=============== 	============================ 			 *
+	* 0.1   	06-MAR-2013 	Asif Hossain	 	The initial version. 					 *
+	*****************************************************************************************/	
+	CREATE PROCEDURE CreatePayerauxillaryData(INOUT REF_PaymentAuth REFERENCE,INOUT REF_payerauxillarydata REFERENCE,IN REF_PaymentAuth REFERENCE,IN REF_Payment REFERENCE,INOUT REF_VGTransactionRequest REFERENCE)
+	BEGIN
+		--Declaring variables		
+		DECLARE CH_cardSchemeProvider 		CHARACTER;
+		DECLARE CH_securityResult			CHARACTER;
+		DECLARE CH_securityCAVPresent		CHARACTER;
+		DECLARE CH_securityECI				CHARACTER;
+		DECLARE CH_securityTransIdPresent 	CHARACTER;
+		DECLARE CH_qryStr 					CHARACTER;
+		DECLARE CH_tabVal 					CHARACTER;
+		
+		CREATE FIELD REF_VGTransactionRequest.NS_txn:payerauxillarydata		AS REF_payerauxillarydata;
+		
+		--Checking conditions to Set the variables	
+		CASE REF_PaymentAuth.NS_oa:Result 
+			WHEN 'successful'THEN
+				SET REF_payerauxillarydata.NS_txn:authenticationstatus 	= 'Y';
+			WHEN 'not_enrolled'THEN
+				SET REF_payerauxillarydata.NS_txn:authenticationstatus 	= 'N';
+			WHEN 'attempted'THEN
+				SET REF_payerauxillarydata.NS_txn:authenticationstatus 	= 'A';
+			WHEN 'unable_to_verify'THEN
+				SET REF_payerauxillarydata.NS_txn:authenticationstatus 	= 'U';
+		END CASE;
+			
+		SET REF_payerauxillarydata.NS_txn:authenticationcavv 			= REF_PaymentAuth.NS_dfns:CAVCode;
+		SET REF_payerauxillarydata.NS_txn:authenticationeci  			= REF_PaymentAuth.NS_dfns:ElectronicCommerceIndicatorID;
+		SET CH_tabVal 													= REF_Payment.NS_dfns:TransactionType.(XMLNSC.Attribute)listID;
+		
+		--Setting DNS dynamically to access TENDERDATA table
+		SET CH_qryStr 						= 'SELECT CARDSCHEMEPROVIDER FROM TENDERDATA WHERE TENDERID =''' || CH_tabVal ||'''';
+		SET Environment.CardSchemeProvider 	= PASSTHRU(CH_qryStr);
+		
+		--Setting CH_cardSchemeProvider to blank to generate sql query
+		IF EXISTS(Environment.CardSchemeProvider[])= FALSE THEN
+			SET CH_cardSchemeProvider 		= '';
+			THROW USER EXCEPTION VALUES('Card Scheme Provider cannot be empty for card tender types. Tender Id: '|| CH_tabVal );
+		END IF;
+		
+		SET CH_cardSchemeProvider = Environment.CardSchemeProvider.CARDSCHEMEPROVIDER;
+		
+		IF Environment.CardSchemeProvider.CARDSCHEMEPROVIDER <> 'MASTERCARD'AND Environment.CardSchemeProvider.CARDSCHEMEPROVIDER <> 'VISA' THEN
+			SET CH_cardSchemeProvider		= 'OTHER';
+			SET CH_securityResult 			= 'NotApplicable';
+			SET CH_securityCAVPresent 		= 'NotApplicable';
+			SET CH_securityECI 				= '07';
+			SET CH_securityTransIdPresent	= 'NotApplicable';
+		ELSE
+			IF COALESCE(REF_PaymentAuth.NS_oa:Result,'') = '' THEN
+			 	THROW USER EXCEPTION VALUES ('Authentication Result empty');
+			ELSE 
+				SET CH_securityResult 		= REF_PaymentAuth.NS_oa:Result; 								
+			END IF;
+			
+			IF COALESCE(REF_PaymentAuth.NS_dfns:CAVCode,'') = '' THEN
+				SET CH_securityCAVPresent 	= 'NotAvailable';
+			ELSE
+				--SET CH_securityCAVPresent 	= REF_PaymentAuth.NS_dfns:CAVCode;
+				SET CH_securityCAVPresent 	= 'Y';
+			END IF;
+			
+			IF COALESCE(REF_PaymentAuth.NS_dfns:ElectronicCommerceIndicatorID,'') = '' THEN
+				SET CH_securityECI 			= 'NotAvailable';
+			ELSE
+				SET CH_securityECI 			= REF_PaymentAuth.NS_dfns:ElectronicCommerceIndicatorID;
+			END IF;
+			
+			IF COALESCE(REF_PaymentAuth.NS_oa:TransactionID,'') <> '' THEN
+				SET CH_securityTransIdPresent 	= 'Y';
+			ELSE
+				THROW USER EXCEPTION VALUES('Payer Auth Request Id (a.k.a Security Transaction Id) is empty.');
+			END IF;
+				
+		END IF;	
+		
+		SET CH_qryStr = 'SELECT ATSDATA FROM PAYERAUTHDATA WHERE UPPER(CARDSCHEMEPROVIDER) =''' || UPPER(CH_cardSchemeProvider) || ''''
+		|| ' AND UPPER(AUTHENTICATIONCAVVPRESENT) = '''|| UPPER(CH_securityCAVPresent) ||''''
+		|| ' AND UPPER(AUTHENTICATIONECI) = ''' || UPPER(CH_securityECI) || ''''
+		|| ' AND UPPER(AUTHENTICATIONSTATUS) =''' || UPPER(CH_securityResult) || ''''
+		|| ' AND UPPER(PAYERAUTHREQUESTIDPRESENT) = ''' || UPPER(CH_securityTransIdPresent) || ''''
+		|| '';
+		
+		SET Environment.ATSDATA[] = PASSTHRU(CH_qryStr);
+		
+		IF EXISTS(Environment.ATSDATA.ATSDATA[])= FALSE THEN
+			THROW USER EXCEPTION VALUES('NO ATSDATA record found in PAYERAUTHDATA table for combination of cardSchemeProvider:'||CH_cardSchemeProvider
+			||'authenticationCAVVPresent: '||CH_securityCAVPresent ||', authenticationECI: '||CH_securityECI ||', authenticationStatus: '||CH_securityResult ||', payerAuthRequestIdPresent: '||CH_securityTransIdPresent);
+		ELSEIF CARDINALITY(Environment.ATSDATA[])>1 THEN
+			THROW USER EXCEPTION VALUES('Multiple instances found in PAYERAUTHDATA for the lookup combination - cardSchemeProvider:'||CH_cardSchemeProvider
+			||'authenticationCAVVPresent: '||CH_securityCAVPresent ||', authenticationECI: '||CH_securityECI ||', authenticationStatus: '||CH_securityResult ||', payerAuthRequestIdPresent: '||CH_securityTransIdPresent);
+		ELSE
+			SET REF_payerauxillarydata.NS_txn:atsdata	= Environment.ATSDATA[1].ATSDATA;
+		END IF;
+		SET REF_payerauxillarydata.NS_txn:transactionid = REF_PaymentAuth.NS_oa:TransactionID;
+			
+	END;
+	
+END MODULE;
+

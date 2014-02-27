@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:ComIbmSOAPRequest.msgnode="ComIbmSOAPRequest.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentCharge.subflow"
+    nsPrefix="gen_com_kingfisher_ukbq_Payment_CommIdeaGatewayProcessPaymentCharge.subflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1" useDefaults="true" udpSupport="true">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="CommIdeaGatewayProcessPaymentCharge" bundleName="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentCharge" pluginId="Payment_processPayment-Charge"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_processPayment-Charge/icons/full/obj16/CommIdeaGatewayProcessPaymentCharge.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Payment_processPayment-Charge/icons/full/obj30/CommIdeaGatewayProcessPaymentCharge.gif"/>
+    <composition>
+      <nodes xmi:type="eflow:FCMSource" xmi:id="InTerminal.in" location="149,224">
+        <translation xmi:type="utility:TranslatableString" key="InTerminal.Input_ProcessMsg_CommIdeaGateway" bundleName="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentCharge" pluginId="Payment_processPayment-Charge"/>
+        <shortDescription xmi:type="utility:ConstantString" string=". Input_ProcessMsg_CommIdeaGateway input terminal Node will  receive the CommIdea request structure from the main flow."/>
+        <longDescription xmi:type="utility:ConstantString" string=". Input_ProcessMsg_CommIdeaGateway input terminal Node will  receive the CommIdea request structure from the main flow."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="361,224" wsdlFileName="commideagateway.wsdl" selectedPortType="CommideaGatewaySoap" selectedBinding="CommideaGatewaySoap" selectedOperation="ProcessMsg" selectedPort="CommideaGatewaySoap" targetNamespace="https://www.commidea.webservices.com" useHTTPTransport="true" webServiceURL="https://abc" sslProtocol="TLS">
+        <translation xmi:type="utility:ConstantString" string="WS_SOAPRequest_ProcessMsg_CommIdeaGateway"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WS_SOAPRequest_ProcessMsg_CommIdeaGateway Node will communicate with CommIdea and will receive the response."/>
+        <longDescription xmi:type="utility:ConstantString" string="WS_SOAPRequest_ProcessMsg_CommIdeaGateway Node will communicate with CommIdea and will receive the response."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="499,359" envelopeDestination="$LocalEnvironment/SOAP/Envelope/OperResponse/CommideaGatewaySoap/ProcessMsg" labelPrefix="">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Extracts message body from the SOAP message"/>
+        <longDescription xmi:type="utility:ConstantString" string="This node extracts the body out of the response message from the invoked WSDL operation. "/>
+      </nodes>
+      <nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.failure" location="719,295">
+        <translation xmi:type="utility:TranslatableString" key="OutTerminal.failure" bundleName="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentCharge" pluginId="Payment_processPayment-Charge"/>
+      </nodes>
+      <nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.fault" location="714,231">
+        <translation xmi:type="utility:TranslatableString" key="OutTerminal.fault" bundleName="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentCharge" pluginId="Payment_processPayment-Charge"/>
+      </nodes>
+      <nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.ProcessMsgResponse" location="688,363">
+        <translation xmi:type="utility:TranslatableString" key="OutTerminal.ProcessMsgResponse" bundleName="gen/com/kingfisher/ukbq/Payment/CommIdeaGatewayProcessPaymentCharge" pluginId="Payment_processPayment-Charge"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Out terminal of the subflow"/>
+        <longDescription xmi:type="utility:ConstantString" string="Out terminal for the subflow to send CommIdea response to the main flow."/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="InTerminal.in" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="OutTerminal.failure" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="OutTerminal.failure" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="OutTerminal.fault" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.fault" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="OutTerminal.ProcessMsgResponse" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="136,40">
+        <body xmi:type="utility:ConstantString" string="Name          :  CommIdeaGatewayProcessPaymentCharge&#xA;Author        :  Asif Hossain&#xA;Date           :  10-Apr-2013&#xA;&#xA;Description : 1. This sub flow is used to communicate with CommIdea.&#xA;                     2. Input_ProcessMsg_CommIdeaGateway input terminal Node will  receive the CommIdea request structure from the main flow.&#xA;                     3. WS_SOAPRequest_ProcessMsg_CommIdeaGateway Node will communicate with CommIdea and will receive the response.&#xA;                     4. ProcessMsgResponse, fault, failure  out terminal will send the CommIdea reponse to the main flow."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

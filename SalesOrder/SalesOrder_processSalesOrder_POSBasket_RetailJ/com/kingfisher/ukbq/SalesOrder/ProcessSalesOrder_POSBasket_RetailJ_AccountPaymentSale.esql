@@ -1,0 +1,124 @@
+BROKER SCHEMA com.kingfisher.ukbq.SalesOrder
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 				: SOL_AccountPaySale													*
+* Interface Id 				:  					 													*
+* Interface Name 			: SalesOrder_processSalesOrder_POSBasket								*
+* Message Flow 				: ProcessSalesOrder_POSBasket_RetailJ									*
+* Message Flow Description 	: Convert POSBasket message to ProcessSalesOrder Mesasge				*
+* Module Name 				: ProcessSalesOrder_POSBasket_RetailJ_AccountPaymentSale				*
+* Description 				: Populate details for AccountPaymentSale								*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		1-APR-2013 		Sayantan Som 		The initial version. 								*
+* 0.2 		22-JUN-2013 	Soutam Dutta 		Validated against ProcessSalesOrder xsd. 			*
+* 0.3 		11-JUL-2013 	Subir Bhaumik		Updated code for version 0.3 to populate Transaction*
+*												LineType in the ProcessSalesOrder message. 			*
+****************************************************************************************************/
+CREATE COMPUTE MODULE ProcessSalesOrder_POSBasket_RetailJ_AccountPaymentSale
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE REF_INRoot				REFERENCE TO InputRoot.XMLNSC.POSBasket;
+
+		DECLARE REF_OUTSalesOrder		REFERENCE TO Environment.Variables.OutMessage.NS_dfns:ProcessSalesOrder;
+		DECLARE REF_OUTSalesLine		REFERENCE TO REF_OUTSalesOrder.NS_dfns:DataArea.NS_dfns:SalesOrder;
+		DECLARE REF_OUTApplicationArea	REFERENCE TO REF_OUTSalesOrder.NS_oa:ApplicationArea;
+		DECLARE REF_SalesOrderLine		REFERENCE TO REF_OUTSalesLine.NS_dfns:SalesOrderLine;
+
+		DECLARE TS_ResumeDateTime   	TIMESTAMP;
+		DECLARE TS_TimeStamp		   	TIMESTAMP;
+		DECLARE CH_ItemCode				CHARACTER;
+		DECLARE CH_VatCode 				CHARACTER 'UKVATEXEMPT';
+		DECLARE CH_VatPercent			CHARACTER '0';
+		
+		DECLARE REF_AccountPaymentSale	REFERENCE TO REF_INRoot.AccountPayment;
+		DECLARE CH_LineNumber 			CHARACTER;
+		
+		--FOR REF_AccountPaymentSale AS REF_INRoot.AccountPayment[] DO
+		ACCPS:WHILE LASTMOVE(REF_AccountPaymentSale)DO
+			
+			SET CH_LineNumber = REF_AccountPaymentSale.LineNumber;
+			IF REF_AccountPaymentSale.LineNumber NOT IN(Environment.LineNumber.{CH_LineNumber}[]) THEN
+				
+				CREATE LASTCHILD OF Environment.LineNumber.{CH_LineNumber};
+				CREATE LASTCHILD OF REF_OUTSalesLine AS REF_SalesOrderLine NAMESPACE NS_dfns NAME 'SalesOrderLine';
+				SET REF_SalesOrderLine.NS_oa:LineNumber									= REF_AccountPaymentSale.LineNumber;
+				--Code change starts for version 0.3
+				SET REF_SalesOrderLine.NS_oa:Description								= 'NonMerch';
+				--Code change ends for version 0.3
+				SET REF_SalesOrderLine.NS_oa:DocumentReference.(XMLNSC.Attribute)type	= 'ACCOUNT PAYMENT SALE';
+				SET TS_ResumeDateTime	= CAST(REF_AccountPaymentSale.DateTimeCreated AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET REF_SalesOrderLine.NS_oa:DocumentReference.NS_oa:DocumentDateTime	= CAST(TS_ResumeDateTime AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+				SET CH_ItemCode = '';
+				IF REF_AccountPaymentSale.AccountID IS NOT NULL AND REF_AccountPaymentSale.AccountID <> '' THEN
+					SET CH_ItemCode = REF_AccountPaymentSale.AccountID;
+					IF STARTSWITH(CH_ItemCode,'91') THEN
+						SET CH_ItemCode = SUBSTRING(CH_ItemCode FROM 3 FOR LENGTH(CH_ItemCode));
+					END IF;
+					SET REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:UPCID										= CH_ItemCode;
+				END IF;
+				SET REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:Name											= REF_AccountPaymentSale.Description;
+				SET REF_SalesOrderLine.NS_dfns:ProductItem.NS_oa:Type											= 'Other';
+				
+				
+				
+				SET REF_SalesOrderLine.NS_oa:Quantity															= '1';
+				SET REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount												= '0.00';
+				SET REF_SalesOrderLine.NS_oa:UnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID				= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_SalesOrderLine.NS_dfns:QualifiedUnitPrice.NS_oa:Amount									= FUNC_ConvertPennytoPound(REF_AccountPaymentSale.NetValue ,1,2,NULL);
+				SET REF_SalesOrderLine.NS_dfns:QualifiedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID		= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_SalesOrderLine.NS_dfns:DiscountedUnitPrice.NS_oa:Amount									= FUNC_ConvertPennytoPound(REF_AccountPaymentSale.EffectiveNetValue,1,2,NULL);
+				SET REF_SalesOrderLine.NS_dfns:DiscountedUnitPrice.NS_oa:Amount.(XMLNSC.Attribute)currencyID	= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_SalesOrderLine.NS_oa:ExtendedAmount														= FUNC_ConvertPennytoPound(REF_AccountPaymentSale.Amount,1,2,NULL);
+				SET REF_SalesOrderLine.NS_oa:ExtendedAmount.(XMLNSC.Attribute)currencyID						= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				
+				--Code change starts for TaxableTotal
+				SET REF_SalesOrderLine.NS_dfns:TotalTaxableAmount      											= '0';
+				SET REF_SalesOrderLine.NS_dfns:TotalTaxableAmount.(XMLNSC.Attribute)currencyID				= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				--Code change ends for TaxableTotal
+				
+				SET REF_SalesOrderLine.NS_oa:TotalAmount														= FUNC_ConvertPennytoPound(REF_AccountPaymentSale.EffectiveNetValue,1,2,NULL);
+				SET REF_SalesOrderLine.NS_oa:TotalAmount.(XMLNSC.Attribute)currencyID							= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_SalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount										= FUNC_ConvertPennytoPound(REF_AccountPaymentSale.NetValue ,1,2,NULL);
+				SET REF_SalesOrderLine.NS_oa:QualifiedAmount.NS_oa:Amount.(XMLNSC.Attribute)currencyID			= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_SalesOrderLine.NS_dfns:LineFilterIndicator												= 'false';
+				
+					FOR REF_AccountPaymentSale AS REF_INRoot.CardTenderItem[] DO
+						IF ((REF_AccountPaymentSale.CardType = '50' OR REF_AccountPaymentSale.CardType = '51') AND (REF_AccountPaymentSale.TenderType = '3')) THEN
+							IF(Environment.Variables.Condition.VPCStoreRule = 'FALSE') THEN 
+								--IF REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric IS NULL AND REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric = '' THEN
+								IF COALESCE(REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric,'') = '' THEN
+									SET CH_VatCode 		= 'UKVATSTD';
+									SET CH_VatPercent 	= '20';
+								END IF;
+							END IF;
+						END IF;
+					END FOR;
+				
+				SET REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Calculation.NS_oa:RateNumeric 							= CH_VatPercent;
+				SET REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount													= '0';
+				SET REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Amount.(XMLNSC.Attribute)currencyID					= InputRoot.XMLNSC.POSBasket.Header.BasketCurrencyID;
+				SET REF_SalesOrderLine.NS_dfns:Tax.NS_oa:Code 													= CH_VatCode;
+				
+				IF COALESCE(REF_AccountPaymentSale.VoidValue,'')<> '' THEN
+					SET REF_SalesOrderLine.NS_dfns:VoidStatus.NS_oa:Code										= 'VOID ENTRY';
+					SET TS_TimeStamp		= CAST(REF_AccountPaymentSale.VoidDateTime AS TIMESTAMP FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');
+					SET REF_SalesOrderLine.NS_dfns:VoidStatus.NS_oa:EffectiveDateTime							= CAST(TS_TimeStamp AS CHARACTER FORMAT 'yyyy-MM-dd''T''HH:mm:ssZZZ');			
+				END IF;
+			
+				LEAVE ACCPS;
+			END IF;
+			MOVE REF_AccountPaymentSale NEXTSIBLING REPEAT TYPE NAME;
+		--END FOR;
+		END WHILE;
+		RETURN FALSE;
+	END;
+END MODULE;

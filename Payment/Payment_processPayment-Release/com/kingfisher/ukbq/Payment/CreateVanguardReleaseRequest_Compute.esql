@@ -1,0 +1,140 @@
+BROKER SCHEMA com.kingfisher.ukbq.Payment
+PATH com.kingfisher.ukbq.WMBFunctions;
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY 				*
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE, 					*
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>. 			*
+****************************************************************************************************/
+
+/****************************************************************************************************
+* Node Name 	          	: CreateVanguardReleaseRequest											*
+* Interface Id   			:  																		*
+* Interface Name 			: Payment_processPayment-Release										*
+* Message Flow   			: ProcessPayment_Release												*
+* Message Flow Description 	: The primary function of this message flow is to receive canonical from*
+* 							  NotifySalesOrder(for EPOS system) service and translate it into		*
+*							  Vanguard Webservice request Structure, map the reponse to modify input*							  xml and update ODS with Settlement Status and sends the modified 
+*							  input for VGIS call 													*
+* Module Name 				: CreateVanguardChargeRequest_Compute 									*	
+* Description 				: The primary function of this Node is to receive canonical from		*
+* 							  Orchestration flow service and translate it into Vanguard 			*
+*							  Webservice request Structure											*
+*																									*
+* Version 	Date Author 	Author 				Description											*
+* ======= 	========= 		================ 	=================== 								*
+* 0.1 		7-MAR-2013 		Asif Hossain 		The initial version. 								*
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE CreateVanguardReleaseRequest_Compute
+  DECLARE DSN EXTERNAL NAME 'MBODS';
+  CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--Declaring input refernece
+		DECLARE REF_ProcessPayment 		REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessPayment;
+		DECLARE REF_AppArea 			REFERENCE TO REF_ProcessPayment.NS_oa:ApplicationArea;
+		DECLARE REF_Payment				REFERENCE TO REF_ProcessPayment.NS_dfns:DataArea.NS_dfns:Payment;
+		DECLARE REF_PaymentAuth			REFERENCE TO REF_Payment.NS_dfns:PaymentCard.NS_dfns:PaymentAuthorization;
+		DECLARE REF_SalesOrderHeader	REFERENCE TO InputRoot.XMLNSC.NS_dfns:ProcessPayment.NS_dfns:DataArea.NS_dfns:SalesOrder.NS_dfns:SalesOrderHeader;
+		
+		--Declaring variable
+		DECLARE CH_qryStr CHARACTER;
+			
+		--Checking if the call is for release call
+		IF (REF_Payment.NS_dfns:TransactionType ='RELEASE')THEN
+			
+			--Storing the input canonical to Environment
+			DECLARE REF_Canonical REFERENCE TO Environment.InputCanonical;
+			CREATE LASTCHILD OF Environment AS REF_Canonical DOMAIN('XMLNSC') NAME 'InputCanonical';
+			
+			SET REF_Canonical = InputRoot.XMLNSC;
+			
+			--Declaring refrence for Environment
+			DECLARE REF_Evn REFERENCE TO Environment.Common;
+			CREATE FIELD Environment.Common AS REF_Evn;
+			
+		    SET REF_Evn.releaseID			= REF_ProcessPayment.(XMLNSC.Attribute)releaseID;
+			SET REF_Evn.languageCode		= REF_ProcessPayment.(XMLNSC.Attribute)languageCode;
+			SET REF_Evn.CreationDateTime	= REF_AppArea.NS_oa:CreationDateTime;
+			SET REF_Evn.LogicalID			= REF_AppArea.NS_oa:Sender.NS_oa:LogicalID;
+			SET REF_Evn.ComponentID			= REF_AppArea.NS_oa:Sender.NS_oa:ComponentID;
+			
+			--DataBaselookUp to read data from MBCONFIG table
+	        SET Environment.Variables.MBconfig[] 	= SELECT M.CANVAL ,M.CONFIGVALUE 
+	       											FROM Database.MBCONFIG AS M WHERE M.CANVAL LIKE 'PCI_COMMIDEA_%'; 
+			
+			-- Loop thorugh the 'MBCONFIG' tree structure to set some variables which will be used in request structure.
+	 		FOR REF_mbConfig AS Environment.Variables.MBconfig[]  DO
+	           	CASE REF_mbConfig.CANVAL
+	           	WHEN 'PCI_COMMIDEA_WS_SYSTEMID'		THEN
+	           		SET Environment.SystemID  	= REF_mbConfig.CONFIGVALUE;
+	           	WHEN 'PCI_COMMIDEA_WS_SYSTEMGUID'	THEN		
+					SET Environment.SystemGUID 	= REF_mbConfig.CONFIGVALUE;
+	           	WHEN 'PCI_COMMIDEA_WS_PASSCODE'		THEN	
+	 				SET Environment.Passcode  	= REF_mbConfig.CONFIGVALUE; 
+	 			WHEN 'PCI_COMMIDEA_WS_DESTINATION_SAPCODIY'  THEN    
+                	SET Environment.SAPCOURL 	= REF_mbConfig.CONFIGVALUE;
+            	WHEN 'PCI_COMMIDEA_WS_DESTINATION_EPOS'  THEN    
+                	SET Environment.EPOSURL 	= REF_mbConfig.CONFIGVALUE;
+				END CASE;
+			END FOR;
+		    
+		    --Setting WS url in the SOAP Request Node
+		    SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = Environment.EPOSURL;
+		    
+		    --Calling to create Vanguard Request Structure
+		    CALL CreateReleaseRequestStructure(REF_Payment,REF_PaymentAuth);
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;	
+		END IF;
+		
+	END;
+
+	/*****************************************************************************************
+	* Procedure Name	: CreateReleaseRequestStructure										 *
+	* Input Parameters	: REF_Payment,REF_PaymentAuth										 *
+	* Output Parameters	: None 																 *
+	* Description		: Procedure to Create Request Structure for CommIdea webservice    	 *
+	*					  call																 *
+	* Version 	Date 			Author 				Description                		         *
+	* ======= 	=========== 	=============== 	======================					 *
+	*  0.1   	06-MAR-2013 	Asif Hossain 		The initial version. 					 *
+	*****************************************************************************************/	
+	CREATE PROCEDURE CreateReleaseRequestStructure (IN REF_Payment REFERENCE,IN REF_PaymentAuth REFERENCE)
+	BEGIN
+			SET OutputRoot.XMLNSC.NS_comns:ProcessMsg.(XMLNSC.NamespaceDecl)xmlns:comns = NS_comns;
+			
+			--Declaring refernece for Vangurd Request structure
+		    DECLARE REF_Message 			REFERENCE TO OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message; 
+		    DECLARE REF_Header 				REFERENCE TO REF_Message.NS_comns:ClientHeader;
+		    DECLARE REF_MsgData 			REFERENCE TO REF_Message.NS_comns:MsgData;
+		    DECLARE REF_VGReleaseRequest 	REFERENCE TO REF_MsgData.NS_txn:releaseonholdrequest;
+		    
+		    CREATE FIELD OutputRoot.XMLNSC.NS_comns:ProcessMsg.NS_comns:Message AS REF_Message;
+		    CREATE FIELD REF_Message.NS_comns:ClientHeader 						AS REF_Header;
+			CREATE FIELD REF_Message.NS_comns:MsgData 							AS REF_MsgData;
+			CREATE FIELD REF_MsgData.NS_txn:releaseonholdrequest 				AS REF_VGReleaseRequest;
+		   	
+		   	--Creating the request structure for Vanguard
+		    SET REF_Header.NS_comns:SystemID 									= Environment.SystemID;
+			SET REF_Header.NS_comns:SystemGUID									= Environment.SystemGUID;
+			SET REF_Header.NS_comns:Passcode 									= Environment.Passcode;
+			SET REF_Header.NS_comns:SendAttempt 								= '0';
+			SET REF_Message.NS_comns:MsgType 									= 'RELEASEONHOLDREQUEST';
+			
+			SET REF_VGReleaseRequest.(XMLNSC.NamespaceDecl)xmlns:txn			= NS_txn;
+			SET REF_VGReleaseRequest.NS_txn:authdb								= FIELDVALUE(REF_PaymentAuth.NS_dfns:AuthorizationDatabaseID);
+			
+			--Changes advised by Ashwin
+			SET REF_VGReleaseRequest.NS_txn:mktransactionid						= REF_PaymentAuth.NS_dfns:ExternalTransactionID;
+			
+			--Calling to create Vanguard Request Structure
+			CALL CreateCDATAMessage(REF_MsgData,InputRoot);
+			
+			--To delete the extra elements from MsgData
+			SET REF_MsgData.NS_txn:releaseonholdrequest 						= NULL;
+	END;
+
+END MODULE;

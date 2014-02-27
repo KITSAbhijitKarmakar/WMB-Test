@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+  Author: Adeline Trouvé
+  Revision:    1.0
+  Date:         11 Oct 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+--><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:ibmSchExtn="http://www.ibm.com/schema/extensions" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:include schemaLocation="../Nouns/Supplier.xsd"/>
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../../WMBOAGISCanonicals/org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:element ibmSchExtn:docRoot="true" name="SynchroniseSupplier" type="SynchroniseSupplierType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">SyncSupplerPartyMaster is used to Synchronise SupplierPartyMaster data across systems. Using the Sync indicates that the sender of the Sync is the owner of the date and the receiver of the Sync is a sub-system that must accept the data as provided.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="SynchroniseSupplierType">
+		<xsd:complexContent>
+			<xsd:extension base="oa:BusinessObjectDocumentType">
+				<xsd:sequence>
+					<xsd:element name="DataArea" type="SynchroniseSupplierDataAreaType">
+						<xsd:annotation>
+							<xsd:documentation source="http://www.openapplications.org/oagis/9">Is where the information that the BOD message carries is provided, in this case SyncSupplierPartyMaster. The information consists of a Verb and one or more Nouns. The verb (Sync) indicates the action to be performed on the Noun (SupplierPartyMaster).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:complexType name="SynchroniseSupplierDataAreaType">
+		<xsd:sequence>
+			<xsd:element name="Synchronise" type="oa:SyncType"/>
+			<xsd:element maxOccurs="unbounded" ref="Supplier"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

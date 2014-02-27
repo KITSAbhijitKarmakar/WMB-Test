@@ -1,0 +1,545 @@
+BROKER SCHEMA com.kingfisher.ukbq.Product
+PATH com.kingfisher.ukbq.WMBFunctions;
+/**********************************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS 				  *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY								  *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,									  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             				  *                           	
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* Node Name      :	Map_Product_Canonical_RP								  	  			  	                  	  *									
+* Interface Id 	 :																				  			  	      *
+* Interface Name :	Product_SynchroniseProduct                                                           			  *															
+* Message Flow 	 : 	Product_synchroniseProduct_RP_Sub												          		  *
+* Message Flow 																						  			      *
+* Description 	 : 	The Product Canonical is mapped to the required RP table structures through the Compute node.     *
+*																													  * 														  	  				
+* Module Name  	 :	Product_synchroniseProduct_RP_Sub_Compute     			  		      							  *            				  	  
+* Description  	 :	The Product Canonical is mapped to the required RP tables(INTERFACE_SKU,INTERFACE_SKU_SKU_CONFIG, *   														  			                                         
+*					INTERFACE_SKU_CONFIG,INTERFACE_SUPPLIER_SKU) through the Compute node.		  					  *																  				  *
+* Version   Date	   		Author				Description                     				 				      *
+* ======= 	=========== 	=========== 		========================================				  			  *
+*  0.1  	31-Mar-2013   	Panchanan Mandal	The initial version.                			  				  	  * 
+*  0.2		27-Jun-2013		Ipsita Sahoo		Functionality added to handle special Character						  *
+*  0.3		20-Oct-2013		Ipsita Sahoo		For INC0126496 and INC013382 of CHG0007096:Functionality added to 	  *
+*												handle special Character & Supplier table to be inserted only  	  	  *
+*												when Supplier ID & Spplier Sku Id is not null						  *
+**********************************************************************************************************************/
+
+CREATE COMPUTE MODULE Product_synchroniseProduct_RP_Sub_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- Call the MappingProductRP() Procedure
+		CALL MappingProductRP();
+		RETURN FALSE;
+	END;
+
+	/***********************************************************************************************************************
+	* Procedure Name	: MappingProductRP() 										 							 		   *
+	* Input Parameters	: None		     																				   *
+	* Output Parameters	: None 																						       *
+	* Description		: The Product Canonical is mapped to the required RP table structures					 		   *
+	*										   	                                                                           *
+	* Version 	Date 			Author 					Description                                                    	   *
+	* ======= 	=========== 	=============== 		================================ 			                       *
+	*  0.1   	31-MAR-2013 	Panchanan Mandal 		The initial version. 						                       *
+	***********************************************************************************************************************/
+	
+	CREATE PROCEDURE MappingProductRP() BEGIN
+		
+		--Declaring Variables
+		DECLARE CH_Blank					CHARACTER;		
+		DECLARE	IN_Key 						INTEGER;
+		DECLARE	CH_ClientId 				CHARACTER;
+		DECLARE	CH_MergeAction 				CHARACTER;
+		DECLARE CH_MergeStatus 				CHARACTER;
+		DECLARE CH_SkuId 					CHARACTER;
+		DECLARE CH_Description 				CHARACTER;
+		DECLARE	CH_Color 					CHARACTER;
+		DECLARE CH_Ean 						CHARACTER;
+		DECLARE CH_SkuSize 					CHARACTER;
+		DECLARE DE_EachValue 				DECIMAL;
+		DECLARE CH_ProductGroup 			CHARACTER;
+		DECLARE DE_EachHeight 				DECIMAL;
+		DECLARE DE_EachWidth 				DECIMAL;
+		DECLARE DE_EachDepth 				DECIMAL;
+		DECLARE DE_EachVolume 				DECIMAL;
+		DECLARE DE_EachWeight 				DECIMAL;
+		DECLARE CH_UserDefType_1 			CHARACTER;
+		DECLARE CH_UserDefType_2 			CHARACTER;
+		DECLARE CH_UserDefType_3 			CHARACTER;
+		DECLARE CH_UserDefType_5 			CHARACTER;
+		DECLARE CH_UserDefType_7 			CHARACTER;
+		DECLARE DE_UserDefNum_1 			DECIMAL;
+		DECLARE DE_UserDefNum_2 			DECIMAL;		
+		DECLARE DE_UserDefNum_4 			DECIMAL;
+		DECLARE CH_CommodityCode 			CHARACTER;
+		DECLARE CH_ConfigId 				CHARACTER;		
+		DECLARE DE_TagVolume				DECIMAL;
+		DECLARE IN_EachPerLayer				INTEGER;
+		DECLARE CH_Ratio_1_to_2				CHARACTER;
+		DECLARE CH_Ratio_2_to_3				CHARACTER;
+		DECLARE CH_TrackLevel_1 			CHARACTER;
+		DECLARE CH_TrackLevel_2 			CHARACTER;
+		DECLARE CH_TrackLevel_3 			CHARACTER;
+		DECLARE CH_VolumeAtEach				CHARACTER;	 
+		DECLARE CH_SupplierId				CHARACTER;
+		DECLARE CH_SpplierSkuId				CHARACTER;
+		DECLARE CH_Flag1					CHARACTER;
+		DECLARE CH_Flag2					CHARACTER;
+		DECLARE CH_Flag3					CHARACTER;
+		DECLARE CH_Flag4					CHARACTER;
+		DECLARE CH_Flag5					CHARACTER;
+		DECLARE CH_Sku						CHARACTER;
+		DECLARE CH_SkuSkuConfig1			CHARACTER;
+		DECLARE CH_SkuSkuConfig2			CHARACTER;
+		DECLARE	CH_SkuConfig				CHARACTER;
+		DECLARE CH_SupplierSku				CHARACTER;
+		DECLARE DE_Length 					DECIMAL;
+		DECLARE DE_Width  					DECIMAL;
+		DECLARE DE_Height 					DECIMAL;
+		DECLARE CH_DimensionUnit			CHARACTER;
+		DECLARE DE_PackSizeOrder			DECIMAL;
+		DECLARE DE_PackSizeDelivery			DECIMAL;
+		DECLARE DE_Pack1					DECIMAL;
+		DECLARE DE_Pack2					DECIMAL;
+		DECLARE DE_Pack3					DECIMAL;
+		DECLARE DE_Result					DECIMAL;
+		DECLARE DE_ConFactDeliveryIss		DECIMAL;
+		DECLARE DE_ConFactOrderin			DECIMAL;
+		DECLARE DE_UomLay					DECIMAL;
+		DECLARE DE_ResultDivLayer			DECIMAL;
+		DECLARE IN_ResultDivLayer			INTEGER; 
+		DECLARE CH_FamilyGroup				CHARACTER;
+				
+		--Declaring Input references
+		DECLARE REF_DataArea 				REFERENCE TO InputRoot.XMLNSC.NS_Dfns:SynchroniseProduct.NS_Dfns:DataArea;
+		DECLARE REF_Product 				REFERENCE TO REF_DataArea.NS_Dfns:Product;
+		DECLARE REF_UOMPackage				REFERENCE TO REF_Product.NS_Dfns:UOMPackage;
+		DECLARE REF_Upcid					REFERENCE TO REF_UOMPackage.NS_Oa:UPCID;
+		DECLARE REF_Description				REFERENCE TO REF_Product.NS_Oa:Description;
+		DECLARE REF_Code					REFERENCE TO REF_Product.NS_Dfns:MerchandisingHierarchy.NS_Dfns:Codes.NS_Oa:Code;
+		DECLARE REF_MerchanDescription		REFERENCE TO REF_Product.NS_Dfns:MerchandisingHierarchy.NS_Oa:Description;
+		DECLARE REF_ProdTechInfo			REFERENCE TO REF_Product.NS_Dfns:ProductTechnicalInformation;
+		DECLARE REF_ItemSupplier 			REFERENCE TO REF_Product.NS_Dfns:ItemSupplier;
+		DECLARE REF_Dimensions				REFERENCE TO REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions;
+		
+		SET CH_Blank	= ' ';		
+		--Loop through all UOM and check the type satisfy the below condition					
+			IF REF_Product.NS_Oa:Type IN ('ZTRD', 'ZBOM', 'ZEMP', 'ZSPO', 'ZNSA') THEN
+				UOMPackage1: WHILE LASTMOVE(REF_UOMPackage) DO
+					IF REF_UOMPackage.NS_Dfns:SellingUOMIndicator = 'true' THEN
+						WHILE LASTMOVE(REF_Upcid) DO
+								IF REF_Upcid.(XMLNSC.Attribute)schemeID = 'MAIN' THEN
+									SET CH_Flag1 = 'true';
+									LEAVE UOMPackage1;									
+								END IF;
+							MOVE REF_Upcid NEXTSIBLING REPEAT TYPE NAME;	
+						END WHILE;						
+					END IF;
+					MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;
+					MOVE REF_Upcid 		TO REF_UOMPackage.NS_Oa:UPCID;
+				END WHILE;	
+				
+				MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+				MOVE REF_Upcid 		TO REF_UOMPackage.NS_Oa:UPCID;
+				
+				UOMPackage2: WHILE LASTMOVE(REF_UOMPackage) DO
+					WHILE LASTMOVE(REF_Upcid)  DO
+							IF REF_Upcid.(XMLNSC.Attribute)schemeID = 'MAIN' THEN
+								SET CH_Flag2 = 'true';
+							ELSEIF REF_Upcid.(XMLNSC.Attribute)schemeAgencyID = 'true' THEN
+								SET CH_Flag3 = 'true';	
+							END IF;
+						MOVE REF_Upcid NEXTSIBLING REPEAT TYPE NAME;	
+					END WHILE;
+					MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;
+					MOVE REF_Upcid 		TO REF_UOMPackage.NS_Oa:UPCID;
+				END WHILE;
+			END IF;
+			
+			MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+			MOVE REF_Upcid 		TO REF_UOMPackage.NS_Oa:UPCID;
+			
+		
+		--If the the above conditions satisfy then only do the mapping and insert the data to RP table	
+		IF  CH_Flag1 = 'true' AND CH_Flag2 = 'true' AND CH_Flag3 = 'true' THEN		
+			
+			--Loop through all UOM and Map accordingly taking data from any of the UOM
+			WHILE LASTMOVE(REF_UOMPackage) DO					
+				IF REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator = 'true' THEN					
+					IF REF_Dimensions.NS_Oa:HeightMeasure.(XMLNSC.Attribute)unitCode = 'M' THEN
+						SET DE_EachHeight		= (CAST(REF_Dimensions.NS_Oa:HeightMeasure AS DECIMAL))*100;
+						IF DE_EachHeight > 1 THEN
+							SET CH_FamilyGroup  = 'LONG';
+						END IF;
+					ELSE
+						SET DE_EachHeight		= REF_Dimensions.NS_Oa:HeightMeasure;
+						IF (DE_EachHeight/100) > 1 THEN
+							SET CH_FamilyGroup  = 'LONG';
+						ELSE 
+							SET CH_FamilyGroup  = 'NORMAL';
+						END IF;	
+					END IF;
+									
+					IF REF_Dimensions.NS_Oa:WidthMeasure.(XMLNSC.Attribute)unitCode = 'M' THEN
+						SET DE_EachDepth		= ROUND((CAST(REF_Dimensions.NS_Oa:WidthMeasure AS DECIMAL))*100,2 MODE ROUND_HALF_UP);
+						IF DE_EachDepth > 1 THEN
+							SET CH_FamilyGroup  = 'LONG';
+						END IF;
+					ELSE
+						SET DE_EachDepth		= ROUND(CAST(REF_Dimensions.NS_Oa:WidthMeasure AS DECIMAL),2 MODE ROUND_HALF_UP);
+						IF (DE_EachDepth/100) > 1 THEN
+							SET CH_FamilyGroup  = 'LONG';
+						ELSE 
+							SET CH_FamilyGroup  = 'NORMAL';
+						END IF;						
+					END IF;	
+					
+					IF DE_EachDepth > 9999 THEN
+							SET DE_EachDepth 	= 9999;
+					END IF;
+					
+					IF REF_Dimensions.NS_Oa:LengthMeasure.(XMLNSC.Attribute)unitCode = 'M' THEN
+						SET DE_EachWidth		= ROUND((CAST(REF_Dimensions.NS_Oa:LengthMeasure AS DECIMAL))*100,2 MODE ROUND_HALF_UP);
+						IF DE_EachWidth > 1 THEN
+							SET CH_FamilyGroup  = 'LONG';
+						END IF;
+					ELSE
+						SET DE_EachWidth		= ROUND(CAST(REF_Dimensions.NS_Oa:LengthMeasure AS DECIMAL),2 MODE ROUND_HALF_UP);
+						IF (DE_EachWidth/100) > 1 THEN
+							SET CH_FamilyGroup  = 'LONG';
+						ELSE 
+							SET CH_FamilyGroup  = 'NORMAL';
+						END IF;
+					END IF;	
+					
+					IF DE_EachWidth > 9999 THEN
+							SET DE_EachWidth 	= 9999;
+					END IF;
+					
+					IF REF_Dimensions.NS_Oa:Measure.(XMLNSC.Attribute)unitCode = 'G' THEN
+						SET DE_EachWeight		= ROUND((CAST(REF_Dimensions.NS_Oa:Measure AS DECIMAL))*100,2 MODE ROUND_HALF_UP);
+					ELSE
+						SET DE_EachWeight		= ROUND(CAST(REF_Dimensions.NS_Oa:Measure AS DECIMAL),2 MODE ROUND_HALF_UP);
+					END IF;	
+				END IF;							
+				
+				IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+					SET CH_UserDefType_3		= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Product.NS_Oa:ItemID.NS_Oa:ID) || TRIM(BOTH CH_Blank FROM REF_UOMPackage.NS_Oa:UOMCode));
+				END IF;
+				
+				IF REF_UOMPackage.NS_Dfns:BaseUOMIndicator = 'true' THEN
+					SET CH_CommodityCode		= TRIM (BOTH CH_Blank FROM REF_UOMPackage.NS_Oa:UOMCode);
+				END IF;
+				
+				IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+					SET CH_ConfigId				= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Product.NS_Oa:ItemID.NS_Oa:ID) || TRIM(BOTH CH_Blank FROM REF_UOMPackage.NS_Oa:UOMCode));
+				END IF;
+								
+				SET DE_Length 					= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure AS DECIMAL);
+				SET DE_Width					= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:WidthMeasure AS DECIMAL);
+				SET DE_Height					= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:HeightMeasure AS DECIMAL);
+				SET CH_DimensionUnit			= FIELDVALUE(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions.NS_Oa:LengthMeasure.(XMLNSC.Attribute)unitCode);	
+				
+				IF REF_UOMPackage.NS_Oa:UOMCode <> 'PAL' THEN
+					SET DE_TagVolume				= 1.20;
+				ELSE
+					SET DE_Pack1 = CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);
+					IF CH_DimensionUnit = 'CM' THEN
+						SET DE_TagVolume		= ROUND((DE_Length*DE_Width*DE_Height)/1000000, 2 MODE ROUND_HALF_UP) ;
+					ELSE			
+						SET DE_TagVolume		= ROUND((DE_Length*DE_Width*DE_Height), 2 MODE ROUND_HALF_UP);
+					END IF;
+				END IF;
+				
+				IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+					SET DE_PackSizeOrder		= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);			
+					SET DE_Pack3 = CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);											
+				END IF;
+				
+				IF REF_UOMPackage.NS_Dfns:DeliveryIssueUOMIndicator = 'true' THEN
+					SET DE_PackSizeDelivery		= CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);
+					SET DE_Pack2 = CAST(REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity AS DECIMAL);						
+					IF REF_UOMPackage.NS_Dfns:ConversionFactor.(XMLNSC.Attribute)type = 'NUMERATOR' THEN
+						SET DE_ConFactDeliveryIss = CAST(REF_UOMPackage.NS_Dfns:ConversionFactor AS DECIMAL);
+					END IF;
+				END IF;
+				
+				IF REF_UOMPackage.NS_Dfns:BaseUOMIndicator	= 'true' THEN
+					IF REF_UOMPackage.NS_Dfns:ConversionFactor.(XMLNSC.Attribute)type = 'NUMERATOR' THEN
+						SET DE_ConFactOrderin	= CAST(REF_UOMPackage.NS_Dfns:ConversionFactor AS DECIMAL);
+					END IF;
+				END IF;
+							
+				IF REF_UOMPackage.NS_Oa:UOMCode = 'LAY' THEN
+					SET DE_UomLay				= REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:CapacityPerPackageQuantity;
+				END IF;							
+				MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;
+				MOVE REF_Dimensions	TO REF_UOMPackage.NS_Oa:UnitPackaging.NS_Oa:Dimensions;
+			END WHILE;
+			MOVE REF_UOMPackage TO REF_Product.NS_Dfns:UOMPackage;
+			MOVE REF_Upcid 		TO REF_UOMPackage.NS_Oa:UPCID;
+				
+			-- Mapping without UOM				
+			SET CH_ClientId 					= 'BANDQ';
+			SET CH_MergeAction 					= 'A';
+			SET CH_MergeStatus 					= 'Pending';
+			Descript: WHILE LASTMOVE(REF_Description)  DO
+				IF REF_Description.(XMLNSC.Attribute)type = 'CUSTOMER' AND REF_Description.(XMLNSC.Attribute)languageID = 'EN' THEN
+					SET CH_Description			= FUNC_DBSpecialCharHandling(TRIM (BOTH CH_Blank FROM REF_Description));
+					IF(LENGTH(CH_Description) > 40) THEN
+						SET CH_Description = SUBSTRING(CH_Description FROM 1 FOR 40);
+					END IF;
+					LEAVE Descript;
+				END IF;
+				MOVE REF_Description NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;
+			Color: WHILE LASTMOVE( REF_ProdTechInfo) DO
+				IF REF_ProdTechInfo.NS_Oa:NameValue.(XMLNSC.Attribute)name = 'COLOUR' THEN
+					SET CH_Color				= FUNC_DBSpecialCharHandling(SUBSTRING(TRIM(BOTH CH_Blank FROM REF_ProdTechInfo.NS_Oa:NameValue) FROM 1 FOR 20));				
+					LEAVE Color;
+				END IF;
+				MOVE REF_ProdTechInfo NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;
+			-- CHG0007096 : Spcl Char handling Start	
+			SET CH_SkuSize						= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM FIELDVALUE(REF_Product.NS_Dfns:Size.(XMLNSC.Attribute)type)));
+			-- CHG0007096 : Spcl Char handling End
+			IF(LENGTH(CH_SkuSize) > 10) THEN
+				SET CH_SkuSize = SUBSTRING(CH_SkuSize FROM 1 FOR 10);
+			END IF;
+						
+			Code: WHILE LASTMOVE(REF_Code) DO
+				IF REF_Code.(XMLNSC.Attribute)name = 'BUYER' THEN
+					SET CH_ProductGroup			= TRIM(BOTH CH_Blank FROM REF_Code);					
+				END IF;
+				
+				IF REF_Code.(XMLNSC.Attribute)name = 'MERCHANDISINGCATEGORY' THEN
+					SET DE_UserDefNum_1			= CAST(SUBSTRING(REF_Code FROM 1 FOR 6) AS DECIMAL);
+				END IF;							
+				MOVE REF_Code NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;			
+				
+			WHILE LASTMOVE(REF_MerchanDescription) DO
+				IF REF_MerchanDescription.(XMLNSC.Attribute)type = 'BUYERDESCRIPTION' THEN
+					SET CH_UserDefType_7			= FUNC_DBSpecialCharHandling(TRIM (BOTH CH_Blank FROM REF_MerchanDescription));
+				END IF;
+				
+				IF REF_MerchanDescription.(XMLNSC.Attribute)type = 'MERCHCATEGORYDESCRIPTION' THEN
+					SET CH_UserDefType_5			= FUNC_DBSpecialCharHandling(TRIM (BOTH CH_Blank FROM REF_MerchanDescription));
+				END IF;	
+				IF(LENGTH(CH_UserDefType_5) > 30) THEN
+					SET CH_UserDefType_5 			= SUBSTRING(CH_UserDefType_5 FROM 1 FOR 30);
+				END IF;
+			
+				MOVE REF_MerchanDescription NEXTSIBLING REPEAT TYPE NAME;	
+			END WHILE;
+							
+			SET DE_EachVolume					= ROUND((DE_EachHeight*DE_EachWidth*DE_EachDepth)/1000000,2 MODE ROUND_HALF_UP );				
+			SET CH_UserDefType_1				= REF_Product.NS_Oa:ItemStatus.NS_Oa:Code;
+			
+			--Trim leading zeroes for UserDefType_2 which holds the Article Number.
+			SET CH_UserDefType_2				= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Product.NS_Oa:ItemID.NS_Oa:ID));
+			
+			IF DE_PackSizeDelivery <> 0 THEN
+				IF DE_PackSizeOrder/DE_PackSizeDelivery = 0 THEN
+					SET CH_Ratio_1_to_2			= 1;
+				ELSE
+					SET CH_Ratio_1_to_2			= (DE_PackSizeOrder/DE_PackSizeDelivery);
+					IF CONTAINS(CH_Ratio_1_to_2,'.')THEN 
+						SET CH_Ratio_1_to_2		= 1;
+					END IF;
+				END IF;					
+			ELSE
+				SET CH_Ratio_1_to_2				= 1;
+			END IF;
+							
+			SET CH_TrackLevel_1					= 'IPU';
+			SET CH_TrackLevel_2					= 'OUN';
+			SET CH_TrackLevel_3					= 'PAL';
+			SET CH_VolumeAtEach					= 'Y';	
+			
+			--Loop for ItemSupplier and INTERFACE_SUPPLIER_SKU
+			WHILE LASTMOVE(REF_ItemSupplier) DO
+				SET DE_EachValue				= CAST(TRIM(BOTH CH_Blank FROM REF_ItemSupplier.NS_Dfns:CostPrice.NS_Oa:Amount) AS DECIMAL);
+				IF REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Oa:PartyIDs.NS_Oa:ID <> '' AND REF_ItemSupplier.NS_Oa:SupplierItemID.NS_Oa:ID <> '' THEN
+					
+					IF REF_ItemSupplier.NS_Dfns:PrimaryIndicator = 'true' THEN
+						SET CH_SupplierId		= TRIM(LEADING '0' FROM REF_ItemSupplier.NS_Dfns:SupplierParty.NS_Oa:PartyIDs.NS_Oa:ID);						
+						SET CH_SpplierSkuId		= FUNC_DBSpecialCharHandling(TRIM(BOTH CH_Blank FROM REF_ItemSupplier.NS_Oa:SupplierItemID.NS_Oa:ID));
+					END IF;						
+				END IF;
+				MOVE REF_ItemSupplier NEXTSIBLING REPEAT TYPE NAME;
+			END WHILE;		
+			
+			SET DE_UserDefNum_4					= ROUND(DE_ConFactDeliveryIss/DE_ConFactOrderin, 5 MODE ROUND_HALF_UP);	
+			SET DE_ResultDivLayer				= DE_UomLay/DE_UserDefNum_4;
+			SET IN_ResultDivLayer				= ROUND(DE_ResultDivLayer, 0 MODE ROUND_UP);
+			
+			IF IN_ResultDivLayer > DE_ResultDivLayer THEN			
+				SET IN_EachPerLayer 			= 0;
+			ELSE
+				SET IN_EachPerLayer				= DE_ResultDivLayer;			
+			END IF;
+			
+			-- Mapping without UOM Ends	
+			--Looping for the number of insetion into the table depending on the number of UOM matchs the condition
+			WHILE LASTMOVE(REF_UOMPackage) DO
+				
+				SET CH_Flag4 					= '';
+				SET CH_Flag5 					= '';
+				--Loop through all EAN of each UOM
+				WHILE LASTMOVE(REF_Upcid) DO
+					IF REF_Upcid.(XMLNSC.Attribute)schemeID = 'MAIN'  THEN
+						SET CH_SkuId			= TRIM (BOTH CH_Blank FROM REF_Upcid);
+						SET CH_Ean				= TRIM (BOTH CH_Blank FROM REF_Upcid);
+						SET CH_Flag4			= 'true';	
+					END IF;
+					IF REF_Upcid.(XMLNSC.Attribute)schemeAgencyID = 'true' THEN
+						SET DE_UserDefNum_2		= CAST(TRIM (BOTH CH_Blank FROM REF_Upcid) AS DECIMAL);
+						SET CH_Flag5			= 'true';						
+					END IF;
+					MOVE REF_Upcid NEXTSIBLING REPEAT TYPE NAME;	
+				END WHILE;
+				IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' AND REF_UOMPackage.NS_Oa:UOMCode = 'EA' THEN
+					IF DE_Pack2 <> 0 THEN
+						IF DE_Pack1/DE_Pack2 = 0 THEN
+							SET CH_Ratio_2_to_3		= 1;
+						ELSE
+							SET CH_Ratio_2_to_3		= (DE_Pack1/DE_Pack2);
+							IF CONTAINS(CH_Ratio_2_to_3,'.')THEN 
+								SET CH_Ratio_2_to_3		= 1;
+							END IF;
+						END IF;
+					ELSE
+						SET CH_Ratio_2_to_3			= 1;
+					END IF;								
+				ELSE
+					IF DE_Pack3 <> 0 THEN
+						IF DE_Pack1/DE_Pack3 = 0 THEN
+							SET CH_Ratio_2_to_3		= 1;
+						ELSE
+							SET CH_Ratio_2_to_3		= (DE_Pack1/DE_Pack3);
+							IF CONTAINS(CH_Ratio_2_to_3,'.')THEN 
+								SET CH_Ratio_2_to_3		= 1;
+							END IF;
+						END IF;
+					ELSE
+						SET CH_Ratio_2_to_3			= 1;
+					END IF;
+				END IF;
+				
+				--Conditions for data insertion into the table
+				IF CH_Flag4 = 'true' AND CH_Flag5 = 'true' THEN							
+									
+					----------------------Data Insert into INTERFACE_SKU Table-------------------------------------------------
+					SET CH_Sku = 'INSERT INTO INTERFACE_SKU (KEY,CLIENT_ID,MERGE_ACTION,MERGE_STATUS,SKU_ID,DESCRIPTION,FAMILY_GROUP,COLOUR,EAN,SKU_SIZE,EACH_VALUE,PRODUCT_GROUP,EACH_HEIGHT,EACH_WIDTH,EACH_DEPTH,EACH_VOLUME,EACH_WEIGHT,USER_DEF_TYPE_1,USER_DEF_TYPE_2,USER_DEF_TYPE_3,USER_DEF_TYPE_4,USER_DEF_TYPE_7,USER_DEF_TYPE_5,USER_DEF_NUM_1,USER_DEF_NUM_4,USER_DEF_NUM_2)
+					VALUES(IF_SKU_PK_Seq.NEXTVAL'
+					||',''' || COALESCE(CH_ClientId,'') ||''''
+					||',''' || COALESCE(CH_MergeAction,'') ||''''
+					||',''' || COALESCE(CH_MergeStatus,'') ||''''
+					||',''' || COALESCE(CH_SkuId,'') ||''''
+					||',''' || COALESCE(CH_Description,'') ||''''
+					||',''' || COALESCE(CH_FamilyGroup,'') ||''''
+					||',''' || COALESCE(CH_Color,'') ||''''
+					||',''' || COALESCE(CH_Ean,'') ||''''
+					||',''' || COALESCE(CH_SkuSize,'') ||''''
+					||',''' || COALESCE(CAST(DE_EachValue AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CH_ProductGroup,'') ||''''
+					||',''' || COALESCE(CAST(DE_EachHeight AS CHARACTER),'')||''''
+					||',''' || COALESCE(CAST(DE_EachWidth AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CAST(DE_EachDepth AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CAST(DE_EachVolume AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CAST(DE_EachWeight AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CH_UserDefType_1,'') ||''''
+					||',''' || COALESCE(CH_UserDefType_2,'') ||''''
+					||',''' || COALESCE(CH_UserDefType_3,'') ||''''
+					||',''' || COALESCE(CH_CommodityCode,'') ||''''
+					||',''' || COALESCE(CH_UserDefType_7,'') ||''''
+					||',''' || COALESCE(CH_UserDefType_5,'') ||''''
+					||',''' || COALESCE(CAST(DE_UserDefNum_1 AS CHARACTER),'') ||''''				
+					||',''' || COALESCE(CAST(DE_UserDefNum_4	AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CAST(DE_UserDefNum_2	AS CHARACTER),'') ||''''							
+					||')'
+					||'';
+					PASSTHRU (CH_Sku);		
+					
+					------------------------1st Data Insert into INTERFACE_SKU_SKU_CONFIG Table-----------------------
+					IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+						SET CH_ConfigId					= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Product.NS_Oa:ItemID.NS_Oa:ID)) || TRIM(BOTH CH_Blank FROM REF_UOMPackage.NS_Oa:UOMCode);
+					END IF;
+					
+					SET CH_SkuSkuConfig1 = 'INSERT INTO INTERFACE_SKU_SKU_CONFIG (KEY,CLIENT_ID,MERGE_ACTION,MERGE_STATUS,SKU_ID,CONFIG_ID)
+					VALUES(IF_SSC_PK_Seq.NEXTVAL'
+					||',''' || COALESCE(CH_ClientId,'') ||''''
+					||',''' || COALESCE(CH_MergeAction,'') ||''''
+					||',''' || COALESCE(CH_MergeStatus,'') ||''''
+					||',''' || COALESCE(CH_SkuId,'') ||''''
+					||',''' || COALESCE(CH_ConfigId,'') ||''''				
+					||')'
+					||'';
+					PASSTHRU (CH_SkuSkuConfig1);		
+					
+					------------------------2nd Data Insert into INTERFACE_SKU_SKU_CONFIG Table-----------------------
+									
+					SET CH_SkuSkuConfig2 = 'INSERT INTO INTERFACE_SKU_SKU_CONFIG (KEY,CLIENT_ID,MERGE_ACTION,MERGE_STATUS,SKU_ID,CONFIG_ID)
+					VALUES(IF_SSC_PK_Seq.NEXTVAL'
+					||',''' || COALESCE(CH_ClientId,'') ||''''
+					||',''' || COALESCE(CH_MergeAction,'') ||''''
+					||',''' || COALESCE(CH_MergeStatus,'') ||''''
+					||',''' || COALESCE(CH_SkuId,'') ||''''
+					||',''DUMMY'''				
+					||')'
+					||'';
+					PASSTHRU (CH_SkuSkuConfig2) ;
+					
+					---------------------Data Insert into INTERFACE_SKU_CONFIG Table----------------------------------------------------------
+					IF REF_UOMPackage.NS_Dfns:OrderingUOMIndicator = 'true' THEN
+						SET CH_ConfigId					= TRIM(LEADING '0' FROM TRIM(BOTH CH_Blank FROM REF_Product.NS_Oa:ItemID.NS_Oa:ID)) || TRIM(BOTH CH_Blank FROM REF_UOMPackage.NS_Oa:UOMCode);
+					END IF;		
+					
+					SET CH_SkuConfig = 'INSERT INTO INTERFACE_SKU_CONFIG (KEY,CLIENT_ID,MERGE_ACTION,MERGE_STATUS,CONFIG_ID,TAG_VOLUME,EACH_PER_LAYER,RATIO_1_to_2,RATIO_2_to_3,TRACK_LEVEL_1,TRACK_LEVEL_2,TRACK_LEVEL_3,Volume_At_Each)
+					VALUES(IF_SKU_Config_PK_Seq.NEXTVAL'
+					||',''' || COALESCE(CH_ClientId,'') ||''''
+					||',''' || COALESCE(CH_MergeAction,'') ||''''
+					||',''' || COALESCE(CH_MergeStatus,'') ||''''
+					||',''' || COALESCE(CH_ConfigId,'') ||''''
+					||',''' || COALESCE(CAST(DE_TagVolume AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CAST(IN_EachPerLayer AS CHARACTER),'') ||''''
+					||',''' || COALESCE(CH_Ratio_1_to_2,'1') ||''''
+					||',''' || COALESCE(CH_Ratio_2_to_3,'1') ||''''
+					||',''' || COALESCE(CH_TrackLevel_1,'') ||''''
+					||',''' || COALESCE(CH_TrackLevel_2,'') ||''''
+					||',''' || COALESCE(CH_TrackLevel_3,'') ||''''
+					||',''' || COALESCE(CH_VolumeAtEach,'') ||''''
+					||')'
+					||'';
+					PASSTHRU (CH_SkuConfig);
+					
+					--------------------Data Insert into INTERFACE_SUPPLIER_SKU Table---------------------------------------------------------
+					SET CH_SupplierSku = 'INSERT INTO INTERFACE_SUPPLIER_SKU (KEY,CLIENT_ID,MERGE_ACTION,MERGE_STATUS,SKU_ID,SUPPLIER_ID,SUPPLIER_SKU_ID)
+					VALUES(IF_SSC_PK_SEQ.NEXTVAL'
+					||',''' || COALESCE(CH_ClientId,'') ||''''
+					||',''' || COALESCE(CH_MergeAction,'') ||''''
+					||',''' || COALESCE(CH_MergeStatus,'') ||''''
+					||',''' || COALESCE(CH_SkuId,'') ||''''
+					||',''' || COALESCE(CH_SupplierId,'') ||''''
+					||',''' || COALESCE(CH_SpplierSkuId,'') ||''''
+					||')'
+					||'';
+					
+					-- CHG0007096 : Supplier table to be inserted only when Supplier ID & Spplier Sku Id is not null Start	
+					IF(COALESCE(CH_SpplierSkuId,'') <> '' AND COALESCE(CH_SupplierId,'') <> '')  THEN
+						PASSTHRU (CH_SupplierSku);	
+					END IF;
+					-- CHG0007096 : Supplier table to be inserted only when Supplier ID & Spplier Sku Id is not null End
+											
+														
+				END IF;
+				MOVE REF_UOMPackage NEXTSIBLING REPEAT TYPE NAME;
+				MOVE REF_Upcid 		TO REF_UOMPackage.NS_Oa:UPCID;
+			END WHILE;				
+		END IF;		
+	END;
+END MODULE;

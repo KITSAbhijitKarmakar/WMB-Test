@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFilter.msgnode="ComIbmFilter.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:com_kingfisher_ukbq_SalesOrder_UpdateCache.subflow="com/kingfisher/ukbq/SalesOrder/UpdateCache.subflow" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
+    xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/SalesOrder/SalesOrder_synchroniseSalesOrder_CDB_Sub.msgflow"
+    nsPrefix="com_kingfisher_ukbq_SalesOrder_SalesOrder_synchroniseSalesOrder_CDB_Sub.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.DSN" name="DSN" defaultValueLiteral="MBREPOS">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.IBODS" name="IBODS" lowerBound="1" defaultValueLiteral="MBODS">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="SalesOrder_synchroniseSalesOrder_CDB_Sub" bundleName="com/kingfisher/ukbq/SalesOrder/SalesOrder_synchroniseSalesOrder_CDB_Sub" pluginId="SalesOrder_synchroniseSalesOrder_POSBasket_CDB"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/SalesOrder_synchroniseSalesOrder_POSBasket_CDB/icons/full/obj16/SalesOrder_synchroniseSalesOrder_CDB_Sub.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/SalesOrder_synchroniseSalesOrder_POSBasket_CDB/icons/full/obj30/SalesOrder_synchroniseSalesOrder_CDB_Sub.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="69,357" queueName="SALESORDER.CDB.TRANSIT.WMB" messageDomainProperty="XMLNSC" validateTiming="immediate" transactionMode="automatic" logicalOrder="false">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_SalesOrder_CDB"/>
+        <shortDescription xmi:type="utility:ConstantString" string="WMB_MQInput_SalesOrder_CDB Node accepts SynchroniseSalesOrder canonical message routed via Orchestrator flow."/>
+        <longDescription xmi:type="utility:ConstantString" string="WMB_MQInput_SalesOrder_CDB Node accepts SynchroniseSalesOrder canonical message routed via Orchestrator flow."/>
+        <nsMappingTable nsPrefix="tns" namespace="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <nsMappingTable nsPrefix="Syn" namespace="http://www.kingfisher.com/oagis/9"/>
+        <nsMappingTable nsPrefix="App" namespace="http://www.openapplications.org/oagis/9"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="WMB_MQInput_SalesOrder_CDB.transaction.Start" eventIdentity="WMB_MQInput_SalesOrder_CDB.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseSalesOrder/Syn:DataArea/Syn:SalesOrder/Syn:SalesOrderHeader/Syn:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseSalesOrder/Syn:DataArea/Syn:SalesOrder/Syn:SalesOrderHeader/Syn:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_SalesOrder_CDB.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Transaction end" eventSourceName="WMB_MQInput_SalesOrder_CDB.transaction.End" eventIdentity="WMB_MQInput_SalesOrder_CDB.TransactionEnd">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseSalesOrder/Syn:DataArea/Syn:SalesOrder/Syn:SalesOrderHeader/Syn:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseSalesOrder/Syn:DataArea/Syn:SalesOrder/Syn:SalesOrderHeader/Syn:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_SalesOrder_CDB.TransactionEnd"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+        <monitorEvents eventSourceDescription="Catch terminal" eventSourceName="WMB_MQInput_SalesOrder_CDB.terminal.catch" eventIdentity="WMB_MQInput_SalesOrder_CDB.CatchTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <globalTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseSalesOrder/Syn:DataArea/Syn:SalesOrder/Syn:SalesOrderHeader/Syn:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </globalTransactionCorrelator>
+            <parentTransactionCorrelator dataLocation="$Root/XMLNSC/tns:Envelope/tns:Body/Syn:SynchroniseSalesOrder/Syn:DataArea/Syn:SalesOrder/Syn:SalesOrderHeader/Syn:SalesTransaction/App:ID" eventCorrelation="dataLocation">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </parentTransactionCorrelator>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="WMB_MQInput_SalesOrder_CDB.CatchTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true">
+              <nsPrefixMap prefix="tns" nsURI="http://schemas.xmlsoap.org/soap/envelope/"/>
+              <nsPrefixMap prefix="Syn" nsURI="http://www.kingfisher.com/oagis/9"/>
+              <nsPrefixMap prefix="App" nsURI="http://www.openapplications.org/oagis/9"/>
+            </eventFilter>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="596,374" dataSource="CDB" connectDatasourceBeforeFlowStarts="true" computeExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#MapToCDB_Compute.Main" treatWarningsAsErrors="true">
+        <translation xmi:type="utility:ConstantString" string="MapToCDB"/>
+        <shortDescription xmi:type="utility:ConstantString" string="MapToCDB Node processes the canonical to insert requisite data into the CDB table, RJTILLTXLD."/>
+        <longDescription xmi:type="utility:ConstantString" string="MapToCDB Node processes the canonical to insert requisite data into the CDB table, RJTILLTXLD."/>
+      </nodes>
+      <nodes xmi:type="ComIbmFilter.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="440,362" filterExpression="esql://routine/com.kingfisher.ukbq.SalesOrder#SynchroniseSalesOrder_CDB_Filter.Main">
+        <translation xmi:type="utility:ConstantString" string="ProcessMessageFilter"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ProcessMessageFilter Node filters out messages which are not meant for further processing."/>
+        <longDescription xmi:type="utility:ConstantString" string="ProcessMessageFilter Node filters out messages which are not meant for further processing. Routes other messages for further processing."/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="306,358">
+        <translation xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node extracts SOAP header from the incoming message."/>
+        <longDescription xmi:type="utility:ConstantString" string="ExtractSOAPEnvelope Node extracts SOAP header from the incoming message."/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="551,290">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+        <shortDescription xmi:type="utility:ConstantString" string="ErrorHandler captures the error in the flow"/>
+        <longDescription xmi:type="utility:ConstantString" string="ErrorHandler captures the error in the flow"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="80,230" queueName="SALESORDER.CDB.CACHE.LOCAL" messageDomainProperty="XMLNSC" transactionMode="automatic">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_CDB_CacheRefresh"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_SalesOrder_UpdateCache.subflow:FCMComposite_1" xmi:id="FCMComposite_1_7" location="447,230">
+        <translation xmi:type="utility:ConstantString" string="UpdateCache"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.true" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.DSN">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.DSN" bundleName="com/kingfisher/ukbq/SalesOrder/SalesOrder_synchroniseSalesOrder_CDB_Sub" pluginId="SalesOrder_synchroniseSalesOrder_POSBasket_CDB"/>
+        <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.IBODS">
+          <propertyName xmi:type="utility:TranslatableString" key="Property.IBODS" bundleName="com/kingfisher/ukbq/SalesOrder/SalesOrder_synchroniseSalesOrder_CDB_Sub" pluginId="SalesOrder_synchroniseSalesOrder_POSBasket_CDB"/>
+        </propertyDescriptor>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard>
+      <stickyNote location="90,23">
+        <body xmi:type="utility:ConstantString" string="Name           : SalesOrder_synchroniseSalesOrder_CDB_Sub&#xA;Author         : Asif Hossain&#xA;Date            : 19 APR 2013&#xA;&#xA;Description  : 1. WMB_MQInput_SalesOrder_CDB Node accepts SynchroniseSalesOrder canonical message routed via Orchestrator flow.&#xA;                      2. ExtractSOAPEnvelope Node extracts SOAP header from the incoming message.&#xA;                      3. ProcessMessageFilter Node filters out messages which are not meant for further processing. &#xA;                          Routes other messages for further processing.&#xA;                      4. MapToCDB Node processes the canonical to insert requisite data into the CDB table, RJTILLTXLD."/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

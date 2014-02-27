@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- edited with XMLSpy v2012 (http://www.altova.com) by A Patil (Kingfisher Information Technology Services UK Ltd) --><!--
+
+  Author: Anand Patil
+  Revision:    1.0
+  Date:         06 Jan 2012
+  Copyright 2012, All Rights Reserved 
+  	
+  Copyright (C) Kingfisher Group PLC. All Rights Reserved.
+  --><xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://www.kingfisher.com/oagis/9" xmlns="http://www.kingfisher.com/oagis/9" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:import namespace="http://www.openapplications.org/oagis/9" schemaLocation="../../../../org_openapplications_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/Components.xsd"/>
+	<xsd:include schemaLocation="../../../../com_kingfisher_platform/1_2_1/Common/OAGi/Components/PIMComponents.xsd"/>
+	<xsd:element name="ProductRanging" type="ProductRangingType"/>
+	<xsd:complexType name="RangingItemType">
+		<xsd:annotation>
+			<xsd:documentation source="http://www.openapplications.org/oagis/9">Represents any unique purchased part or manufactured product.  Product, as used here, refers to the basic information about an Product, including its attributes, cost, and locations.  It does not include Product quantities.  </xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexContent>
+			<xsd:extension base="ProductItemType">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="Content"/>
+					<xsd:element minOccurs="0" ref="ProductSellingQuantity"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductSellingStatus"/>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" ref="ProductBrandChannelExclusion"/>
+					<xsd:element minOccurs="0" ref="ProductNonDeliveryRegion"/>
+				</xsd:sequence>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:element name="RangingItem" type="RangingItemType"/>
+	<xsd:complexType name="ProductRangingType">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="RangingItem"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" ref="SellingHierarchy"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>
