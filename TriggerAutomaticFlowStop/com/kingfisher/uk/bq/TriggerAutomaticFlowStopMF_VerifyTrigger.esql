@@ -1,0 +1,34 @@
+BROKER SCHEMA com.kingfisher.uk.bq
+
+
+CREATE COMPUTE MODULE TriggerAutomaticFlowStopMF_VerifyTrigger
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		DECLARE executeStatus INTEGER;		
+		CALL CallSTEPSubscriptionScript( ) into executeStatus;
+		
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+	CREATE FUNCTION  CallSTEPSubscriptionScript( ) 
+	RETURNS INTEGER	
+ 	LANGUAGE JAVA 
+ 	EXTERNAL NAME "com.kingfisher.uk.bq.TriggerAutomaticFlowStopMF_ProcessMessage.CallSTEPSubscriptionScript";
+ 
+END MODULE;

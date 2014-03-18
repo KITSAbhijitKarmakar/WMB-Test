@@ -1,0 +1,79 @@
+
+
+BROKER SCHEMA com.kingfisher.ukbq.Email
+
+
+CREATE COMPUTE MODULE ProcessEmailRequets_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		--DECLARE REF_INEmail REFERENCE TO InputRoot.XMLNSC.EMAILSTRING.EMAIL;
+		--DECLARE REF_INEmail REFERENCE TO InputRoot.XMLNSC.EMAIL;
+
+		DECLARE CH_ToEmailConfig CHARACTER;
+		DECLARE CH_ToEmailAddress CHARACTER;
+		DECLARE CH_FromEmailConfig CHARACTER;
+		DECLARE CH_FromEmailAddress CHARACTER;
+		DECLARE CH_SmtpHostConig CHARACTER;
+		DECLARE CH_SmtpHost CHARACTER;
+		DECLARE CH_Subject CHARACTER;
+		DECLARE CH_Priority CHARACTER;
+		DECLARE CH_Signature CHARACTER;
+		DECLARE CH_CC CHARACTER;
+		DECLARE CH_EmailBody CHARACTER;
+		DECLARE CH_Temp CHARACTER;
+		DECLARE CH_ToEmailAddtmp CHARACTER;
+		DECLARE CH_EmailAttachmentContent CHARACTER;
+		-- SET CH_ToEmailConfig = REF_INEmail.TO;
+		-- SET CH_FromEmailConfig = REF_INEmail.FROM;
+		-- SET CH_SmtpHostConig = REF_INEmail.SMTPHOST;
+		-- SET CH_Subject = REF_INEmail.BODY;
+		-- SET CH_Priority = REF_INEmail.PRIORITY;
+		-- SET CH_Signature = REF_INEmail.SIGNATURE;
+		-- SET CH_CC = REF_INEmail.CC;
+		-- SET CH_EmailBody = REF_INEmail.BODY;
+		SET CH_EmailBody ='This is test mail body,please dont mind<eof>';
+		SET CH_EmailAttachmentContent ='ulbul chal kaaj......IB ta je kobe jabe ke jane.';
+		-- IF CONTAINS (CH_ToEmailConfig,';') THEN
+		--
+		-- WHILE COALESCE(CH_ToEmailConfig,'') <> '' DO
+		-- IF CONTAINS (CH_ToEmailConfig,';') THEN
+		-- SET CH_Temp = SUBSTRING(CH_ToEmailConfig BEFORE ';');
+		-- ELSE
+		-- SET CH_Temp = CH_ToEmailConfig;
+		-- END IF;
+		-- SET CH_ToEmailAddtmp = THE(SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL= CH_Temp);
+		--
+		-- IF COALESCE(CH_ToEmailAddress,'') <> '' THEN
+		-- SET CH_ToEmailAddress = COALESCE(CH_ToEmailAddress,'')||';'||COALESCE(CH_ToEmailAddtmp,'');
+		-- ELSE
+		-- SET CH_ToEmailAddress = CH_ToEmailAddtmp;
+		-- END IF;
+		-- SET CH_ToEmailConfig = SUBSTRING(CH_ToEmailConfig AFTER';');
+		-- END WHILE;
+		-- ELSE
+		-- SET CH_ToEmailAddress = THE(SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL= CH_ToEmailConfig);
+		-- END IF;
+		--
+		-- SET CH_FromEmailAddress = THE(SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL= CH_FromEmailConfig);
+		-- SET CH_SmtpHost = THE(SELECT ITEM M.CONFIGVALUE FROM Database.MBCONFIG AS M WHERE M.CANVAL= CH_SmtpHostConig);
+		--
+		
+	
+		
+		
+		SET OutputLocalEnvironment.Destination.Email.SMTPServer = 'mailhost.gha.kfplc.com:25';
+		SET OutputLocalEnvironment.Destination.Email.Attachment.Content =CAST(CH_EmailAttachmentContent AS BLOB CCSID 1208);
+		SET OutputLocalEnvironment.Destination.Email.Attachment.ContentType = 'text/plain';
+		SET OutputLocalEnvironment.Destination.Email.Attachment.ContentName = 'baal.txt';
+		SET OutputRoot.EmailOutputHeader.To = 'abhijit.karmakar@kingfisher.com;asif.hossain@kingfisher.com;Shubhojit.Bhattacharya@kingfisher.com;TCSDarwinWMBSupportProduction@kingfisher.com';
+		--SET OutputRoot.EmailOutputHeader.Bcc = 'asif.hossain@kingfisher.com';
+		--SET OutputRoot.EmailOutputHeader.Cc = 'TCSDarwinWMBSupportProduction@kingfisher.com';
+		SET OutputRoot.EmailOutputHeader.From = 'Systems.IntegrationBroker@b-and-q.co.uk';
+		SET OutputRoot.EmailOutputHeader.Subject = 'Test To,CC,Bcc Mail from B&Q WMB-PFTQ Server';
+
+		SET OutputRoot.BLOB.BLOB = CAST(CH_EmailBody AS BLOB CCSID 1208);
+
+		RETURN TRUE;
+	END;
+
+END MODULE;
