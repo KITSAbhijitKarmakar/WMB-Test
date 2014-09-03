@@ -1,0 +1,50 @@
+BROKER SCHEMA com.kingfisher.ukbq
+DECLARE CACHE_AUTOREPLAY_CONFIGDATA SHARED ROW;
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *
+****************************************************************************************************/
+/****************************************************************************************************
+* Node Name : 				CacheRefreshReplay_Compute										         *
+* Interface Id : 			TBD 																	 *
+* Interface Name :			CacheRefrsh_AutoReplay 										 			 *
+* Message Flow : 			CacheRefreshReplay.subflow												 *
+* Message FlowDescription : The is to refresh & encache the configuration data from MBREPOS database *
+*                           for the technical service AutomaticReplayTechnicalService                *
+* Version 		Date 				Author 							Description                      *              
+* ======= 	=========== 		=========== 		========================================         *
+* 1.00 		04-July-2014	 	Abhijit Karmakar 	The initial version.                    		 *
+****************************************************************************************************/
+CREATE COMPUTE MODULE CacheRefreshReplay_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE CH_TableName CHARACTER;
+		DECLARE REF_TabName REFERENCE TO InputRoot.XMLNSC.CACHE_REFRESH.TABLE;
+		
+			WHILE LASTMOVE(REF_TabName) DO
+				
+				SET CH_TableName = REF_TabName.NAME;				
+				SET CACHE_AUTOREPLAY_CONFIGDATA.{REF_TabName.NAME}[] = PASSTHRU('SELECT * FROM '||CH_TableName);
+				
+				MOVE REF_TabName NEXTSIBLING; 
+				
+			END WHILE;
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

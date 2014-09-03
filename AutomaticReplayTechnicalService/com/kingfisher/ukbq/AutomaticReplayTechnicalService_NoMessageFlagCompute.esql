@@ -1,0 +1,29 @@
+BROKER SCHEMA com.kingfisher.ukbq
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *
+****************************************************************************************************/
+/****************************************************************************************************
+* Node Name : 				NoMessageFlagCompute										                     *
+* Interface Id : 			TBD 																	 *
+* Interface Name :			AutomaticReplayTechnicalService 										 *
+* Message Flow : 			AutomaticReplayTechnicalService.msgflow									 *
+* Message FlowDescription : The primary function of this message flow is to automatically tigger  	 *
+                           	to get messages from predefined backout queue(configured in DB) and put  *
+                           	it to it's original destination.										 *
+*                                                                                                    *
+* Version 		Date 				Author 							Description                      *              
+* ======= 	=========== 		=========== 		========================================         *
+* 1.00 		04-July-2014	 	Abhijit Karmakar 	The initial version.                    		 *
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE AutomaticReplayTechnicalService_NoMessageFlagCompute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET Environment.Control.Flag = FALSE;
+		RETURN TRUE;
+	END;
+	
+END MODULE;

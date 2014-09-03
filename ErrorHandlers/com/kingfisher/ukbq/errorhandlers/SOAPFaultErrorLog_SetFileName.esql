@@ -1,0 +1,24 @@
+BROKER SCHEMA com.kingfisher.ukbq.errorhandlers
+
+
+CREATE COMPUTE MODULE SOAPFaultErrorLog_SetFileName
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		CALL CopyEntireMessage();
+		
+		DECLARE logFilePath CHARACTER ''; -- Absolute path for the log file location
+		
+		SET logFilePath = '/var/mqsi/log/' || BrokerName;
+		--SET logFilePath = REPLACE(logFilePath, '.', '_'); -- Replace . (dots) with underscores 
+		
+		SET OutputLocalEnvironment.Destination.File.Directory = logFilePath;
+		SET OutputLocalEnvironment.Destination.File.Name      = 'KITS_SOAPFaultErrorLog_' || CAST(CURRENT_DATE AS CHARACTER FORMAT 'ddMMyyyy') || '.txt';
+	
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

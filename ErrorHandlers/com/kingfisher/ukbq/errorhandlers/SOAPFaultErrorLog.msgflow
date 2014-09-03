@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFileOutput.msgnode="ComIbmFileOutput.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/errorhandlers/SOAPFaultErrorLog.msgflow"
+    nsPrefix="com_kingfisher_ukbq_errorhandlers_SOAPFaultErrorLog.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="SOAPFaultErrorLog" bundleName="com/kingfisher/ukbq/errorhandlers/SOAPFaultErrorLog" pluginId="ErrorHandlers"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/ErrorHandlers/icons/full/obj16/SOAPFaultErrorLog.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/ErrorHandlers/icons/full/obj30/SOAPFaultErrorLog.gif"/>
+    <shortDescription xmi:type="utility:ConstantString" string="This node logs the incoming message to a log file and places it at the desired location"/>
+    <longDescription xmi:type="utility:ConstantString" string="This node will log the incoming message to a log file and places it at the desired location"/>
+    <version xmi:type="utility:ConstantString" string="WMB_FileOutput_To_ErrorLog"/>
+    <composition>
+      <nodes xmi:type="ComIbmFileOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="445,263" outputDirectory="/var/mqsi/log" outputFilename="SOAPFaultErrorLog" writeMode="writeInPlace">
+        <translation xmi:type="utility:ConstantString" string="WMB_FileOutput_To_SOAPFaultErrorLog"/>
+        <shortDescription xmi:type="utility:ConstantString" string="This node logs the incoming message to a log file and places it at the desired location. "/>
+        <longDescription xmi:type="utility:ConstantString" string="This node logs the incoming message to a log file and places it at the desired location. "/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="54,258" queueName="ERRORS.WMB.SOAPFAULT.INPROGRESS.WMB" messageDomainProperty="DFDL" messageTypeProperty="{}:ErrorLog">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_SOAPFaultErrorLog"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Pick up the DFDL formatted data from the staging MQ queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Pick up the DFDL formatted data from the staging MQ queue"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="306,258" computeExpression="esql://routine/com.kingfisher.ukbq.errorhandlers#SOAPFaultErrorLog_SetFileName.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="SetFileName"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="91,19">
+        <body xmi:type="utility:ConstantString" string="Name:   SOAPFaultErrorLog&#xA;&#xA;Author: Chris Russel &amp; Angus Cooke&#xA;&#xA;Date:      27th September 2012&#xA;&#xA;Description: Picks up error log data from MQ staging queue and writes the&#xA;information to the SOAPFaultErrorLog file (KITS_SOAPFaultErrorLog_ddMMyyyy.txt) in &#xA;the directory var/mqsi/log/&lt;BrokerName>"/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

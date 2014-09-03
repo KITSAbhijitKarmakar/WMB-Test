@@ -1,0 +1,54 @@
+BROKER SCHEMA com.kingfisher.uk.bq
+/*
+ * * Version      Date	   		   Author				Description                    							    				*
+	* ======= 	=========== 	=========== 	===========================================================================================================	
+	*  1.00  	16-Feb-2014   Abhijit Karmakar	Initial Design to trigger automatic restart of respective JVM against CryptokiException with HSM system    
+	************************************************************************************
+ */
+
+CREATE COMPUTE MODULE DetectCryptokiExceptionAndAutoEGReloadMF_ProcessMQRFH2
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		DECLARE RELOAD_STATUS INTEGER 0;		
+		DECLARE usrRef REFERENCE TO InputRoot.MQRFH2.usr;
+		IF usrRef.ReplayQueue='GENERIC.RETAILJ.INBOUND.WMB' OR usrRef.ReplayQueue='POSBASKET.RETAILJ.INBOUND.WMB' THEN
+			DECLARE LUNA_FAIL_FLAG BOOLEAN FALSE;			
+			CALL DetectCryptokiException(usrRef.ExceptionList) INTO LUNA_FAIL_FLAG;
+			IF LUNA_FAIL_FLAG = TRUE THEN
+				CALL EGReload('RETLPOSBSKT1') INTO RELOAD_STATUS;
+			END IF;
+		END IF;
+
+		RETURN TRUE;
+	END;
+	
+
+	CREATE FUNCTION DetectCryptokiException(IN InputTree reference) RETURNS BOOLEAN
+	/****************************************************************************
+	* A procedure that will get the details of the last exception from a Exception message
+	*****************************************************************************/
+	BEGIN
+		-- Create a reference to the first child of the exception list
+		DECLARE ptrException reference to InputTree.*[1];
+		DECLARE LUNA_FAIL_FLAG BOOLEAN FALSE; 
+		-- keep looping while the moves to the child of exception list work
+		LOOP_Lable: WHILE LASTMOVE(ptrException) DO
+						-- check error text for LunaCryptokiException
+						IF POSITION('LunaCryptokiException' IN ptrException.Text) > 0 OR POSITION('Syntax Error in RFH2' IN ptrException.Text) > 0 THEN
+							SET LUNA_FAIL_FLAG = TRUE;
+							LEAVE  LOOP_Lable;
+						END IF;
+						-- now move to the last child which should be the next exceptionlist
+						MOVE ptrException LASTCHILD;
+					END WHILE;
+		
+		RETURN LUNA_FAIL_FLAG;
+	END;
+	
+	CREATE FUNCTION  EGReload(IN EGName CHARACTER) 
+	RETURNS INTEGER	
+ 	LANGUAGE JAVA 
+ 	EXTERNAL NAME "com.kingfisher.uk.bq.EGReload.EGReloadbyName";
+ 	
+END MODULE;

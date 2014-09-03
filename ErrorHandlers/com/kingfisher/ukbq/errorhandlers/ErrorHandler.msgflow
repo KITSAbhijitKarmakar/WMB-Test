@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/errorhandlers/ErrorHandler.msgflow"
+    nsPrefix="com_kingfisher_ukbq_errorhandlers_ErrorHandler.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="ErrorHandler" bundleName="com/kingfisher/ukbq/errorhandlers/ErrorHandler" pluginId="ErrorHandlers"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/ErrorHandlers/icons/full/obj16/ErrorHandler.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/ErrorHandlers/icons/full/obj30/ErrorHandler.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="492,277" computeExpression="esql://routine/com.kingfisher.ukbq.errorhandlers#ErrorHandler_FormatErrorLog.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Format_ErrorLog_Message"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="308,273" queueName="ERRORS.WMB.ARCHIVE.WMB" transactionMode="no" persistenceMode="yes" newCorrelId="true">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_SourceMsg"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Send the source message to an archive queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Send the source message to an archive queue"/>
+        <monitorEvents eventSourceDescription="In terminal" eventSourceName="WMB_MQOutput_SourceMsg.terminal.in" eventIdentity="WMB_MQOutput_SourceMsg.InTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent" eventUOW="none">
+            <globalTransactionCorrelator/>
+            <parentTransactionCorrelator/>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="base64Binary"/>
+            <eventName literal="WMB_MQOutput_SourceMsg.InTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true"/>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="172,272" computeExpression="esql://routine/com.kingfisher.ukbq.errorhandlers#ErrorHandler_Format_MQ_Messages.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Format_MQ_Messages"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Format_MQ_Messages"/>
+        <longDescription xmi:type="utility:ConstantString" string="Format_MQ_Messages"/>
+      </nodes>
+      <nodes xmi:type="eflow:FCMSource" xmi:id="InTerminal.Input" location="50,272">
+        <translation xmi:type="utility:TranslatableString" key="InTerminal.WMB_Input_Error" bundleName="com/kingfisher/ukbq/errorhandlers/ErrorHandler" pluginId="ErrorHandlers"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Input received from Catch terminal of the main flow - to be used for Asynchronous flows only"/>
+        <longDescription xmi:type="utility:ConstantString" string="Input received from Catch terminal of the main flow - to be used for Asynchronous flows only"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="648,278" queueName="ERRORS.WMB.ERRORLOG.INPROGRESS.WMB" transactionMode="no" persistenceMode="yes">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_ErrorLog"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Send the DFDL output to a staging MQ queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Send the DFDL output to a staging MQ queue"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_5" sourceNode="InTerminal.Input" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="113,32">
+        <body xmi:type="utility:ConstantString" string="Name:ErrorHandler&#xA;&#xA;Author:  Chris Russell &amp; Angus Cooke&#xA;Date:       24th Septemeber 2012&#xA;&#xA;Description:&#xA;1, Takes InputRoot (and ExceptionList) from Main flow&#xA;2, Puts Tree to MQ (to archive the message - ERRORS.WMB.ARCHIVE) and creates a new CorrelId&#xA;3, Writes details to a staging MQ Queue (ERRORS.WMB.ERRORLOG.INPROGRESS)&#xA;4, Independent message flow 'ErrorLog' picks up details and writes out to ErrorLog File&#xA;5, Support can retreive message data and exception from queue using the correlId printed in the ErrorLog"/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

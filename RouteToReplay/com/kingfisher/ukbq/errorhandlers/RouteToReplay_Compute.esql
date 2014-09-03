@@ -1,0 +1,77 @@
+BROKER SCHEMA com.kingfisher.ukbq.errorhandlers
+
+-- ************************************************************************************
+-- * ESQL for the RouteToReplay message flow
+-- ************************************************************************************
+
+CREATE COMPUTE MODULE RouteToReplay_Format_MQ_Messages
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		CALL CopyEntireMessage();
+
+		DECLARE ReplayQueue CHARACTER 'NotFound';
+		-- Check to see if MQMD header exists (Has this message data originated from an MQ Input source?)
+		IF EXISTS(InputRoot.MQMD[]) THEN
+			--If Yes, then set MQMD.CorrelID to MQMD.MsgID
+			SET OutputRoot.MQMD.CorrelId = OutputRoot.MQMD.MsgId;
+			SET ReplayQueue = OutputRoot.MQMD.SourceQueue;
+
+		ELSE
+			--If No, then create a new correlId
+			DECLARE generatedCorrelationId CHARACTER;
+			SET generatedCorrelationId = SUBSTRING(UUIDASCHAR FROM 1 FOR 24);
+			--Sets other MQ header data
+			CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN ('MQMD');
+
+			SET OutputRoot.MQMD.MsgId = MQMI_NONE;
+			SET OutputRoot.MQMD.MsgType = MQMT_DATAGRAM;
+			SET OutputRoot.MQMD.CodedCharSetId = 1208;
+			SET OutputRoot.MQMD.Format = MQFMT_NONE;
+			SET OutputRoot.MQMD.CorrelId = CAST(generatedCorrelationId AS BLOB CCSID 1208);
+
+		END IF;
+		-- Check that there is an RFH2 present, otherwise create one for output
+		IF (InputRoot.MQRFH2 IS NULL) THEN
+			CALL CommonAddRFH2(OutputRoot);
+		END IF;
+		--Sets some of the Output properties
+		SET OutputRoot.Properties.Persistence = true;
+		SET OutputRoot.Properties.ExpirationTime = -1;
+		-- Sets where and when the error occured plus the replay Queue
+		-- Check to see if this an error from the replay flow itself and indicate this if it was
+		IF (ReplayQueue = 'REPLAY.FLOW.WMB') THEN
+			SET OutputRoot.MQRFH2.usr.ThrownFromReplayFlow = 'true';
+		ELSE
+			SET OutputRoot.MQRFH2.usr.ReplayQueue = ReplayQueue;
+		END IF;
+
+		SET OutputRoot.MQRFH2.usr.Broker.brokerName = BrokerName;
+		SET OutputRoot.MQRFH2.usr.Broker.executionGroupName = ExecutionGroupLabel;
+		SET OutputRoot.MQRFH2.usr.Broker.flowName = MessageFlowLabel;
+		SET OutputRoot.MQRFH2.usr.Broker.TimeStamp = SUBSTRING(CAST(CURRENT_TIMESTAMP AS CHAR) FROM 12 FOR 23);
+		-- Sets other useful diagnostic information
+		SET OutputRoot.MQRFH2.usr.Broker.Environment = Environment;
+		SET OutputRoot.MQRFH2.usr.Broker.LocalEnvironment = InputLocalEnvironment;
+		-- Store the exception list
+		SET OutputRoot.MQRFH2.usr.ExceptionList = InputExceptionList;		
+		
+		RETURN TRUE;
+
+	END;
+	--CopyEntireMessage Procedure
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+
+	CREATE PROCEDURE CommonAddRFH2(IN OutputRoot REFERENCE)
+	BEGIN
+		CREATE NEXTSIBLING OF OutputRoot.MQMD DOMAIN 'MQRFH2';
+		SET OutputRoot.MQMD.Format = MQFMT_RF_HEADER_2;
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Version = MQRFH_VERSION_2;
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Format = MQFMT_STRING;
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)NameValueCCSID = 1208;
+	END;
+	
+
+END MODULE;

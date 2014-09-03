@@ -1,0 +1,141 @@
+BROKER SCHEMA com.kingfisher.ukbq
+
+/****************************************************************************************************
+* COPYRIGHT. <KINGFISHER INFORMATION TECHNOLOGY SERVICES 2012> ALL RIGHTS RESERVED. NO PART OF THIS *
+* SOURCE CODE MAY BE REPRODUCED, STORED IN A RETRIEVAL SYSTEM, OR TRANSMITTED,IN ANY                *
+* FORM BY ANY MEANS, ELECTRONIC, MECHANICAL, PHOTOCOPYING, RECORDING OR OTHERWISE,                  *
+* WITHOUT THE PRIOR WRITTEN PERMISSION OF <KINGFISHER INFORMATION TECHNOLOGY SERVICES>.             *
+****************************************************************************************************/
+/****************************************************************************************************
+* Node Name : 				RoutingTodestination										             *
+* Interface Id : 			TBD 																	 *
+* Interface Name :			AutomaticReplayTechnicalService 										 *
+* Message Flow : 			AutomaticReplayTechnicalService.msgflow									 *
+* Message FlowDescription : The primary function of this message flow is to automatically tigger  	 *
+                           	to get messages from ERRORS.GENERIC.REPLAY queue and put  				 *
+                           	it to it's original destination.										 *
+*                                                                                                    *
+* Version 		Date 				Author 							Description                      *              
+* ======= 	=========== 		=========== 		========================================         *
+* 1.00 		04-July-2014	 	Abhijit Karmakar 	The initial version.                    		 *
+****************************************************************************************************/
+
+CREATE COMPUTE MODULE AutomaticReplayTechnicalService_RoutingTodestination
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		DECLARE isAutoReplayable,isKnownException,isToFilterOut BOOLEAN FALSE;
+		DECLARE ReplayThresholdNotReached  BOOLEAN FALSE;
+		DECLARE ReplayThreshold INTEGER 0;
+		DECLARE ReplayQueueName CHARACTER ;
+
+		SET ReplayQueueName = COALESCE(InputRoot.MQRFH2.usr.ReplayQueue,'NotFound');
+		
+		IF EXISTS(CACHE_AUTOREPLAY_CONFIGDATA.REPLAYCONFIG[]) = FALSE THEN
+			--Atomic block to prevent multiple thread to execute this section simultaneously
+			CACHE_AUTOREPLAY_CONFIGDATA: BEGIN ATOMIC
+				IF EXISTS(CACHE_AUTOREPLAY_CONFIGDATA.REPLAYCONFIG[]) = FALSE THEN
+				SET CACHE_AUTOREPLAY_CONFIGDATA.REPLAYCONFIG[] = (SELECT * FROM Database."MBREPOS"."REPLAYCONFIG");
+				END IF;
+			END ;
+		END IF;	
+		
+		
+		SET OutputRoot = InputRoot;	
+			
+		DECLARE ReplayDetailsRef REFERENCE TO CACHE_AUTOREPLAY_CONFIGDATA.REPLAYCONFIG[1];
+		
+		CALL DoSearchForReplableErrorMessage(InputRoot.MQRFH2.usr.ExceptionList , ReplayDetailsRef, ReplayThreshold ,isKnownException, isToFilterOut);		
+		
+		--There might be some more criteria which could define if a transaction is replable or not and hence this check and more condition can be amended based on requirement
+		IF isToFilterOut = FALSE THEN
+			IF isKnownException AND ReplayQueueName <> 'NotFound' AND ReplayQueueName <> '' THEN
+				SET isAutoReplayable = TRUE;
+			END IF;		
+			
+				
+			IF EXISTS(InputRoot.MQRFH2.usr.ReplayCount[]) AND isAutoReplayable THEN
+				IF InputRoot.MQRFH2.usr.ReplayCount < ReplayThreshold THEN
+					SET ReplayThresholdNotReached = TRUE;
+					SET OutputRoot.MQRFH2.usr.ReplayCount = CAST(InputRoot.MQRFH2.usr.ReplayCount AS INTEGER) + 1 ;				
+				END IF;
+			ELSEIF isAutoReplayable  THEN
+				CREATE FIRSTCHILD OF OutputRoot.MQRFH2.usr  NAME 'ReplayCount' VALUE  1;
+				CREATE NEXTSIBLING OF OutputRoot.MQRFH2.usr.ReplayCount  NAME 'ReplayNote' VALUE  'Blank';			
+				--SET OutputRoot.MQRFH2.usr.ReplayCount = 1;
+				SET ReplayThresholdNotReached = TRUE;
+			END iF;	
+			 
+			IF isAutoReplayable AND ReplayThresholdNotReached  THEN	
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = ReplayQueueName;
+			ELSE
+				SET OutputRoot.MQRFH2.usr.ReplayNote = 'Maximum retry limit exhausted or Unknown Exception until this is configured in database and Cache is refreshed!';
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'ERRORS.WMB.ARCHIVE';
+			END IF;			
+			
+			RETURN TRUE;
+			
+		ELSE
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = 'FILTERS.WMB.ARCHIVE';
+			RETURN TRUE;
+		END IF;	
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+	CREATE PROCEDURE DoSearchForReplableErrorMessage(IN InputTree reference, IN ReplayDetailsRef REFERENCE, INOUT ReplayThreshold INTEGER , INOUT isKnownException BOOLEAN, INOUT isToFilterOut BOOLEAN)
+		/****************************************************************************
+		* A Global procedure that will get the details of the last exception from a message
+		*****************************************************************************/
+		BEGIN
+		-- Create a reference to the first child of the exception list
+		DECLARE ptrException reference to InputTree.*[1];		
+		--keep looping while the moves to the child of exception list work
+		Lable :
+		WHILE LASTMOVE(ReplayDetailsRef) DO
+			WHILE LASTMOVE(ptrException) DO		        
+			        IF ptrException.Number IS NOT NULL THEN				        	
+			        		IF CONTAINS(ptrException.*[<].Text, ReplayDetailsRef.ERROR_TEXT) THEN
+			        			IF ReplayDetailsRef.FILTEROUT_FLAG = 'N' OR ReplayDetailsRef.FILTEROUT_FLAG = '' OR ReplayDetailsRef.FILTEROUT_FLAG IS NULL THEN
+				        			SET ReplayThreshold = ReplayDetailsRef.REPLAY_THRESHOLD;	                
+				                	SET isKnownException = TRUE;
+				                	SET isToFilterOut = FALSE;
+				                	LEAVE Lable;
+			        			ELSE 
+			        				SET isToFilterOut = TRUE;
+			        				LEAVE Lable;
+			        			END IF;		                	
+			        		END IF;			        			
+			        END IF;
+			        -- now move to the last child which should be the next exceptionlist
+			        MOVE ptrException LASTCHILD;
+			END WHILE;
+			
+			IF CONTAINS(ptrException, ReplayDetailsRef.ERROR_TEXT) THEN
+				IF ReplayDetailsRef.FILTEROUT_FLAG = 'N' OR ReplayDetailsRef.FILTEROUT_FLAG = '' OR ReplayDetailsRef.FILTEROUT_FLAG IS NULL THEN
+	    			SET ReplayThreshold = ReplayDetailsRef.REPLAY_THRESHOLD;	                
+	            	SET isKnownException = TRUE;
+	            	LEAVE Lable;
+	            ELSE 
+    				SET isToFilterOut = TRUE;
+    				LEAVE Lable;
+    			END IF;				                	
+    		END IF;
+    					  
+			MOVE ReplayDetailsRef NEXTSIBLING;
+		END WHILE;
+		
+	END;
+END MODULE;

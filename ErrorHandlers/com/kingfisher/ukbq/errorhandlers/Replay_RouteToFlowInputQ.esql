@@ -1,0 +1,22 @@
+BROKER SCHEMA com.kingfisher.ukbq.errorhandlers
+
+CREATE COMPUTE MODULE Replay_RouteToFlowInputQ
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		CALL CopyEntireMessage();
+		
+		-- Remove bits in the RFH2 usr folder we don't need
+		SET OutputRoot.MQRFH2.usr.Broker        = NULL;
+		SET OutputRoot.MQRFH2.usr.ExceptionList = NULL;
+		
+		-- Set the destination Queue from the stored replay Queue
+		SET OutputDestinationList.Destination.MQDestinationList.DestinationData[1].queueName = InputRoot.MQRFH2.usr.ReplayQueue;
+		
+		RETURN TRUE;
+	END;
+	
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

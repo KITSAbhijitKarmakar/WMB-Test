@@ -1,0 +1,318 @@
+BROKER SCHEMA com.kingfisher.ukbq.errorhandlers
+-- ************************************************************************************
+-- * ESQL for the SOAPFaultHandler message flow
+-- ************************************************************************************
+-- * IBM Supplied initially - Tony Cox
+-- * Updated 09/03/2012 - C Russell - Added ErrorLogMessage and getLastExceptionDetails
+-- * Updated 15/01/2013 - Angus Cooke - Added functionality for specific SOAP Fault
+-- *                                    generation.
+-- ************************************************************************************
+-- * Format the SOAP Fault Message
+-- ************************************************************************************
+CREATE COMPUTE MODULE SOAPFaultHandler_SOAPMessage
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Move the Exception list for use in a later Compute node
+		SET OutputExceptionList = InputExceptionList;
+				
+		-- Declaring Refernces--
+		DECLARE REF_ExceptionList	REFERENCE TO InputExceptionList;
+		DECLARE FieldRefOfLastChild REFERENCE TO REF_ExceptionList;
+		
+		-- Declaring Variables --
+		DECLARE Service_Error_Code CHARACTER;
+		DECLARE Service_Error_Desc CHARACTER;
+		DECLARE messageText        CHARACTER;	
+		
+        DECLARE messageNumber INTEGER;
+        DECLARE Index         INTEGER 1;
+        DECLARE ArrIndex      INTEGER 0;
+        DECLARE FaultIndex    INTEGER 1;
+        
+        DECLARE dbErrorLookup	 BOOLEAN FALSE;
+        DECLARE userException    BOOLEAN FALSE;
+        DECLARE parserException  BOOLEAN FALSE;
+        DECLARE timeoutException BOOLEAN FALSE;	
+
+		-- Calling procedure to get the last child details of exceptionList -- 
+		CALL getLastExceptionDetail(REF_ExceptionList, messageNumber, messageText, FieldRefOfLastChild);
+					
+		-- Checking for Validation Error -- 	
+		IF FIELDNAME(FieldRefOfLastChild) = 'ParserException' THEN 
+			
+			SET Environment.Error[1].Provider_ErrorCode         = 'E02';
+			SET Environment.Error[1].Provider_Error_Description = messageText || ': ' || FieldRefOfLastChild.*[<].*[<];
+			SET Environment.Error[1].ProviderObject             = 'WMB';
+			
+			SET dbErrorLookup   = TRUE;
+			SET parserException = TRUE;
+		    		    
+	    --Checking for Timeout Error --
+		ELSEIF (CONTAINS(UPPER(messageText),'TIMEOUT') OR CONTAINS(UPPER(messageText),'TIMED-OUT')) THEN
+			 
+			SET Environment.Error[1].Provider_ErrorCode         = 'E01';
+			SET Environment.Error[1].Provider_Error_Description = messageText || ': ' || FieldRefOfLastChild.*[<].*[<];
+		    SET Environment.Error[1].ProviderObject             = 'WMB';
+		    
+		    SET dbErrorLookup    = TRUE;
+		    SET timeoutException = TRUE;
+						
+		-- Checking for other technical errors & User Exceptions --	
+		ELSE 
+		 
+			IF ((FIELDNAME(FieldRefOfLastChild) = 'UserException') AND 
+				(Environment.Error[1].Provider_ErrorCode IS NOT NULL)) THEN
+		
+				SET dbErrorLookup = TRUE;
+				SET userException = TRUE;
+				
+			ELSE -- assume an unknown SOAP fault
+				 
+				SET Environment.Error[1].Provider_ErrorCode         = 'E03';
+				SET Environment.Error[1].ProviderObject             = 'WMB';
+				SET Environment.Error[1].Provider_Error_Description = messageText || ': ' || FieldRefOfLastChild.*[<].*[<];
+				
+				SET dbErrorLookup = TRUE;
+				
+			END IF;		
+		END IF;
+				
+		-- Lookup any known SOAP faults
+		FOR REF_EnvErr AS Environment.Error[] DO		
+
+			SET ArrIndex = ArrIndex + 1;
+						
+			IF (dbErrorLookup) THEN
+				SET Environment.Response.ErrorDetails[] = SELECT U.SERVICEERRORCODE ,U.SERVICEERRORDESC
+				FROM Database.SERVICEERRORS AS U WHERE (U.PROVIDERERRORCODE = REF_EnvErr.Provider_ErrorCode AND U.PROVIDEROBJECT = REF_EnvErr.ProviderObject);
+				--FROM Database.USERSOAPFAULTS AS U WHERE (U.PROVIDERERRORCODE = REF_EnvErr.Provider_ErrorCode AND U.PROVIDEROBJECT = REF_EnvErr.ProviderObject);				
+				
+				IF (Environment.Response.ErrorDetails.SERVICEERRORDESC IS NULL) THEN
+					SET Environment.faultstring.info[ArrIndex] =  'Error code ' || REF_EnvErr.Provider_ErrorCode || ' not found in SOAP Fault Table!';
+					SET Environment.faultcode.info[ArrIndex]   =  REF_EnvErr.Provider_ErrorCode;
+					
+				ELSE
+					SET Environment.faultstring.info[ArrIndex] =  Environment.Response.ErrorDetails.SERVICEERRORDESC;
+					SET Environment.faultcode.info[ArrIndex]   =  Environment.Response.ErrorDetails.SERVICEERRORCODE;
+					
+				END IF;
+				
+			ELSE
+				-- This is currently not used but should remain in case it's needed in future
+				SET Environment.faultstring.info[ArrIndex] =  REF_EnvErr.Provider_Error_Description;
+				SET Environment.faultcode.info[ArrIndex]   =  REF_EnvErr.Provider_ErrorCode;
+				
+			END IF;
+			
+			SET Environment.text.info[ArrIndex] =  REF_EnvErr.Provider_Error_Description;
+						 
+            DELETE FIELD Environment.Response;
+            
+		END FOR;
+		
+		------------------------------------------------------
+		-- Build the SOAP Fault XML
+		------------------------------------------------------	
+		DECLARE soapenv NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
+		SET OutputRoot.SOAP.Context.Namespace.(SOAP.NamespaceDecl)xmlns:soapenv = 'http://schemas.xmlsoap.org/soap/envelope/';
+		WHILE (ArrIndex >= 1 ) DO
+		  	   
+	    	SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].faultcode                        = Environment.faultcode.info[FaultIndex];
+			SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].faultstring                      = Environment.faultstring.info[FaultIndex];
+			SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].detail.Text                      = Environment.text.info[FaultIndex];
+						
+			IF ((NOT parserException) AND (NOT timeoutException)) THEN
+				SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].detail.Context.Service.name      = InputRoot.SOAP.Context.service;
+		    	SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].detail.Context.Service.nameSpace = InputRoot.SOAP.Context.Namespace;
+		    	SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].detail.Context.Service.port      = InputRoot.SOAP.Context.port;
+		    	SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].detail.Context.Service.portType  = InputRoot.SOAP.Context.portType;
+		    	SET OutputRoot.SOAP.Body.soapenv:Fault[FaultIndex].detail.Context.Service.operation = InputRoot.SOAP.Context.operation;
+			END IF;
+		    
+		    SET FaultIndex = FaultIndex +1;
+		    SET ArrIndex   = ArrIndex - 1;
+		    
+	    END WHILE;  
+	    	    
+		SET OutputLocalEnvironment.Destination.SOAP.Reply.Transport.HTTP.ReplyStatusCode = 500;
+		
+		RETURN TRUE;
+	END;
+
+END MODULE;
+
+-- Format Error Log Message
+CREATE COMPUTE MODULE SOAPFaultHandler_ErrorLogMessage
+	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Declare the namespace for destination Log object
+		DECLARE ErrorLogns NAMESPACE 'http://www.ibm.com/dfdl/CommaSeparatedFormat';			
+		-- Set the Output Local Environment to the Input.
+		SET OutputLocalEnvironment = InputLocalEnvironment;
+		-- Set the Output Diagnostic Message's Format to be DFDL.
+		SET OutputRoot.Properties.MessageFormat = 'DFDL';
+		-- Set the Output Exception List to  the Input.
+		SET OutputExceptionList = InputExceptionList;
+
+		-- Create an DFDL part of the message tree
+        CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN('DFDL');
+
+		--Set Timestamp,BrokerName and EG values
+		SET OutputRoot.DFDL.ErrorLog.record.Timestamp = CURRENT_TIMESTAMP;
+		SET OutputRoot.DFDL.ErrorLog.record.BrokerName = BrokerName;
+		SET OutputRoot.DFDL.ErrorLog.record.ExecutionGroup = ExecutionGroupLabel;
+		
+		
+		--Set Message flow name without the preceeding namespace and application references
+		DECLARE i INTEGER;
+		SET i = POSITION ('.' IN  MessageFlowLabel REPEAT -1);
+		SET OutputRoot.DFDL.ErrorLog.record.MessageFlowName = SUBSTRING(MessageFlowLabel FROM i+1);
+				
+		--Set MsgID by using the BLOB value when we put the original message to the WMQ Error queue	
+		DECLARE msgIDBLOB CHARACTER;
+		SET msgIDBLOB = OutputLocalEnvironment.WrittenDestination.MQ.DestinationData.correlId;
+		IF STARTSWITH (msgIDBLOB , 'X')
+			THEN SET msgIDBLOB = SUBSTRING (msgIDBLOB FROM 2);
+		END IF; 
+		SET OutputRoot.DFDL.ErrorLog.record.CorrelID = msgIDBLOB;
+				
+		--Set Error Description by calling procedure to loop through Exception list
+		DECLARE messageText CHARACTER;
+		DECLARE messageNumber INTEGER;
+		DECLARE FieldnameOfLastChild REFERENCE TO InputExceptionList;
+		
+		Call getLastExceptionDetail(OutputExceptionList,messageNumber,messageText,FieldnameOfLastChild);
+				
+		--Set ErrorType in the log
+		SET OutputRoot.DFDL.ErrorLog.record.ErrorType = messageText;
+										
+		RETURN TRUE;
+	END;
+
+
+END MODULE;
+
+--Format Exception list for MQ Archive queue
+
+--Format original Message to put onto MQ 
+CREATE COMPUTE MODULE SOAPFaultHandler_Format_MQ_Messages
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		--Copy ExceptionList for later in the msg flow (Format_ErrorLog_Message Compute node)
+		SET OutputExceptionList = InputExceptionList;
+		
+		DECLARE I Integer;
+		DECLARE J Integer;
+		DECLARE HeaderName CHARACTER;
+                
+		SET J = CARDINALITY("InputRoot".*[]);
+		SET I = 2;
+
+		--Sets some of the Output properties
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.Properties.MessageSet = ' ';
+        SET OutputRoot.Properties.MessageType = ' ';
+        SET OutputRoot.Properties.Persistence = true;
+        SET OutputRoot.Properties.ExpirationTime = -1;
+        
+		-- Sets the Output Diagnostic Message's Format to be XML.
+		SET OutputRoot.Properties.MessageFormat = 'XMLNSC';
+		
+		-- Create an XMLNSC part of the message tree
+        CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN('XMLNSC');
+			
+		-- Sets where and when the error occured
+		SET OutputRoot.XMLNSC.Error.Broker.brokerName = BrokerName;
+		SET OutputRoot.XMLNSC.Error.Broker.executionGroupName = ExecutionGroupLabel;
+		SET OutputRoot.XMLNSC.Error.Broker.flowName = MessageFlowLabel;
+		SET OutputRoot.XMLNSC.Error.Broker.TimeStamp = 
+		SUBSTRING(CAST(CURRENT_TIMESTAMP AS CHAR) FROM 12 FOR 23);
+		
+		-- Sets other useful diagnostic information
+		SET OutputRoot.XMLNSC.Error.Broker.Environment = Environment;
+		SET OutputRoot.XMLNSC.Error.Broker.LocalEnvironment = InputLocalEnvironment;
+		
+		-- Sets the failing input
+		-- Copy across the Properties from the original input
+		SET OutputRoot.XMLNSC.Error.FailingInput.Properties = InputRoot.Properties;
+		
+		-- Copy across all of the Headers from the original input
+        While I < J do
+             SET HeaderName = FIELDNAME(InputRoot.*[I]);	
+             EVAL( 'SET OutputRoot.XMLNSC.Error.FailingInput.Headers.' || HeaderName || ' = InputRoot.*[I]');
+             SET I=I+1;
+        End While;
+        
+       	-- Sets the message body 
+       	SET OutputRoot.XMLNSC.Error.FailingInput.MessageBody.(XML.CDataSection) = cast(bitstream(InputBody) as CHAR ccsid 1208);
+                 	
+	    -- Sets the exception at the highest level 	
+		SET OutputRoot.XMLNSC.Error.ExceptionList = InputExceptionList;
+		
+		-- Check to see if MQMD header exists (Has this message data originated from an MQ Input source?)
+		IF EXISTS(InputRoot.MQMD[])
+			
+			THEN
+				--If Yes, then set MQMD.CorrelID to MQMD.MsgID
+				SET OutputRoot.MQMD.CorrelId = OutputRoot.MQMD.MsgId; 
+			
+			ELSE
+				--If No, then create a new correlId
+				DECLARE generatedCorrelationId CHARACTER; 
+				SET generatedCorrelationId = SUBSTRING(UUIDASCHAR FROM 1 FOR 24); 
+								
+				--Sets other MQ header data
+				CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN ('MQMD');
+				SET OutputRoot.MQMD.MsgId = MQMI_NONE;
+				SET OutputRoot.MQMD.MsgType = MQMT_DATAGRAM;
+				SET OutputRoot.MQMD.CodedCharSetId = 1208;
+				SET OutputRoot.MQMD.Format = MQFMT_NONE;
+				SET OutputRoot.MQMD.CorrelId = CAST(generatedCorrelationId AS BLOB CCSID 1208); 
+				  
+		END IF;		
+						
+		RETURN TRUE;
+			
+	END;
+
+END MODULE;
+
+--Procedure to get the relevant exception details
+CREATE PROCEDURE getLastExceptionDetail(IN InputTree 				reference,
+										INOUT messageNumber 		integer,
+										INOUT messageText 			char,
+										INOUT fieldRefOfLastChild 	REFERENCE)	
+
+    /*********************************************************************************************
+	 * A procedure that will get the details of the last exception from a message
+	 * IN InputTree:  The incoming exception list
+	 * INOUT messageNumber:  The last message number.
+	 * INOUT messageText: The last message text.
+	 *********************************************************************************************/
+	 
+   BEGIN
+   	    -- Create a reference to the first child of the exception list
+   	    declare currentException reference to InputTree.*[1];
+   	    
+   	    -- keep looping while the moves to the child of exception list work 
+		WHILE lastmove(currentException) DO
+			
+			-- store the current values for the error number and text
+			IF currentException.Number is not null THEN
+				MOVE fieldRefOfLastChild TO currentException;
+				
+        		SET messageNumber = currentException.Number;
+        		SET messageText   = currentException.Text;
+        		
+  			END IF;
+  			
+  			-- now move to the last child which should be the next exceptionlist
+			move currentException lastchild;
+			
+		END WHILE; 
+   END;
+   

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQGet.msgnode="ComIbmMQGet.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmTimeoutNotification.msgnode="ComIbmTimeoutNotification.msgnode" xmlns:com_kingfisher_ukbq_CacheRefreshReplay.subflow="com/kingfisher/ukbq/CacheRefreshReplay.subflow" xmlns:com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow="com/kingfisher/ukbq/errorhandlers/ErrorHandler.subflow"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/kingfisher/ukbq/AutomaticReplayTechnicalService.msgflow"
+    nsPrefix="com_kingfisher_ukbq_AutomaticReplayTechnicalService.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="AutomaticReplayTechnicalService" bundleName="com/kingfisher/ukbq/AutomaticReplayTechnicalService" pluginId="AutomaticReplayTechnicalService"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/AutomaticReplayTechnicalService/icons/full/obj16/AutomaticReplayTechnicalService.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/AutomaticReplayTechnicalService/icons/full/obj30/AutomaticReplayTechnicalService.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmTimeoutNotification.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="-31,245" uniqueIdentifier="TimeOut_01" timeoutInterval="10">
+        <translation xmi:type="utility:ConstantString" string="TimeoutNotificationAutomaticReplay"/>
+        <shortDescription xmi:type="utility:ConstantString" string="This node will trigger this Flow at certain interval of time"/>
+        <longDescription xmi:type="utility:ConstantString" string="This node will trigger this Flow at certain interval of time"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="542,241" dataSource="MBREPOS" computeExpression="esql://routine/com.kingfisher.ukbq#AutomaticReplayTechnicalService_RoutingTodestination.Main" computeMode="destinationAndMessage" treatWarningsAsErrors="true">
+        <translation xmi:type="utility:ConstantString" string="RoutingToDestination"/>
+        <shortDescription xmi:type="utility:ConstantString" string="This will route message to original input queue which is assosiated with the backout queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="This will route message to original input queue which is assosiated with the backout queue"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQGet.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="323,246" queueName="ERRORS.GENERIC.REPLAY">
+        <translation xmi:type="utility:ConstantString" string="ERRORS.GENERIC.REPLAY"/>
+        <shortDescription xmi:type="utility:ConstantString" string="Get Messages from ERRORS.GENERIC.REPLAY Queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="Get Messages from ERRORS.GENERIC.REPLAY Queue"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="190,245" computeExpression="esql://routine/com.kingfisher.ukbq#AutomaticReplayTechnicalService_TriggerControl.Main" computeMode="destinationAndMessage" throwExceptionOnDatabaseError="false">
+        <translation xmi:type="utility:ConstantString" string="TriggerControl"/>
+        <shortDescription xmi:type="utility:ConstantString" string="This will control the trigger based on Control Flag"/>
+        <longDescription xmi:type="utility:ConstantString" string="This will control the trigger based on Control Flag"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="676,242" destinationMode="list">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQOutput_DestinationQueue"/>
+        <shortDescription xmi:type="utility:ConstantString" string="The Target original source queue or ERRORS.WMB.ARCHIVE where message to put"/>
+        <longDescription xmi:type="utility:ConstantString" string="The Target original source queue or ERRORS.WMB.ARCHIVE where message to put"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="537,317" computeExpression="esql://routine/com.kingfisher.ukbq#AutomaticReplayTechnicalService_NoMessageFlagCompute.Main">
+        <translation xmi:type="utility:ConstantString" string="NoMessageFlagCompute"/>
+        <shortDescription xmi:type="utility:ConstantString" string="This will terminate the Flow if No Message exist in backout Queue"/>
+        <longDescription xmi:type="utility:ConstantString" string="This will terminate the Flow if No Message exist in backout Queue"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_errorhandlers_ErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_8" location="483,139">
+        <translation xmi:type="utility:ConstantString" string="ErrorHandler"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="-64,45" queueName="AUTOREPLAY.CACHE.LOCAL" messageDomainProperty="XMLNSC">
+        <translation xmi:type="utility:ConstantString" string="WMB_MQInput_AUTOREPLAY_CacheRefresh"/>
+      </nodes>
+      <nodes xmi:type="com_kingfisher_ukbq_CacheRefreshReplay.subflow:FCMComposite_1" xmi:id="FCMComposite_1_10" location="460,48">
+        <translation xmi:type="utility:ConstantString" string="CacheRefreshReplay"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.noMessage" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>
