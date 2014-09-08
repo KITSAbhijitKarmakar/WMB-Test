@@ -10,26 +10,6 @@ import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
-/** 
- * <u>MQ Queue Control</u>
- * <ul>
- * DisplayActiveLocalQueues<br>
- * ListQueueNames<br>
- * CreateQueue<br>
- * ClearQueue<br>
- * DeleteQueue
- * </ul>
- * <p>
- * <u>MQ Channel Control</u>
- * <ul>
- * DisplayActiveLocalChannels<br>
- * DisplayConnections<br>
- * CreateChannel<br>
- * StopChannel<br>
- * StartChannel<br>
- * DeleteChannel<br>
- * </ul>
- */
 
 public class PCF_CommonMethods {
   public static  String pcfChannel = "UNKNOWN";
@@ -37,19 +17,16 @@ public class PCF_CommonMethods {
   public static  String startCmd = "start";
   public static  String statusCmd = "status";
   public static  String stopCmd = "stop";
+  public static  String deleteCmd = "delete";
+  public static  String createCmd = "create";
   
   public String host = "127.0.0.1";
-
   public int port = 1430;
-
   public String queueManager = "UNKNOWN";
-
   public PCFMessageAgent agent = null;
-  /**
-   * Boolean used to indicate whether the connection is using client or server bindings.
-   */
   public boolean client = false;
-  public String channel_svrconn = "PRODSUP.SVRCONN";
+  //public String channel_svrconn = "PRODSUP.SVRCONN";
+  public String channel_svrconn = "SYSTEM.ADMIN.SVRCONN";
   public String padding = null;
   
   public PCF_CommonMethods() {
@@ -60,45 +37,7 @@ public class PCF_CommonMethods {
   }
   
   public boolean ParseParameters(String[] args) {
-    int flags = 0;
-
-/*    for (int argIndex = 0; argIndex < args.length; argIndex++) {
-      switch (argIndex) {
-        case 0 : // Queue Mananger's name.
-        {
-          queueManager = args[argIndex];
-
-          flags |= 1;
-          break;
-        }
-
-        case 1 : // Host (machine name).
-        {
-          host = args[argIndex];
-          flags |= 2;
-          break;
-        }
-
-        case 2 : // Port.
-        {
-          port = new Integer(args[argIndex]).intValue();
-          flags |= 4;
-          break;
-        }
         
-        case 3 : // Channel name.
-        {
-        	pcfChannel = args[argIndex];
-          flags |= 8;
-          break;
-        }
-      }
-    }*/
-
-    /*if (((args.length == 1) && (flags == 1)) || ((args.length > 3) && (flags == 15))) {
-      return true;
-    }*/
-    
     if(args.length == 3)  {
     	queueManager = args[0];
     	pcfChannel = args[1];    	
@@ -113,34 +52,55 @@ public class PCF_CommonMethods {
     }
 
     System.out.println("The program must be used with the following parameters:-\n");   
-    System.out.println("How to use Client mode:MQChannelControl [QmanagerName] [hostname] [port] [Channelname to start/stop/status] [start/stop/status]\n");
-    System.out.println("How to use binding mode: MQChannelControl <QmanagerName> <Channelname to start/stop/status> <[start]/[stop]/[status]>\n");
-    System.out.println("e.g. MQChannelControl QM1 localhost 1414 TEST.CHANNEL start\n");
-    System.out.println("e.g. MQChannelControl QM1 TEST.CHANNEL start");
+    System.out.println("How to use Client mode:  ./MQChannelControl.sh [QmanagerName] [hostname] [port] [Channelname] <[start]/[stop]/[status]/[create]/[delete]>");
+    System.out.println("How to use binding mode: ./MQChannelControl.sh [QmanagerName] [Channelname] <[start]/[stop]/[status]/[create]/[delete]>");    
+    System.out.println("--------Client Mode-------------");
+    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL start");
+    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL stop");
+    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL status");
+    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL create");
+    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL delete");
+    System.out.println("--------Binding Mode-------------");
+    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL start");
+    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL stop");
+    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL status");
+    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL create");
+    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL delete");
     return false;
   }
 
  
   public void CreateAgent(int numOfArgs) throws MQDataException {
     try {
+    	
       if (numOfArgs == 3) {
-        client = false; 
-        System.out.println("Executing : new PCFMessageAgent(queueManager)");
-        agent = new PCFMessageAgent(queueManager);
+    	 System.out.println("Binding mode is being selected");
+         client = false;         
+         agent = new PCFMessageAgent(queueManager);
       }
       else if(numOfArgs == 5) {
-        client = true;
-        System.out.println("Executing : new PCFMessageAgent(host, port, channel_svrconn)");
-        agent = new PCFMessageAgent(host, port, channel_svrconn);
+    	  System.out.println("Client mode is being selected");
+          client = true;         
+          agent = new PCFMessageAgent(host, port, channel_svrconn);
       }
       else{
     	  
-    	  System.out.println("The program must be used with the following parameters:-\n");   
-    	  System.out.println("How to use Client mode:MQChannelControl [QmanagerName] [hostname] [port] [Channelname to start/stop/status] [start/stop/status]\n");
-    	  System.out.println("How to use binding mode: MQChannelControl <QmanagerName> <Channelname to start/stop/status> <[start]/[stop]/[status]>\n");
-    	  System.out.println("e.g. MQChannelControl QM1 localhost 1414 TEST.CHANNEL start\n");
-    	  System.out.println("e.g. MQChannelControl QM1 TEST.CHANNEL start");
-    	  System.exit(0);
+    	    System.out.println("The program must be used with the following parameters:-\n");   
+    	    System.out.println("How to use Client mode:  ./MQChannelControl.sh [QmanagerName] [hostname] [port] [Channelname] <[start]/[stop]/[status]/[create]/[delete]>");
+    	    System.out.println("How to use binding mode: ./MQChannelControl.sh [QmanagerName] [Channelname] <[start]/[stop]/[status]/[create]/[delete]>");    	    
+    	    System.out.println("--------Client Mode-------------");
+    	    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL start");
+    	    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL stop");
+    	    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL status");
+    	    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL create");
+    	    System.out.println("Example: ./MQChannelControl QM1 localhost 1414 TEST.CHL delete");
+    	    System.out.println("--------Binding Mode-------------");
+    	    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL start");
+    	    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL stop");
+    	    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL status");
+    	    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL create");
+    	    System.out.println("Example: ./MQChannelControl QM1 TEST.CHL delete");
+    	    System.exit(0);
       } 
     }
     catch (MQDataException mqde) {
@@ -156,15 +116,28 @@ public class PCF_CommonMethods {
         System.out.println(" or could not find the Server Conn channel \"" + channel_svrconn
             + "\" on the queue manager.");
       }
+      else if (mqde.reasonCode == MQConstants.MQRC_Q_MGR_NAME_ERROR ){
+    	  System.out.print("Either could not find the ");
+    	  
+    	  if (client) {
+              System.out.print("default queue manager at \"" + host + "\", port \"" + port + "\"");
+            }
+            else {
+              System.out.print("queue manager \"" + queueManager + "\"");
+            }
 
-      throw mqde;
+            System.out.println(" or could not find the Server Conn channel \"" + channel_svrconn
+                + "\" on the queue manager.");
+      }
+      else {
+    	  throw mqde; 
+      }      
     }
     return;
   }
 
 
-  public void DestroyAgent() throws MQDataException {
-    // Disconnect the agent.
+  public void DestroyAgent() throws MQDataException {    
     agent.disconnect();
     return;
   }
