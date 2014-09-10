@@ -1,0 +1,131 @@
+Agent Properties:
+==================
+#
+#Thu Aug 23 13:41:13 BST 2012
+agentQMgr=UNXS0391.AGT.QM1
+agentQMgrPort=1442
+agentDesc=
+agentQMgrHost=unxs0391.uk.b-and-q.com
+agentQMgrChannel=MFT.MERC.SVRCONN
+agentName=MFTMERCPRD
+commandPath=D:\\IBM\\MFTMERCPRDScripts
+enableQueueInputOutput=true
+maxInputOutputMessageLength=104857600
+
+Archive Scripts:
+=================
+move I:\\interfaces\\WMQMFT\\CISTax\\Data\\%1 I:\\interfaces\\WMQMFT\\CISTax\\Backup
+move I:\interfaces\ETL\Customer\customer_data.csv I:\interfaces\ETL\Backup\"customer_data.csv%date:~6,4%%date:~3,2%%date:~0,2%_%Time:~0,2%%Time:~3,2%%Time:~6,2%.sent"
+move I:\\Interfaces\\WMQMFT\\FCStock\\Data\\ZBQ_FC_STOCK*.csv I:\\Interfaces\\WMQMFT\\FCStock\\Backup
+call D:\IBM\WebSphereMQ\bin\fteCreateMonitor -ma MFTMERCPRD -mm UNXS0391.AGT.QM1 -mn CISTAXPRDMonitor -p UNXS0391.CDN.QM1 -md I:\\interfaces\\WMQMFT\\CISTax\\Data\\ -mt D:\\IBM\\MFTMERCPRDScripts\\CISTaxPRDTemplate.xml -pi 15 -pu minutes -tr match,"ZCIS*"
+echo %date% > I:\\Interfaces\\IB\\TRF\\Output\\PIB.TRADE.VENTURA.TRG
+call D:\IBM\WebSphereMQ\bin\fteCreateMonitor -ma MFTMERCPRD -mm UNXS0391.AGT.QM1 -mn EDTORDERSPRDMonitor -p UNXS0391.CDN.QM1 -md I:\\interfaces\\WMQMFT\\EDTOrders\\Data\\ -mt D:\\IBM\\MFTMERCPRDScripts\\EDTOrdersPRDTemplate.xml -pi 10 -pu minutes -tr match,"*.idoc"
+call D:\IBM\WebSphereMQ\bin\fteDeleteMonitor -ma MFTMERCPRD -mm UNXS0391.AGT.QM1 -mn CISTAXPRDMonitor -p UNXS0391.CDN.QM1
+call D:\IBM\WebSphereMQ\bin\fteDeleteAgent -p UNXS0391.CDN.QM1 MFTMERCPRD
+Template:
+============
+<?xml version="1.0" encoding="UTF-8"?><request version="6.00" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FileTransfer.xsd">
+  <managedTransfer>
+    <originator>
+      <hostName>GBBQPWH001AP169.uk.b-and-q.com.</hostName>
+      <userID>mqmftprd</userID>
+    </originator>
+    <sourceAgent QMgr="UNXS0391.AGT.QM1" agent="MFTMERCPRD"/>
+    <destinationAgent QMgr="UNXS0391.AGT.QM1" agent="MFTMERCPRD"/>
+    <transferSet priority="0">
+      <postSourceCall>
+        <command name="archiveEBPOrders.bat" type="executable">
+          <argument>${FileName}</argument>
+        </command>
+      </postSourceCall>
+      <item checksumMethod="MD5" mode="binary">
+        <source disposition="leave" recursive="false">
+          <file>I:\\interfaces\\WMQMFT\\EBPOrders\\Data\\${FileName}</file>
+        </source>
+        <destination type="queue">
+          <queue persistent="true" setMqProps="true">EBPORDERS.EDT.OUTBOUND.LOCAL@UNXS0391.DP.QM1</queue>
+        </destination>
+      </item>
+    </transferSet>
+  </managedTransfer>
+</request>
+=================
+<?xml version="1.0" encoding="UTF-8"?><request version="6.00" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FileTransfer.xsd">
+  <managedTransfer>
+    <originator>
+      <hostName>GBBQPWH001AP169.uk.b-and-q.com.</hostName>
+      <userID>mqmftprd</userID>
+    </originator>
+    <sourceAgent QMgr="UNXS0391.AGT.QM1" agent="MFTMERCPRD"/>
+    <destinationAgent QMgr="UNXS0391.AGT.QM1" agent="MFTMERCPRD"/>
+    <transferSet priority="0">
+      <postSourceCall>
+        <command name="archiveCISTax.bat" type="executable">
+          <argument>${FileName}</argument>
+        </command>
+      </postSourceCall>
+      <item checksumMethod="MD5" mode="binary">
+        <source disposition="leave" recursive="false">
+          <file>I:\\interfaces\\WMQMFT\\CISTax\\Data\\${FileName}</file>
+        </source>
+        <destination type="queue">
+          <queue persistent="true" setMqProps="true">CISTAX.EDT.OUTBOUND.LOCAL@UNXS0391.DP.QM1</queue>
+        </destination>
+      </item>
+    </transferSet>
+  </managedTransfer>
+</request>
+====================
+<?xml version="1.0" encoding="UTF-8"?><request version="6.00" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FileTransfer.xsd">
+  <managedTransfer>
+    <originator>
+      <hostName>GBBQPWH001AP169.uk.b-and-q.com.</hostName>
+      <userID>mqmftprd</userID>
+    </originator>
+    <sourceAgent QMgr="UNXS0391.AGT.QM1" agent="MFTMERCPRD"/>
+    <destinationAgent QMgr="UNXS0391.AGT.QM1" agent="MFTMERCPRD"/>
+    <transferSet priority="0">
+      <postSourceCall>
+        <command name="archiveDecon.bat" type="executable">
+          <argument>${FileName}</argument>
+        </command>
+      </postSourceCall>
+      <item checksumMethod="MD5" mode="binary">
+        <source disposition="leave" recursive="false">
+          <file>I:\\interfaces\\WMQMFT\\Decon\\Data\\${FileName}</file>
+        </source>
+        <destination type="queue">
+          <queue delimiter="10M" delimiterType="size" persistent="true" setMqProps="true">DECON.EDT.OUTBOUND.LOCAL@UNXS0391.DP.QM1</queue>
+        </destination>
+      </item>
+    </transferSet>
+  </managedTransfer>
+</request>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
